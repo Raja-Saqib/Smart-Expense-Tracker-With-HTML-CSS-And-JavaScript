@@ -26,3 +26,5 @@ Added monthly filtering functionality using date-based transaction grouping, ena
 Implemented dark/light mode using CSS variables with persistent theme preference stored in localStorage.
 
 Built interactive expense analytics using HTML Canvas to visualize category-wise spending with real-time updates.
+
+Implemented full CRUD functionality, including in-place editing of transactions with persistent state management.

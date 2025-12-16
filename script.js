@@ -11,6 +11,8 @@ const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
 
+let editId = null;
+
 // Get data from localStorage
 let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 
@@ -27,18 +29,30 @@ function loadTheme() {
 function addTransaction(e) {
   e.preventDefault();
 
-  const transaction = {
-    id: Date.now(),
-    text: text.value,
-    category: category.value,
-    amount: +amount.value,
-    date: new Date().toISOString(),
-  };
+  if (editId !== null) {
+    transactions = transactions.map(t =>
+      t.id === editId
+        ? {
+            ...t,
+            text: text.value,
+            category: category.value,
+            amount: +amount.value
+          }
+        : t
+    );
+    editId = null;
+  } else {
+    transactions.push({
+      id: Date.now(),
+      text: text.value,
+      category: category.value,
+      amount: +amount.value,
+      date: new Date().toISOString()
+    });
+  }
 
-  transactions.push(transaction);
-  addTransactionToDOM(transaction);
-  updateValues();
   updateLocalStorage();
+  init(); // re-render list, totals, chart
 
   text.value = "";
   amount.value = "";
@@ -58,10 +72,24 @@ function addTransactionToDOM(transaction) {
       <small>(${transaction.category})</small>
     </div> 
     <span>${sign}$${Math.abs(transaction.amount)}</span>
-    <button onclick="removeTransaction(${transaction.id})">x</button>
+    <div>
+      <button onclick="editTransaction(${transaction.id})">✏️</button>
+      <button onclick="removeTransaction(${transaction.id})">❌</button>
+    </div>
   `;
 
   list.appendChild(item);
+}
+
+function editTransaction(id) {
+  const transaction = transactions.find(t => t.id === id);
+  if (!transaction) return;
+
+  text.value = transaction.text;
+  amount.value = transaction.amount;
+  category.value = transaction.category;
+
+  editId = id;
 }
 
 // Update balance, income, expense
