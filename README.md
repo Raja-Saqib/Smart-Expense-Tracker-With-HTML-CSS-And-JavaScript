@@ -24,3 +24,5 @@ Implemented category-based expense tracking with persistent storage using localS
 Added monthly filtering functionality using date-based transaction grouping, enabling dynamic financial summaries.
 
 Implemented dark/light mode using CSS variables with persistent theme preference stored in localStorage.
+
+Built interactive expense analytics using HTML Canvas to visualize category-wise spending with real-time updates.

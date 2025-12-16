@@ -8,6 +8,8 @@ const category = document.getElementById("category");
 const monthFilter = document.getElementById("month");
 const amount = document.getElementById("amount");
 const themeBtn = document.getElementById("themeBtn");
+const canvas = document.getElementById("expenseChart");
+const ctx = canvas.getContext("2d");
 
 // Get data from localStorage
 let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
@@ -106,6 +108,56 @@ function getFilteredTransactions() {
   });
 }
 
+function getCategoryTotals(data) {
+  const totals = {};
+
+  data
+    .filter(t => t.amount < 0)
+    .forEach(t => {
+      if (!totals[t.category]) {
+        totals[t.category] = 0;
+      }
+      totals[t.category] += Math.abs(t.amount);
+    });
+
+  return totals;
+}
+
+function drawChart(data) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const totals = getCategoryTotals(data);
+  const categories = Object.keys(totals);
+  const values = Object.values(totals);
+
+  if (values.length === 0) return;
+
+  const totalAmount = values.reduce((a, b) => a + b, 0);
+  let startAngle = 0;
+
+  const colors = [
+    "#ff6384",
+    "#36a2eb",
+    "#ffce56",
+    "#4caf50",
+    "#9c27b0"
+  ];
+
+  values.forEach((value, index) => {
+    const sliceAngle = (value / totalAmount) * 2 * Math.PI;
+
+    ctx.beginPath();
+    ctx.moveTo(150, 150);
+    ctx.arc(150, 150, 120, startAngle, startAngle + sliceAngle);
+    ctx.closePath();
+
+    ctx.fillStyle = colors[index % colors.length];
+    ctx.fill();
+
+    startAngle += sliceAngle;
+  });
+}
+
 // Initialize app
 function init() {
   list.innerHTML = "";
@@ -114,6 +166,7 @@ function init() {
 
   filteredTransactions.forEach(addTransactionToDOM);
   updateValues(filteredTransactions);
+  drawChart(filteredTransactions);
   loadTheme();
 }
 

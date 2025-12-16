@@ -127,3 +127,8 @@ select {
   font-size: 20px;
   cursor: pointer;
 }
+
+canvas {
+  display: block;
+  margin: 20px auto;
+}
