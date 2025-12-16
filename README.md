@@ -19,3 +19,4 @@ expense-tracker/
 ├── style.css
 └── script.js
 
+Implemented category-based expense tracking with persistent storage using localStorage, improving data organization and user experience.
