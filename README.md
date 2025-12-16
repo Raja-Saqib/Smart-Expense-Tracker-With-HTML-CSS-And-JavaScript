@@ -34,3 +34,5 @@ Implemented category-wise expense summaries using dynamic tables synchronized wi
 Enhanced form UX with input validation, error feedback, and edit-state handling to prevent invalid financial entries.
 
 Improved usability by adding filter reset functionality, ensuring clear and intuitive navigation of financial data.
+
+Developed CSV export functionality for filtered financial data, enabling users to download transaction history with category, amount, and date—all client-side.

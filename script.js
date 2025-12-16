@@ -14,6 +14,7 @@ const categoryTableBody = document.querySelector("#categoryTable tbody");
 const errorEl = document.getElementById("error");
 const submitBtn = form.querySelector("button");
 const clearFilterBtn = document.getElementById("clearFilter");
+const exportCSVBtn = document.getElementById("exportCSV");
 
 let editId = null;
 
@@ -39,6 +40,39 @@ function showError(message) {
 function clearMonthFilter() {
   monthFilter.value = "";
   init();
+}
+
+// Add Export to CSV
+function exportToCSV(data) {
+  if (!data.length) {
+    alert("No transactions to export!");
+    return;
+  }
+
+  const headers = ["Description", "Category", "Amount", "Date"];
+  const rows = data.map(t => [
+    t.text,
+    t.category,
+    t.amount,
+    new Date(t.date).toLocaleDateString()
+  ]);
+
+  const csvContent =
+    [headers, ...rows]
+      .map(e => e.join(","))
+      .join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", "transactions.csv");
+  link.style.display = "none";
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 // Add transaction
@@ -272,6 +306,10 @@ init();
 form.addEventListener("submit", addTransaction);
 monthFilter.addEventListener("change", init);
 clearFilterBtn.addEventListener("click", clearMonthFilter);
+exportCSVBtn.addEventListener("click", () => {
+  const filteredTransactions = getFilteredTransactions();
+  exportToCSV(filteredTransactions);
+});
 themeBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark");
 
