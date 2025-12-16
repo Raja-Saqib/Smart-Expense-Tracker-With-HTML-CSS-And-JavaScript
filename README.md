@@ -30,3 +30,5 @@ Built interactive expense analytics using HTML Canvas to visualize category-wise
 Implemented full CRUD functionality, including in-place editing of transactions with persistent state management.
 
 Implemented category-wise expense summaries using dynamic tables synchronized with filters and visual charts.
+
+Enhanced form UX with input validation, error feedback, and edit-state handling to prevent invalid financial entries.

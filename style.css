@@ -159,3 +159,9 @@ th {
 tbody tr {
   border-bottom: 1px solid #ccc;
 }
+
+.error {
+  color: red;
+  font-size: 14px;
+  margin-bottom: 8px;
+}

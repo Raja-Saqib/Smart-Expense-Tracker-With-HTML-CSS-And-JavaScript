@@ -11,6 +11,8 @@ const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
 const categoryTableBody = document.querySelector("#categoryTable tbody");
+const errorEl = document.getElementById("error");
+const submitBtn = form.querySelector("button");
 
 let editId = null;
 
@@ -26,9 +28,30 @@ function loadTheme() {
   }
 }
 
+// Add error message
+function showError(message) {
+  errorEl.textContent = message;
+  setTimeout(() => (errorEl.textContent = ""), 3000);
+}
+
 // Add transaction
 function addTransaction(e) {
   e.preventDefault();
+
+  if (!text.value.trim()) {
+    showError("Description is required.");
+    return;
+  }
+
+  if (!category.value) {
+    showError("Please select a category.");
+    return;
+  }
+
+  if (+amount.value === 0) {
+    showError("Amount cannot be zero.");
+    return;
+  }
 
   if (editId !== null) {
     transactions = transactions.map(t =>
@@ -42,6 +65,7 @@ function addTransaction(e) {
         : t
     );
     editId = null;
+    submitBtn.textContent = "Add Transaction";
   } else {
     transactions.push({
       id: Date.now(),
@@ -53,7 +77,7 @@ function addTransaction(e) {
   }
 
   updateLocalStorage();
-  init(); // re-render list, totals, chart
+  init();
 
   text.value = "";
   amount.value = "";
@@ -91,6 +115,7 @@ function editTransaction(id) {
   category.value = transaction.category;
 
   editId = id;
+  submitBtn.textContent = "Update Transaction";
 }
 
 // Update balance, income, expense
