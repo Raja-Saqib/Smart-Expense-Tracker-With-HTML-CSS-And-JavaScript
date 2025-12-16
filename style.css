@@ -85,3 +85,18 @@ select {
   padding: 8px;
   margin: 5px 0;
 }
+
+.filter {
+  margin: 15px 0;
+}
+
+.filter label {
+  font-size: 14px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.filter input {
+  width: 100%;
+  padding: 6px;
+}

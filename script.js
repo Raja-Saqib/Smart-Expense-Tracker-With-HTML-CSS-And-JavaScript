@@ -5,6 +5,7 @@ const list = document.getElementById("list");
 const form = document.getElementById("form");
 const text = document.getElementById("text");
 const category = document.getElementById("category");
+const monthFilter = document.getElementById("month");
 const amount = document.getElementById("amount");
 
 // Get data from localStorage
@@ -18,7 +19,8 @@ function addTransaction(e) {
     id: Date.now(),
     text: text.value,
     category: category.value,
-    amount: +amount.value
+    amount: +amount.value,
+    date: new Date().toISOString(),
   };
 
   transactions.push(transaction);
@@ -51,12 +53,17 @@ function addTransactionToDOM(transaction) {
 }
 
 // Update balance, income, expense
-function updateValues() {
-  const amounts = transactions.map(t => t.amount);
+function updateValues(data = transactions) {
+  const amounts = data.map(t => t.amount);
 
   const total = amounts.reduce((acc, val) => acc + val, 0);
-  const incomeTotal = amounts.filter(val => val > 0).reduce((a, b) => a + b, 0);
-  const expenseTotal = amounts.filter(val => val < 0).reduce((a, b) => a + b, 0);
+  const incomeTotal = amounts
+    .filter(val => val > 0)
+    .reduce((a, b) => a + b, 0);
+
+  const expenseTotal = amounts
+    .filter(val => val < 0)
+    .reduce((a, b) => a + b, 0);
 
   balance.innerText = `$${total}`;
   income.innerText = `$${incomeTotal}`;
@@ -75,12 +82,30 @@ function updateLocalStorage() {
   localStorage.setItem("transactions", JSON.stringify(transactions));
 }
 
+function getFilteredTransactions() {
+  if (!monthFilter.value) return transactions;
+
+  const [year, month] = monthFilter.value.split("-");
+
+  return transactions.filter(t => {
+    const tDate = new Date(t.date);
+    return (
+      tDate.getFullYear() == year &&
+      tDate.getMonth() + 1 == month
+    );
+  });
+}
+
 // Initialize app
 function init() {
   list.innerHTML = "";
-  transactions.forEach(addTransactionToDOM);
-  updateValues();
+
+  const filteredTransactions = getFilteredTransactions();
+
+  filteredTransactions.forEach(addTransactionToDOM);
+  updateValues(filteredTransactions);
 }
 
 init();
 form.addEventListener("submit", addTransaction);
+monthFilter.addEventListener("change", init);

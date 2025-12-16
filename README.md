@@ -20,3 +20,5 @@ expense-tracker/
 └── script.js
 
 Implemented category-based expense tracking with persistent storage using localStorage, improving data organization and user experience.
+
+Added monthly filtering functionality using date-based transaction grouping, enabling dynamic financial summaries.
