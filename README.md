@@ -28,3 +28,5 @@ Implemented dark/light mode using CSS variables with persistent theme preference
 Built interactive expense analytics using HTML Canvas to visualize category-wise spending with real-time updates.
 
 Implemented full CRUD functionality, including in-place editing of transactions with persistent state management.
+
+Implemented category-wise expense summaries using dynamic tables synchronized with filters and visual charts.

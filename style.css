@@ -140,3 +140,22 @@ canvas {
   display: block;
   margin: 20px auto;
 }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+th, td {
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background: var(--card-bg);
+}
+
+tbody tr {
+  border-bottom: 1px solid #ccc;
+}

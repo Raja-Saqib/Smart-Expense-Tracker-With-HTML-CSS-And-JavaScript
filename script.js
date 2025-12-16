@@ -10,6 +10,7 @@ const amount = document.getElementById("amount");
 const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
+const categoryTableBody = document.querySelector("#categoryTable tbody");
 
 let editId = null;
 
@@ -136,6 +137,42 @@ function getFilteredTransactions() {
   });
 }
 
+function buildCategoryTotals(data) {
+  const totals = {};
+
+  data
+    .filter(t => t.amount < 0)
+    .forEach(t => {
+      totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
+    });
+
+  return totals;
+}
+
+function renderCategoryTable(data) {
+  categoryTableBody.innerHTML = "";
+
+  const totals = buildCategoryTotals(data);
+  const categories = Object.keys(totals);
+
+  if (categories.length === 0) {
+    categoryTableBody.innerHTML =
+      `<tr><td colspan="2">No expense data</td></tr>`;
+    return;
+  }
+
+  categories.forEach(category => {
+    const row = document.createElement("tr");
+
+    row.innerHTML = `
+      <td>${category}</td>
+      <td>$${totals[category]}</td>
+    `;
+
+    categoryTableBody.appendChild(row);
+  });
+}
+
 function getCategoryTotals(data) {
   const totals = {};
 
@@ -195,6 +232,7 @@ function init() {
   filteredTransactions.forEach(addTransactionToDOM);
   updateValues(filteredTransactions);
   drawChart(filteredTransactions);
+  renderCategoryTable(filteredTransactions);
   loadTheme();
 }
 
