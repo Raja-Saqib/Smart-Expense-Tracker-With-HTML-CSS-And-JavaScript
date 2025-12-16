@@ -7,9 +7,19 @@ const text = document.getElementById("text");
 const category = document.getElementById("category");
 const monthFilter = document.getElementById("month");
 const amount = document.getElementById("amount");
+const themeBtn = document.getElementById("themeBtn");
 
 // Get data from localStorage
 let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+
+// Load saved theme on startup
+function loadTheme() {
+  const theme = localStorage.getItem("theme");
+  if (theme === "dark") {
+    document.body.classList.add("dark");
+    themeBtn.textContent = "☀️";
+  }
+}
 
 // Add transaction
 function addTransaction(e) {
@@ -104,8 +114,16 @@ function init() {
 
   filteredTransactions.forEach(addTransactionToDOM);
   updateValues(filteredTransactions);
+  loadTheme();
 }
 
 init();
 form.addEventListener("submit", addTransaction);
 monthFilter.addEventListener("change", init);
+themeBtn.addEventListener("click", () => {
+  document.body.classList.toggle("dark");
+
+  const isDark = document.body.classList.contains("dark");
+  themeBtn.textContent = isDark ? "☀️" : "🌙";
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+});

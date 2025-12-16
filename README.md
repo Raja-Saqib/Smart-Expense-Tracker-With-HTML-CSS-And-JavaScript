@@ -22,3 +22,5 @@ expense-tracker/
 Implemented category-based expense tracking with persistent storage using localStorage, improving data organization and user experience.
 
 Added monthly filtering functionality using date-based transaction grouping, enabling dynamic financial summaries.
+
+Implemented dark/light mode using CSS variables with persistent theme preference stored in localStorage.

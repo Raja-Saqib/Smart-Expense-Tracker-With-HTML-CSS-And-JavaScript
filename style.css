@@ -1,17 +1,33 @@
+:root {
+  --bg-color: #f4f6f8;
+  --container-bg: #ffffff;
+  --text-color: #222;
+  --card-bg: #f0f0f0;
+}
+
+body.dark {
+  --bg-color: #121212;
+  --container-bg: #1e1e1e;
+  --text-color: #f5f5f5;
+  --card-bg: #2a2a2a;
+}
+
 * {
   box-sizing: border-box;
   font-family: Arial, sans-serif;
 }
 
 body {
-  background: #f4f6f8;
+  background: var(--bg-color);
+  color: var(--text-color);
   display: flex;
   justify-content: center;
   padding: 20px;
+  transition: background 0.3s, color 0.3s;
 }
 
 .container {
-  background: #fff;
+  background: var(--container-bg);
   width: 350px;
   padding: 20px;
   border-radius: 10px;
@@ -29,7 +45,7 @@ h1 {
 .summary {
   display: flex;
   justify-content: space-between;
-  background: #f0f0f0;
+  background: var(--card-bg);
   padding: 10px;
   border-radius: 8px;
 }
@@ -48,7 +64,7 @@ h1 {
 }
 
 .list li {
-  background: #f9f9f9;
+  background: var(--card-bg);
   display: flex;
   justify-content: space-between;
   padding: 8px;
@@ -99,4 +115,15 @@ select {
 .filter input {
   width: 100%;
   padding: 6px;
+}
+
+.theme-toggle {
+  text-align: right;
+}
+
+#themeBtn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
 }
