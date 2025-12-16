@@ -13,6 +13,7 @@ const ctx = canvas.getContext("2d");
 const categoryTableBody = document.querySelector("#categoryTable tbody");
 const errorEl = document.getElementById("error");
 const submitBtn = form.querySelector("button");
+const clearFilterBtn = document.getElementById("clearFilter");
 
 let editId = null;
 
@@ -32,6 +33,12 @@ function loadTheme() {
 function showError(message) {
   errorEl.textContent = message;
   setTimeout(() => (errorEl.textContent = ""), 3000);
+}
+
+// Add clear month filter
+function clearMonthFilter() {
+  monthFilter.value = "";
+  init();
 }
 
 // Add transaction
@@ -264,6 +271,7 @@ function init() {
 init();
 form.addEventListener("submit", addTransaction);
 monthFilter.addEventListener("change", init);
+clearFilterBtn.addEventListener("click", clearMonthFilter);
 themeBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark");
 

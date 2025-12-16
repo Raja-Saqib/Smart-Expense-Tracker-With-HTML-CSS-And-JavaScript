@@ -32,3 +32,5 @@ Implemented full CRUD functionality, including in-place editing of transactions 
 Implemented category-wise expense summaries using dynamic tables synchronized with filters and visual charts.
 
 Enhanced form UX with input validation, error feedback, and edit-state handling to prevent invalid financial entries.
+
+Improved usability by adding filter reset functionality, ensuring clear and intuitive navigation of financial data.
