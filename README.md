@@ -1,6 +1,10 @@
 # Smart-Expense-Tracker-With-HTML-CSS-And-JavaScript
 The smart expense tracker helps to add income and expenses to smartly track and manage the expenses. 
-Core Features:
+
+A web-based personal finance app built with **HTML, CSS, and JavaScript**. 
+Track income & expenses, filter by month, visualize spending with charts, and export data to CSV.
+
+**Core Features:**
   Add income & expenses
   
   Category selection
@@ -12,6 +16,75 @@ Core Features:
   Data saved in localStorage
   
   Responsive UI
+
+**Features:**
+
+Add, edit, delete transactions
+
+Categorize transactions
+
+Monthly filtering
+
+Dark / Light mode
+
+Category-wise expense chart (Canvas)
+
+Category-wise totals table
+
+Input validation & UX improvements
+
+Export filtered transactions as CSV
+
+Persistent data with localStorage
+
+**Screenshot:**
+
+![Dashboard](assets/dashboard.png)
+![Dark Mode](assets/darkmode.png)
+
+**Tech Stack:**
+
+- HTML5
+- CSS3 (Flexbox, CSS Variables)
+- JavaScript (ES6+)
+- Canvas API for charts
+- LocalStorage for data persistence
+
+**Installation / Usage:**
+
+1. Clone repo: git clone https://github.com/Raja-Saqib/Smart-Expense-Tracker-With-HTML-CSS-And-JavaScript.git
+2. Open `index.html` in browser
+3. Use the app directly (no server required)
+
+**Deployed on:**
+
+Deployed on GitHub Pages: https://username.github.io/smart-expense-tracker/
+
+**Future Enhancements:**
+
+Responsive layout improvements
+
+Custom category management
+
+Insights & trends
+
+**Note:**
+
+Portfolio Project: Implemented full-featured Smart Expense Tracker using vanilla JS, including charts, tables, dark mode, filtering, CRUD, validation, and CSV export.
+
+**Resume Bullets:**
+
+Built a full-featured expense tracker with HTML, CSS, and JavaScript, supporting CRUD, monthly filters, and persistent storage.
+
+Implemented category-wise visualizations using Canvas charts and dynamic tables.
+
+Added dark/light mode and responsive design for professional UX.
+
+Enhanced form usability with validation, edit mode, and error feedback.
+
+Developed CSV export of filtered transactions for data portability.
+
+Deployed on GitHub Pages as a portfolio-ready project.
 
 expense-tracker/
 │
