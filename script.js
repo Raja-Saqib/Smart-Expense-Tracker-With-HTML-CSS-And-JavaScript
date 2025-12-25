@@ -1,319 +1,178 @@
-const balance = document.getElementById("balance");
-const income = document.getElementById("income");
-const expense = document.getElementById("expense");
-const list = document.getElementById("list");
+// ======================
+// DOM ELEMENTS
+// ======================
+const balanceEl = document.getElementById("balance");
+const incomeEl = document.getElementById("income");
+const expenseEl = document.getElementById("expense");
+const listEl = document.getElementById("list");
 const form = document.getElementById("form");
-const text = document.getElementById("text");
-const category = document.getElementById("category");
-const monthFilter = document.getElementById("month");
-const amount = document.getElementById("amount");
+const textEl = document.getElementById("text");
+const amountEl = document.getElementById("amount");
+const categoryEl = document.getElementById("category");
+const errorEl = document.getElementById("error");
+const monthEl = document.getElementById("month");
 const themeBtn = document.getElementById("themeBtn");
+const tableBody = document.getElementById("categoryTable");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
-const categoryTableBody = document.querySelector("#categoryTable tbody");
-const errorEl = document.getElementById("error");
-const submitBtn = form.querySelector("button");
-const clearFilterBtn = document.getElementById("clearFilter");
-const exportCSVBtn = document.getElementById("exportCSV");
 
+// ======================
+// STATE
+// ======================
+let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 let editId = null;
 
-// Get data from localStorage
-let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+// ======================
+// UTILITIES
+// ======================
+const formatMoney = num => `$${num.toLocaleString()}`;
 
-// Load saved theme on startup
-function loadTheme() {
-  const theme = localStorage.getItem("theme");
-  if (theme === "dark") {
-    document.body.classList.add("dark");
-    themeBtn.textContent = "☀️";
-  }
-}
+const saveData = () =>
+  localStorage.setItem("transactions", JSON.stringify(transactions));
 
-// Add error message
-function showError(message) {
-  errorEl.textContent = message;
+const showError = msg => {
+  errorEl.textContent = msg;
   setTimeout(() => (errorEl.textContent = ""), 3000);
-}
+};
 
-// Add clear month filter
-function clearMonthFilter() {
-  monthFilter.value = "";
-  init();
-}
+// ======================
+// FILTERING
+// ======================
+const getFiltered = () => {
+  if (!monthEl.value) return transactions;
+  const [y, m] = monthEl.value.split("-");
+  return transactions.filter(t => {
+    const d = new Date(t.date);
+    return d.getFullYear() == y && d.getMonth() + 1 == m;
+  });
+};
 
-// Add Export to CSV
-function exportToCSV(data) {
-  if (!data.length) {
-    alert("No transactions to export!");
-    return;
-  }
-
-  const headers = ["Description", "Category", "Amount", "Date"];
-  const rows = data.map(t => [
-    t.text,
-    t.category,
-    t.amount,
-    new Date(t.date).toLocaleDateString()
-  ]);
-
-  const csvContent =
-    [headers, ...rows]
-      .map(e => e.join(","))
-      .join("\n");
-
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", "transactions.csv");
-  link.style.display = "none";
-
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
-
-// Add transaction
-function addTransaction(e) {
+// ======================
+// TRANSACTIONS
+// ======================
+const addTransaction = e => {
   e.preventDefault();
 
-  if (!text.value.trim()) {
-    showError("Description is required.");
-    return;
-  }
+  if (!textEl.value || !categoryEl.value || !amountEl.value)
+    return showError("All fields are required");
 
-  if (!category.value) {
-    showError("Please select a category.");
-    return;
-  }
+  const data = {
+    id: editId ?? Date.now(),
+    text: textEl.value,
+    category: categoryEl.value,
+    amount: +amountEl.value,
+    date: new Date().toISOString()
+  };
 
-  if (+amount.value === 0) {
-    showError("Amount cannot be zero.");
-    return;
-  }
+  transactions = editId
+    ? transactions.map(t => (t.id === editId ? data : t))
+    : [...transactions, data];
 
-  if (editId !== null) {
-    transactions = transactions.map(t =>
-      t.id === editId
-        ? {
-            ...t,
-            text: text.value,
-            category: category.value,
-            amount: +amount.value
-          }
-        : t
-    );
-    editId = null;
-    submitBtn.textContent = "Add Transaction";
-  } else {
-    transactions.push({
-      id: Date.now(),
-      text: text.value,
-      category: category.value,
-      amount: +amount.value,
-      date: new Date().toISOString()
-    });
-  }
-
-  updateLocalStorage();
+  editId = null;
+  saveData();
+  form.reset();
   init();
+};
 
-  text.value = "";
-  amount.value = "";
-  category.value = "";
-}
-
-// Add transaction to DOM
-function addTransactionToDOM(transaction) {
-  const sign = transaction.amount < 0 ? "-" : "+";
-  const item = document.createElement("li");
-
-  item.classList.add(transaction.amount < 0 ? "minus" : "plus");
-
-  item.innerHTML = `
-    <div>
-      <strong>${transaction.text}</strong>
-      <small>(${transaction.category})</small>
-    </div> 
-    <span>${sign}$${Math.abs(transaction.amount)}</span>
-    <div>
-      <button onclick="editTransaction(${transaction.id})">✏️</button>
-      <button onclick="removeTransaction(${transaction.id})">❌</button>
-    </div>
-  `;
-
-  list.appendChild(item);
-}
-
-function editTransaction(id) {
-  const transaction = transactions.find(t => t.id === id);
-  if (!transaction) return;
-
-  text.value = transaction.text;
-  amount.value = transaction.amount;
-  category.value = transaction.category;
-
-  editId = id;
-  submitBtn.textContent = "Update Transaction";
-}
-
-// Update balance, income, expense
-function updateValues(data = transactions) {
-  const amounts = data.map(t => t.amount);
-
-  const total = amounts.reduce((acc, val) => acc + val, 0);
-  const incomeTotal = amounts
-    .filter(val => val > 0)
-    .reduce((a, b) => a + b, 0);
-
-  const expenseTotal = amounts
-    .filter(val => val < 0)
-    .reduce((a, b) => a + b, 0);
-
-  balance.innerText = `$${total}`;
-  income.innerText = `$${incomeTotal}`;
-  expense.innerText = `$${Math.abs(expenseTotal)}`;
-}
-
-// Remove transaction
-function removeTransaction(id) {
+const deleteTransaction = id => {
   transactions = transactions.filter(t => t.id !== id);
-  updateLocalStorage();
+  saveData();
   init();
-}
+};
 
-// Update localStorage
-function updateLocalStorage() {
-  localStorage.setItem("transactions", JSON.stringify(transactions));
-}
-
-function getFilteredTransactions() {
-  if (!monthFilter.value) return transactions;
-
-  const [year, month] = monthFilter.value.split("-");
-
-  return transactions.filter(t => {
-    const tDate = new Date(t.date);
-    return (
-      tDate.getFullYear() == year &&
-      tDate.getMonth() + 1 == month
-    );
-  });
-}
-
-function buildCategoryTotals(data) {
-  const totals = {};
-
-  data
-    .filter(t => t.amount < 0)
-    .forEach(t => {
-      totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-    });
-
-  return totals;
-}
-
-function renderCategoryTable(data) {
-  categoryTableBody.innerHTML = "";
-
-  const totals = buildCategoryTotals(data);
-  const categories = Object.keys(totals);
-
-  if (categories.length === 0) {
-    categoryTableBody.innerHTML =
-      `<tr><td colspan="2">No expense data</td></tr>`;
-    return;
-  }
-
-  categories.forEach(category => {
-    const row = document.createElement("tr");
-
-    row.innerHTML = `
-      <td>${category}</td>
-      <td>$${totals[category]}</td>
+// ======================
+// UI RENDERING
+// ======================
+const renderList = data => {
+  listEl.innerHTML = "";
+  data.forEach(t => {
+    const li = document.createElement("li");
+    li.className = t.amount < 0 ? "minus" : "plus";
+    li.innerHTML = `
+      <span>${t.text} (${t.category})</span>
+      <span>${formatMoney(Math.abs(t.amount))}</span>
+      <button onclick="deleteTransaction(${t.id})">❌</button>
     `;
-
-    categoryTableBody.appendChild(row);
+    listEl.appendChild(li);
   });
-}
+};
 
-function getCategoryTotals(data) {
+const updateSummary = data => {
+  const amounts = data.map(t => t.amount);
+  const total = amounts.reduce((a, b) => a + b, 0);
+  const income = amounts.filter(a => a > 0).reduce((a, b) => a + b, 0);
+  const expense = amounts.filter(a => a < 0).reduce((a, b) => a + b, 0);
+
+  balanceEl.textContent = formatMoney(total);
+  incomeEl.textContent = formatMoney(income);
+  expenseEl.textContent = formatMoney(Math.abs(expense));
+};
+
+const renderCategories = data => {
+  tableBody.innerHTML = "";
   const totals = {};
+  data.filter(t => t.amount < 0).forEach(t => {
+    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
+  });
 
-  data
-    .filter(t => t.amount < 0)
-    .forEach(t => {
-      if (!totals[t.category]) {
-        totals[t.category] = 0;
-      }
-      totals[t.category] += Math.abs(t.amount);
-    });
+  Object.keys(totals).forEach(cat => {
+    const row = document.createElement("tr");
+    row.innerHTML = `<td>${cat}</td><td>${formatMoney(totals[cat])}</td>`;
+    tableBody.appendChild(row);
+  });
+};
 
-  return totals;
-}
-
-function drawChart(data) {
+// ======================
+// CHART
+// ======================
+const drawChart = data => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const totals = {};
+  data.filter(t => t.amount < 0).forEach(t => {
+    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
+  });
 
-  const totals = getCategoryTotals(data);
-  const categories = Object.keys(totals);
   const values = Object.values(totals);
+  if (!values.length) return;
 
-  if (values.length === 0) return;
+  let start = 0;
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = ["#ff6384", "#36a2eb", "#ffce56", "#4caf50"];
 
-  const totalAmount = values.reduce((a, b) => a + b, 0);
-  let startAngle = 0;
-
-  const colors = [
-    "#ff6384",
-    "#36a2eb",
-    "#ffce56",
-    "#4caf50",
-    "#9c27b0"
-  ];
-
-  values.forEach((value, index) => {
-    const sliceAngle = (value / totalAmount) * 2 * Math.PI;
-
+  values.forEach((v, i) => {
+    const slice = (v / total) * Math.PI * 2;
     ctx.beginPath();
     ctx.moveTo(150, 150);
-    ctx.arc(150, 150, 120, startAngle, startAngle + sliceAngle);
-    ctx.closePath();
-
-    ctx.fillStyle = colors[index % colors.length];
+    ctx.arc(150, 150, 120, start, start + slice);
+    ctx.fillStyle = colors[i % colors.length];
     ctx.fill();
-
-    startAngle += sliceAngle;
+    start += slice;
   });
-}
+};
 
-// Initialize app
-function init() {
-  list.innerHTML = "";
+// ======================
+// INIT
+// ======================
+const init = () => {
+  const data = getFiltered();
+  renderList(data);
+  updateSummary(data);
+  renderCategories(data);
+  drawChart(data);
+};
 
-  const filteredTransactions = getFilteredTransactions();
-
-  filteredTransactions.forEach(addTransactionToDOM);
-  updateValues(filteredTransactions);
-  drawChart(filteredTransactions);
-  renderCategoryTable(filteredTransactions);
-  loadTheme();
-}
-
-init();
+// ======================
+// EVENTS
+// ======================
 form.addEventListener("submit", addTransaction);
-monthFilter.addEventListener("change", init);
-clearFilterBtn.addEventListener("click", clearMonthFilter);
-exportCSVBtn.addEventListener("click", () => {
-  const filteredTransactions = getFilteredTransactions();
-  exportToCSV(filteredTransactions);
-});
+monthEl.addEventListener("change", init);
 themeBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark");
-
-  const isDark = document.body.classList.contains("dark");
-  themeBtn.textContent = isDark ? "☀️" : "🌙";
-  localStorage.setItem("theme", isDark ? "dark" : "light");
+  localStorage.setItem(
+    "theme",
+    document.body.classList.contains("dark") ? "dark" : "light"
+  );
 });
+
+// ======================
+init();

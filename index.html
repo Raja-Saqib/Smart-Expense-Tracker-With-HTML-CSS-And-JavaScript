@@ -6,24 +6,20 @@
   <title>Smart Expense Tracker</title>
   <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
+  <main class="container">
+    <header>
+      <h1>Smart Expense Tracker</h1>
+      <button id="themeBtn" aria-label="Toggle theme">🌙</button>
+    </header>
 
-  <div class="container">
-    <h1>Smart Expense Tracker</h1>
-
-    <!-- Light/Dark Theme Toggle -->
-    <div class="theme-toggle">
-      <button id="themeBtn">🌙</button>
-    </div>
-
-    <!-- Balance -->
-    <div class="balance">
+    <section class="balance">
       <h2>Your Balance</h2>
       <p id="balance">$0</p>
-    </div>
+    </section>
 
-    <!-- Income & Expense Summary -->
-    <div class="summary">
+    <section class="summary">
       <div>
         <h3>Income</h3>
         <p id="income" class="money plus">$0</p>
@@ -32,61 +28,58 @@
         <h3>Expense</h3>
         <p id="expense" class="money minus">$0</p>
       </div>
-    </div>
+    </section>
 
-    <!-- Expense Breakdown Chart -->
-    <h3>Expense Breakdown</h3>
-    <canvas id="expenseChart" width="300" height="300"></canvas>
+    <section>
+      <h3>Expense Breakdown</h3>
+      <canvas id="expenseChart" width="300" height="300"></canvas>
+    </section>
 
-    <!-- Category-wise Table -->
-    <h3>Category Totals</h3>
+    <section>
+      <h3>Category Totals</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Total Spent</th>
+          </tr>
+        </thead>
+        <tbody id="categoryTable"></tbody>
+      </table>
+    </section>
 
-    <table id="categoryTable">
-      <thead>
-        <tr>
-          <th>Category</th>
-          <th>Total Spent</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <!-- Month Filter -->
-    <div class="filter">
-      <label for="month">Filter by Month:</label>
+    <section class="filter">
+      <label for="month">Filter by Month</label>
       <input type="month" id="month" />
       <button id="clearFilter">Clear Filter</button>
-    </div>
+    </section>
 
-    <!-- Add CSV Export Button -->
     <button id="exportCSV">Export CSV</button>
 
-    <!-- Transaction List -->
-    <h3>History</h3>
-    <ul id="list" class="list"></ul>
+    <section>
+      <h3>History</h3>
+      <ul id="list"></ul>
+    </section>
 
-    <!-- Add error message area -->
     <p id="error" class="error"></p>
 
-    <!-- Add Transaction -->
-    <h3>Add New Transaction</h3>
-    <form id="form">
-      <input type="text" id="text" placeholder="Enter description" required />
-      
-      <!-- Category Dropdown -->
-      <select id="category" required>
-        <option value="">Select Category</option>
-        <option value="Food">Food</option>
-        <option value="Transport">Transport</option>
-        <option value="Rent">Rent</option>
-        <option value="Shopping">Shopping</option>
-        <option value="Salary">Salary</option>
-      </select>
-
-      <input type="number" id="amount" placeholder="Enter amount (+income, -expense)" required />
-      <button>Add Transaction</button>
-    </form>
-  </div>
+    <section>
+      <h3>Add Transaction</h3>
+      <form id="form">
+        <input id="text" type="text" placeholder="Description" />
+        <select id="category">
+          <option value="">Select Category</option>
+          <option>Food</option>
+          <option>Transport</option>
+          <option>Rent</option>
+          <option>Shopping</option>
+          <option>Salary</option>
+        </select>
+        <input id="amount" type="number" placeholder="+income / -expense" />
+        <button type="submit">Add Transaction</button>
+      </form>
+    </section>
+  </main>
 
   <script src="script.js"></script>
 </body>
