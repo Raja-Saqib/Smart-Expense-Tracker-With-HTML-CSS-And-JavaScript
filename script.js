@@ -80,21 +80,49 @@ const deleteTransaction = id => {
   init();
 };
 
+const addTransactionToDOM = transaction => {
+  const li = document.createElement("li");
+  li.className = transaction.amount < 0 ? "minus" : "plus";
+
+  li.innerHTML = `
+    <div>
+      <strong>${transaction.text}</strong>
+      <small>(${transaction.category})</small>
+    </div>
+    <span>$${Math.abs(transaction.amount)}</span>
+    <div class="actions">
+      <button data-edit="${transaction.id}">✏️</button>
+      <button data-delete="${transaction.id}">❌</button>
+    </div>
+  `;
+
+  listEl.appendChild(li);
+};
+
+const editTransaction = id => {
+  const transaction = transactions.find(t => t.id === id);
+  if (!transaction) return;
+
+  textEl.value = transaction.text;
+  amountEl.value = transaction.amount;
+  categoryEl.value = transaction.category;
+
+  editId = id;
+  form.querySelector("button").textContent = "Update Transaction";
+};
+
 // ======================
 // UI RENDERING
 // ======================
 const renderList = data => {
   listEl.innerHTML = "";
-  data.forEach(t => {
-    const li = document.createElement("li");
-    li.className = t.amount < 0 ? "minus" : "plus";
-    li.innerHTML = `
-      <span>${t.text} (${t.category})</span>
-      <span>${formatMoney(Math.abs(t.amount))}</span>
-      <button onclick="deleteTransaction(${t.id})">❌</button>
-    `;
-    listEl.appendChild(li);
-  });
+
+  if (!data.length) {
+    listEl.innerHTML = "<li>No transactions yet</li>";
+    return;
+  }
+
+  data.forEach(addTransactionToDOM);
 };
 
 const updateSummary = data => {
@@ -166,6 +194,13 @@ const init = () => {
 // ======================
 form.addEventListener("submit", addTransaction);
 monthEl.addEventListener("change", init);
+listEl.addEventListener("click", e => {
+  const editIdAttr = e.target.dataset.edit;
+  const deleteIdAttr = e.target.dataset.delete;
+
+  if (editIdAttr) editTransaction(Number(editIdAttr));
+  if (deleteIdAttr) deleteTransaction(Number(deleteIdAttr));
+});
 themeBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark");
   localStorage.setItem(
