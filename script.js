@@ -11,6 +11,8 @@ const amountEl = document.getElementById("amount");
 const categoryEl = document.getElementById("category");
 const errorEl = document.getElementById("error");
 const monthEl = document.getElementById("month");
+const clearFilterBtn = document.getElementById("clearFilter");
+const exportBtn = document.getElementById("exportCSV");
 const themeBtn = document.getElementById("themeBtn");
 const tableBody = document.getElementById("categoryTable");
 const canvas = document.getElementById("expenseChart");
@@ -25,7 +27,7 @@ let editId = null;
 // ======================
 // UTILITIES
 // ======================
-const formatMoney = num => `$${num.toLocaleString()}`;
+const formatMoney = n => `$${n.toLocaleString()}`;
 
 const saveData = () =>
   localStorage.setItem("transactions", JSON.stringify(transactions));
@@ -33,6 +35,14 @@ const saveData = () =>
 const showError = msg => {
   errorEl.textContent = msg;
   setTimeout(() => (errorEl.textContent = ""), 3000);
+};
+
+const getCategoryTotals = data => {
+  const totals = {};
+  data.filter(t => t.amount < 0).forEach(t => {
+    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
+  });
+  return totals;
 };
 
 // ======================
@@ -56,12 +66,17 @@ const addTransaction = e => {
   if (!textEl.value || !categoryEl.value || !amountEl.value)
     return showError("All fields are required");
 
+  if (+amountEl.value === 0)
+    return showError("Amount cannot be zero");
+
+  const existing = transactions.find(t => t.id === editId);
+
   const data = {
     id: editId ?? Date.now(),
     text: textEl.value,
     category: categoryEl.value,
     amount: +amountEl.value,
-    date: new Date().toISOString()
+    date: existing?.date ?? new Date().toISOString()
   };
 
   transactions = editId
@@ -69,6 +84,7 @@ const addTransaction = e => {
     : [...transactions, data];
 
   editId = null;
+  form.querySelector("button").textContent = "Add Transaction";
   saveData();
   form.reset();
   init();
@@ -80,35 +96,34 @@ const deleteTransaction = id => {
   init();
 };
 
-const addTransactionToDOM = transaction => {
+const editTransaction = id => {
+  const t = transactions.find(t => t.id === id);
+  if (!t) return;
+
+  textEl.value = t.text;
+  amountEl.value = t.amount;
+  categoryEl.value = t.category;
+  editId = id;
+  form.querySelector("button").textContent = "Update Transaction";
+};
+
+const addTransactionToDOM = t => {
   const li = document.createElement("li");
-  li.className = transaction.amount < 0 ? "minus" : "plus";
+  li.className = t.amount < 0 ? "minus" : "plus";
 
   li.innerHTML = `
     <div>
-      <strong>${transaction.text}</strong>
-      <small>(${transaction.category})</small>
+      <strong>${t.text}</strong>
+      <small>(${t.category})</small>
     </div>
-    <span>$${Math.abs(transaction.amount)}</span>
-    <div class="actions">
-      <button data-edit="${transaction.id}">✏️</button>
-      <button data-delete="${transaction.id}">❌</button>
+    <span>${formatMoney(Math.abs(t.amount))}</span>
+    <div>
+      <button data-edit="${t.id}">✏️</button>
+      <button data-delete="${t.id}">❌</button>
     </div>
   `;
 
   listEl.appendChild(li);
-};
-
-const editTransaction = id => {
-  const transaction = transactions.find(t => t.id === id);
-  if (!transaction) return;
-
-  textEl.value = transaction.text;
-  amountEl.value = transaction.amount;
-  categoryEl.value = transaction.category;
-
-  editId = id;
-  form.querySelector("button").textContent = "Update Transaction";
 };
 
 // ======================
@@ -116,12 +131,10 @@ const editTransaction = id => {
 // ======================
 const renderList = data => {
   listEl.innerHTML = "";
-
   if (!data.length) {
     listEl.innerHTML = "<li>No transactions yet</li>";
     return;
   }
-
   data.forEach(addTransactionToDOM);
 };
 
@@ -138,14 +151,17 @@ const updateSummary = data => {
 
 const renderCategories = data => {
   tableBody.innerHTML = "";
-  const totals = {};
-  data.filter(t => t.amount < 0).forEach(t => {
-    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-  });
+  const totals = getCategoryTotals(data);
 
-  Object.keys(totals).forEach(cat => {
+  if (!Object.keys(totals).length) {
+    tableBody.innerHTML =
+      `<tr><td colspan="2">No expense data</td></tr>`;
+    return;
+  }
+
+  Object.entries(totals).forEach(([cat, val]) => {
     const row = document.createElement("tr");
-    row.innerHTML = `<td>${cat}</td><td>${formatMoney(totals[cat])}</td>`;
+    row.innerHTML = `<td>${cat}</td><td>${formatMoney(val)}</td>`;
     tableBody.appendChild(row);
   });
 };
@@ -155,20 +171,16 @@ const renderCategories = data => {
 // ======================
 const drawChart = data => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const totals = {};
-  data.filter(t => t.amount < 0).forEach(t => {
-    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-  });
-
+  const totals = getCategoryTotals(data);
   const values = Object.values(totals);
   if (!values.length) return;
 
   let start = 0;
-  const total = values.reduce((a, b) => a + b, 0);
+  const sum = values.reduce((a, b) => a + b, 0);
   const colors = ["#ff6384", "#36a2eb", "#ffce56", "#4caf50"];
 
   values.forEach((v, i) => {
-    const slice = (v / total) * Math.PI * 2;
+    const slice = (v / sum) * Math.PI * 2;
     ctx.beginPath();
     ctx.moveTo(150, 150);
     ctx.arc(150, 150, 120, start, start + slice);
@@ -176,6 +188,33 @@ const drawChart = data => {
     ctx.fill();
     start += slice;
   });
+};
+
+// ======================
+// CSV EXPORT
+// ======================
+const exportCSV = data => {
+  if (!data.length) return showError("No data to export");
+
+  const rows = [
+    ["Description", "Category", "Amount", "Date"],
+    ...data.map(t => [
+      t.text,
+      t.category,
+      t.amount,
+      new Date(t.date).toLocaleDateString()
+    ])
+  ];
+
+  const csv = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "transactions.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 };
 
 // ======================
@@ -194,13 +233,19 @@ const init = () => {
 // ======================
 form.addEventListener("submit", addTransaction);
 monthEl.addEventListener("change", init);
-listEl.addEventListener("click", e => {
-  const editIdAttr = e.target.dataset.edit;
-  const deleteIdAttr = e.target.dataset.delete;
-
-  if (editIdAttr) editTransaction(Number(editIdAttr));
-  if (deleteIdAttr) deleteTransaction(Number(deleteIdAttr));
+clearFilterBtn.addEventListener("click", () => {
+  monthEl.value = "";
+  init();
 });
+exportBtn.addEventListener("click", () => exportCSV(getFiltered()));
+
+listEl.addEventListener("click", e => {
+  if (e.target.dataset.edit)
+    editTransaction(+e.target.dataset.edit);
+  if (e.target.dataset.delete)
+    deleteTransaction(+e.target.dataset.delete);
+});
+
 themeBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark");
   localStorage.setItem(
@@ -209,5 +254,8 @@ themeBtn.addEventListener("click", () => {
   );
 });
 
-// ======================
+// Load theme on startup
+if (localStorage.getItem("theme") === "dark")
+  document.body.classList.add("dark");
+
 init();
