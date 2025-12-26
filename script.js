@@ -17,12 +17,14 @@ const themeBtn = document.getElementById("themeBtn");
 const tableBody = document.getElementById("categoryTable");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
+const legendEl = document.getElementById("chartLegend");
 
 // ======================
 // STATE
 // ======================
 let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 let editId = null;
+let slices = [];
 
 // ======================
 // UTILITIES
@@ -171,23 +173,70 @@ const renderCategories = data => {
 // ======================
 const drawChart = data => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  legendEl.innerHTML = "";
+  slices = [];
+
   const totals = getCategoryTotals(data);
-  const values = Object.values(totals);
-  if (!values.length) return;
+  const entries = Object.entries(totals);
+  if (!entries.length) return;
 
-  let start = 0;
-  const sum = values.reduce((a, b) => a + b, 0);
-  const colors = ["#ff6384", "#36a2eb", "#ffce56", "#4caf50"];
+  const totalAmount = entries.reduce((a, [, v]) => a + v, 0);
 
-  values.forEach((v, i) => {
-    const slice = (v / sum) * Math.PI * 2;
+  const colors = [
+    "#ff6384",
+    "#36a2eb",
+    "#ffce56",
+    "#4caf50",
+    "#9c27b0",
+    "#ff9800"
+  ];
+
+  let startAngle = 0;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = 120;
+
+  entries.forEach(([category, value], i) => {
+    const sliceAngle = (value / totalAmount) * Math.PI * 2;
+    const endAngle = startAngle + sliceAngle;
+    const color = colors[i % colors.length];
+
+    // Draw slice
     ctx.beginPath();
-    ctx.moveTo(150, 150);
-    ctx.arc(150, 150, 120, start, start + slice);
-    ctx.fillStyle = colors[i % colors.length];
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.fillStyle = color;
     ctx.fill();
-    start += slice;
+
+    // Save slice for hover detection
+    slices.push({
+      category,
+      value,
+      startAngle,
+      endAngle,
+      color
+    });
+
+    // Legend
+    const percent = ((value / totalAmount) * 100).toFixed(1);
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    item.innerHTML = `
+      <span class="legend-color" style="background:${color}"></span>
+      ${category}: ${formatMoney(value)} (${percent}%)
+    `;
+    legendEl.appendChild(item);
+
+    startAngle = endAngle;
   });
+
+  // Center total
+  ctx.fillStyle = "#666";
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Total", cx, cy - 10);
+  ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
 };
 
 // ======================
@@ -244,6 +293,35 @@ listEl.addEventListener("click", e => {
     editTransaction(+e.target.dataset.edit);
   if (e.target.dataset.delete)
     deleteTransaction(+e.target.dataset.delete);
+});
+
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left - canvas.width / 2;
+  const y = e.clientY - rect.top - canvas.height / 2;
+  const angle = Math.atan2(y, x);
+  const adjustedAngle = angle < 0 ? angle + Math.PI * 2 : angle;
+  const distance = Math.sqrt(x * x + y * y);
+
+  canvas.title = "";
+
+  if (distance > 120) return;
+
+  const slice = slices.find(
+    s => adjustedAngle >= s.startAngle && adjustedAngle <= s.endAngle
+  );
+
+  if (slice) {
+    const percent = (
+      (slice.value /
+        slices.reduce((a, s) => a + s.value, 0)) *
+      100
+    ).toFixed(1);
+
+    canvas.title = `${slice.category}: ${formatMoney(
+      slice.value
+    )} (${percent}%)`;
+  }
 });
 
 themeBtn.addEventListener("click", () => {
