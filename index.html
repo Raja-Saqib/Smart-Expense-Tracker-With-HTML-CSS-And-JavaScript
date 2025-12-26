@@ -32,7 +32,22 @@
 
     <section>
       <h3>Expense Breakdown</h3>
-      <canvas id="expenseChart" width="300" height="300"></canvas>
+      <canvas 
+        id="expenseChart" 
+        width="300" 
+        height="300" 
+        role="img" 
+        aria-labelledby="chartTitle chartDesc"
+      ></canvas>
+    
+      <p id="chartTitle" class="sr-only">
+        Expense breakdown by category
+      </p>
+    
+      <p id="chartDesc" class="sr-only">
+        Pie chart showing expenses grouped by category with totals and percentages.
+      </p>
+    
       <div id="chartLegend" class="legend"></div>
     </section>
 

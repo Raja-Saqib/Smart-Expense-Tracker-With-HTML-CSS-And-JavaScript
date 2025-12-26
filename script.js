@@ -25,6 +25,7 @@ const legendEl = document.getElementById("chartLegend");
 let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 let editId = null;
 let slices = [];
+let chartTotal = 0;
 
 // ======================
 // UTILITIES
@@ -57,6 +58,30 @@ const getChartColors = () => {
     styles.getPropertyValue("--chart-5").trim()
   ];
 };
+
+const highlightSlice = index => {
+  drawChart(getFiltered());
+
+  const slice = slices[index];
+  if (!slice) return;
+
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, canvas.height / 2);
+  ctx.arc(
+    canvas.width / 2,
+    canvas.height / 2,
+    125,
+    slice.startAngle,
+    slice.endAngle
+  );
+  ctx.strokeStyle = slice.color;
+  ctx.lineWidth = 4;
+  ctx.stroke();
+};
+
+const prefersReducedMotion = window.matchMedia(
+  "(prefers-reduced-motion: reduce)"
+).matches;
 
 // ======================
 // FILTERING
@@ -186,12 +211,14 @@ const drawChart = data => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   legendEl.innerHTML = "";
   slices = [];
+  legendEl.setAttribute("role", "list");
 
   const totals = getCategoryTotals(data);
   const entries = Object.entries(totals);
   if (!entries.length) return;
 
   const totalAmount = entries.reduce((a, [, v]) => a + v, 0);
+  chartTotal = totalAmount;
 
   const colors = getChartColors();
 
@@ -209,9 +236,7 @@ const drawChart = data => {
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, startAngle, endAngle);
-    ctx.fillStyle = getComputedStyle(document.body)
-      .getPropertyValue("--chart-text")
-      .trim();
+    ctx.fillStyle = color;
     ctx.fill();
 
     // Save slice for hover detection
@@ -227,17 +252,45 @@ const drawChart = data => {
     const percent = ((value / totalAmount) * 100).toFixed(1);
     const item = document.createElement("div");
     item.className = "legend-item";
-    item.innerHTML = `
-      <span class="legend-color" style="background:${color}"></span>
-      ${category}: ${formatMoney(value)} (${percent}%)
-    `;
-    legendEl.appendChild(item);
+    item.setAttribute("role", "listitem");
+    item.setAttribute(
+      "aria-label",
+      `${category}, ${formatMoney(value)}, ${percent} percent`
+    );
 
+    item.innerHTML = `
+      <span
+        class="legend-color"
+        style="background:${color}"
+        aria-hidden="true"
+      ></span>
+      <span>
+        <strong>${category}</strong>:
+        ${formatMoney(value)} (${percent}%)
+      </span>
+    `;
+
+    legendEl.appendChild(item);
     startAngle = endAngle;
   });
 
+  // Keyboard accessibility
+  legendEl.querySelectorAll(".legend-item").forEach((item, index) => {
+    item.tabIndex = 0;
+
+    item.addEventListener("focus", () => {
+      highlightSlice(index);
+    });
+
+    item.addEventListener("blur", () => {
+      drawChart(getFiltered());
+    });
+  });
+
   // Center total
-  ctx.fillStyle = "#666";
+  ctx.fillStyle = getComputedStyle(document.body)
+    .getPropertyValue("--chart-text")
+    .trim();
   ctx.font = "bold 14px Arial";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -318,11 +371,7 @@ canvas.addEventListener("mousemove", e => {
   );
 
   if (slice) {
-    const percent = (
-      (slice.value /
-        slices.reduce((a, s) => a + s.value, 0)) *
-      100
-    ).toFixed(1);
+    const percent = ((slice.value / chartTotal) * 100).toFixed(1);
 
     canvas.title = `${slice.category}: ${formatMoney(
       slice.value

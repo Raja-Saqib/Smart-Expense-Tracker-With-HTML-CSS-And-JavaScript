@@ -61,6 +61,18 @@ header {
   border-radius: 8px;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .legend {
   margin-top: 10px;
   font-size: 14px;
@@ -70,6 +82,12 @@ header {
   display: flex;
   align-items: center;
   margin-bottom: 6px;
+}
+
+.legend-item:focus {
+  outline: 2px solid var(--chart-2);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
 .legend-color {
