@@ -47,6 +47,17 @@ const getCategoryTotals = data => {
   return totals;
 };
 
+const getChartColors = () => {
+  const styles = getComputedStyle(document.body);
+  return [
+    styles.getPropertyValue("--chart-1").trim(),
+    styles.getPropertyValue("--chart-2").trim(),
+    styles.getPropertyValue("--chart-3").trim(),
+    styles.getPropertyValue("--chart-4").trim(),
+    styles.getPropertyValue("--chart-5").trim()
+  ];
+};
+
 // ======================
 // FILTERING
 // ======================
@@ -182,14 +193,7 @@ const drawChart = data => {
 
   const totalAmount = entries.reduce((a, [, v]) => a + v, 0);
 
-  const colors = [
-    "#ff6384",
-    "#36a2eb",
-    "#ffce56",
-    "#4caf50",
-    "#9c27b0",
-    "#ff9800"
-  ];
+  const colors = getChartColors();
 
   let startAngle = 0;
   const cx = canvas.width / 2;
@@ -205,7 +209,9 @@ const drawChart = data => {
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, radius, startAngle, endAngle);
-    ctx.fillStyle = color;
+    ctx.fillStyle = getComputedStyle(document.body)
+      .getPropertyValue("--chart-text")
+      .trim();
     ctx.fill();
 
     // Save slice for hover detection
@@ -330,6 +336,7 @@ themeBtn.addEventListener("click", () => {
     "theme",
     document.body.classList.contains("dark") ? "dark" : "light"
   );
+  init();
 });
 
 // Load theme on startup

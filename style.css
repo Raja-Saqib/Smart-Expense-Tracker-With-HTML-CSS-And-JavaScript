@@ -5,6 +5,12 @@
   --soft: #f0f0f0;
   --green: #4caf50;
   --red: #e53935;
+  --chart-1: #ff6384;
+  --chart-2: #36a2eb;
+  --chart-3: #ffce56;
+  --chart-4: #4caf50;
+  --chart-5: #9c27b0;
+  --chart-text: #444;
 }
 
 body.dark {
@@ -12,6 +18,12 @@ body.dark {
   --card: #1e1e1e;
   --text: #f5f5f5;
   --soft: #2a2a2a;
+  --chart-1: #ff8fa3;
+  --chart-2: #6ec6ff;
+  --chart-3: #ffe082;
+  --chart-4: #81c784;
+  --chart-5: #ce93d8;
+  --chart-text: #ddd;
 }
 
 * {
