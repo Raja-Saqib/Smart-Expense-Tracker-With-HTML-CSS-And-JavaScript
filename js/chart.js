@@ -128,6 +128,14 @@ export const drawChart = ({
       "aria-label",
       `${category}, ${formatMoney(value)}, ${percent} percent`
     );
+    item.setAttribute(
+      "aria-selected",
+      activeCategory === category ? "true" : "false"
+    );
+    item.setAttribute(
+      "aria-pressed", 
+      activeCategory === category ? "true" : "false"
+    );
 
     item.innerHTML = `
       <span class="legend-color" style="background:${color}" aria-hidden="true"></span>
@@ -207,6 +215,22 @@ export const drawChart = ({
         formatMoney
       })
     );
+
+    item.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggleCategoryFilter(slices[index].category);
+        drawChart({
+          canvas,
+          ctx,
+          data: getFiltered(),
+          legendEl,
+          getFiltered,
+          formatMoney
+        });
+      }
+    });
+
   });
 
   ctx.fillStyle = getComputedStyle(document.body)

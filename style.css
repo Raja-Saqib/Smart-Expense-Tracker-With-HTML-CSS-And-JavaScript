@@ -113,6 +113,10 @@ canvas {
   margin-right: 8px;
 }
 
+.legend-item[aria-selected="true"] {
+  outline: 2px solid var(--chart-text);
+}
+
 .money.plus { color: var(--green); }
 .money.minus { color: var(--red); }
 

@@ -3,6 +3,7 @@ import { getFiltered } from "./filters.js";
 import { renderList, updateSummary, renderCategories } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
+import { attachChartClick } from "./chartClick.js";
 import { toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
 
@@ -50,5 +51,6 @@ toggleBtn.addEventListener("click", () => {
 });
 
 attachChartHover(canvas);
+attachChartClick(canvas, getFiltered, init);
 
 init();
