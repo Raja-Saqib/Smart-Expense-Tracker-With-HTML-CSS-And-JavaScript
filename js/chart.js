@@ -1,4 +1,5 @@
 import { slices, setSlices, chartTotal, setChartTotal } from "./chartState.js";
+import { prefersReducedMotion } from "./chartState.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);
@@ -37,6 +38,44 @@ export const highlightSlice = (
   ctx.stroke();
 };
 
+const animateSlices = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  slices,
+  duration = 600,
+  onComplete
+}) => {
+  const start = performance.now();
+
+  const frame = now => {
+    const progress = Math.min((now - start) / duration, 1);
+    ctx.clearRect(0, 0, cx * 2, cy * 2);
+
+    slices.forEach(s => {
+      const animatedEnd =
+        s.startAngle + (s.endAngle - s.startAngle) * progress;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, s.startAngle, animatedEnd);
+      ctx.arc(cx, cy, innerRadius, animatedEnd, s.startAngle, true);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+    });
+
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    } else if (onComplete) {
+      onComplete();
+    }
+  };
+
+  requestAnimationFrame(frame);
+};
+
 export const drawChart = ({
   canvas,
   ctx,
@@ -73,15 +112,6 @@ export const drawChart = ({
     const endAngle = startAngle + sliceAngle;
     const color = colors[i % colors.length];
 
-    const innerRadius = chartMode === "donut" ? 70 : 0;
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, startAngle, endAngle);
-    ctx.arc(cx, cy, innerRadius, endAngle, startAngle, true);
-    ctx.closePath();
-    ctx.fillStyle = color;
-    ctx.fill();
-
     slices.push({
       category,
       value,
@@ -107,6 +137,48 @@ export const drawChart = ({
     legendEl.appendChild(item);
     startAngle = endAngle;
   });
+
+  const innerRadius = chartMode === "donut" ? 70 : 0;
+
+  // Animate unless reduced motion is preferred
+  if (!prefersReducedMotion) {
+    animateSlices({
+      ctx,
+      cx,
+      cy,
+      radius,
+      innerRadius,
+      slices,
+      onComplete: () => {
+        ctx.fillStyle = getComputedStyle(document.body)
+          .getPropertyValue("--chart-text")
+          .trim();
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("Total", cx, cy - 10);
+        ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+      }
+    });
+  } else {
+      slices.forEach(s => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, s.startAngle, s.endAngle);
+        ctx.arc(cx, cy, innerRadius, s.endAngle, s.startAngle, true);
+        ctx.closePath();
+        ctx.fillStyle = s.color;
+        ctx.fill();
+    });
+
+    ctx.fillStyle = getComputedStyle(document.body)
+      .getPropertyValue("--chart-text")
+      .trim();
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Total", cx, cy - 10);
+    ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+  }
 
   legendEl.querySelectorAll(".legend-item").forEach((item, index) => {
     item.tabIndex = 0;
