@@ -4,6 +4,7 @@ import { renderList, updateSummary, renderCategories } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
+import { animateThemeTransition } from "./chartAnimations.js";
 import { toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
 
@@ -50,6 +51,31 @@ toggleBtn.addEventListener("click", () => {
   init(); 
 });
 
+themeBtn.addEventListener("click", () => {
+  document.body.classList.toggle("dark");
+
+  localStorage.setItem(
+    "theme",
+    document.body.classList.contains("dark") ? "dark" : "light"
+  );
+
+  if (!prefersReducedMotion) {
+    animateThemeTransition({
+      ctx,
+      canvas,
+      redraw: () => drawChart({
+        canvas,
+        ctx,
+        data: getFiltered(),
+        legendEl,
+        getFiltered,
+        formatMoney
+      })
+    });
+  } else {
+    init();
+  }
+});
 attachChartHover(canvas);
 attachChartClick(canvas, getFiltered, init);
 

@@ -31,6 +31,18 @@ body.dark {
   font-family: Arial, sans-serif;
 }
 
+body,
+.container,
+.summary,
+li,
+table,
+button {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
