@@ -1,5 +1,6 @@
-import { slices, setSlices, chartTotal, setChartTotal } from "./chartState.js";
+import { slices, setSlices, chartTotal, setChartTotal, patternMode } from "./chartState.js";
 import { prefersReducedMotion } from "./chartState.js";
+import { createPatterns } from "./chartPatterns.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);
@@ -62,8 +63,17 @@ const animateSlices = ({
       ctx.arc(cx, cy, radius, s.startAngle, animatedEnd);
       ctx.arc(cx, cy, innerRadius, animatedEnd, s.startAngle, true);
       ctx.closePath();
+      
+      // Base color
       ctx.fillStyle = s.color;
       ctx.fill();
+
+      // Pattern overlay
+      if (patternMode) {
+        ctx.fillStyle = s.pattern;
+        ctx.fill();
+      }
+
     });
 
     if (progress < 1) {
@@ -101,6 +111,7 @@ export const drawChart = ({
   setChartTotal(totalAmount);
 
   const colors = getChartColors();
+  const patterns = createPatterns(ctx);
 
   let startAngle = 0;
   const cx = canvas.width / 2;
@@ -117,7 +128,8 @@ export const drawChart = ({
       value,
       startAngle,
       endAngle,
-      color
+      color,
+      pattern: patterns[i % patterns.length],
     });
 
     const percent = ((value / totalAmount) * 100).toFixed(1);
@@ -138,11 +150,21 @@ export const drawChart = ({
     );
 
     item.innerHTML = `
-      <span class="legend-color" style="background:${color}" aria-hidden="true"></span>
+      <span class="legend-color" aria-hidden="true"></span>
       <span><strong>${category}</strong>: ${formatMoney(value)} (${percent}%)</span>
     `;
 
     legendEl.appendChild(item);
+
+    const swatch = item.querySelector(".legend-color");
+
+    swatch.style.backgroundColor = color;
+
+    if (patternMode) {
+      swatch.style.backgroundImage =
+        "repeating-linear-gradient(45deg, rgba(255,255,255,.35) 0 2px, transparent 2px 6px)";
+    }
+
     startAngle = endAngle;
   });
 
@@ -174,8 +196,17 @@ export const drawChart = ({
         ctx.arc(cx, cy, radius, s.startAngle, s.endAngle);
         ctx.arc(cx, cy, innerRadius, s.endAngle, s.startAngle, true);
         ctx.closePath();
+
+        // Base color
         ctx.fillStyle = s.color;
         ctx.fill();
+
+        // Pattern overlay
+        if (patternMode) {
+          ctx.fillStyle = s.pattern;
+          ctx.fill();
+        }
+
     });
 
     ctx.fillStyle = getComputedStyle(document.body)
