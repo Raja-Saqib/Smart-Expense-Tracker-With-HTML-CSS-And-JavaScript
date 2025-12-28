@@ -1,6 +1,7 @@
 export let slices = [];
 export let chartTotal = 0;
-export let chartMode = "pie";
+export let chartMode =
+  localStorage.getItem("chartMode") || "donut";
 export let patternMode =
   localStorage.getItem("patternMode") !== "false";
 

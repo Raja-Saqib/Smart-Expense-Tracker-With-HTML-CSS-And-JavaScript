@@ -20,6 +20,7 @@ const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
 const patternToggle = document.getElementById("patternToggle");
+const donutToggle = document.getElementById("donutToggle");
 const chartStatus = document.getElementById("chartStatus");
 
 const init = () => {
@@ -35,6 +36,7 @@ const init = () => {
     getFiltered,
     formatMoney
   });
+  donutToggle.checked = chartMode === "donut";
   patternToggle.checked = patternMode;
 };
 
@@ -78,6 +80,16 @@ themeBtn.addEventListener("click", () => {
   } else {
     init();
   }
+});
+
+donutToggle.addEventListener("change", () => {
+  chartMode = donutToggle.checked ? "donut" : "pie";
+  localStorage.setItem("chartMode", chartMode);
+  chartStatus.textContent =
+  chartMode === "donut"
+    ? "Donut chart enabled"
+    : "Pie chart enabled";
+  init(); // redraw chart
 });
 
 patternToggle.addEventListener("change", () => {
