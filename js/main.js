@@ -19,6 +19,8 @@ const monthEl = document.getElementById("month");
 const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
+const patternToggle = document.getElementById("patternToggle");
+const chartStatus = document.getElementById("chartStatus");
 
 const init = () => {
   const data = getFiltered(transactions, monthEl);
@@ -33,6 +35,7 @@ const init = () => {
     getFiltered,
     formatMoney
   });
+  patternToggle.checked = patternMode;
 };
 
 initEvents({
@@ -76,6 +79,16 @@ themeBtn.addEventListener("click", () => {
     init();
   }
 });
+
+patternToggle.addEventListener("change", () => {
+  patternMode = patternToggle.checked;
+  localStorage.setItem("patternMode", patternMode);
+  chartStatus.textContent = patternMode
+    ? "Color-blind patterns enabled"
+    : "Color-blind patterns disabled";
+  init(); // redraw chart + legend
+});
+
 attachChartHover(canvas);
 attachChartClick(canvas, getFiltered, init);
 

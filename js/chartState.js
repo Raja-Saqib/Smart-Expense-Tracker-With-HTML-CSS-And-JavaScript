@@ -1,7 +1,8 @@
 export let slices = [];
 export let chartTotal = 0;
 export let chartMode = "pie";
-export let patternMode = true;
+export let patternMode =
+  localStorage.getItem("patternMode") !== "false";
 
 export const setSlices = data => (slices = data);
 export const setChartTotal = val => (chartTotal = val);
