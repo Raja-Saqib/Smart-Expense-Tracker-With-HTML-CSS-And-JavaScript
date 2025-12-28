@@ -248,9 +248,26 @@ export const drawChart = ({
     );
 
     item.addEventListener("keydown", e => {
+      const items = [...legendEl.querySelectorAll(".legend-item")];
+
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        focusedSliceIndex = (index + 1) % items.length;
+        items[focusedSliceIndex].focus();
+      }
+
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        focusedSliceIndex =
+          (index - 1 + items.length) % items.length;
+        items[focusedSliceIndex].focus();
+      }
+      
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         toggleCategoryFilter(slices[index].category);
+        chartStatus.textContent =
+          `Filtered by ${slices[index].category}`;
         drawChart({
           canvas,
           ctx,

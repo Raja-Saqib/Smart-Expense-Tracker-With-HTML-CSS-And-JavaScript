@@ -6,7 +6,7 @@ export let patternMode =
   localStorage.getItem("patternMode") !== "false";
 export let viewMode =
   localStorage.getItem("viewMode") || "chart";
-// valid values: "chart" | "table"
+export let focusedSliceIndex = 0;
 
 export const setSlices = data => (slices = data);
 export const setChartTotal = val => (chartTotal = val);
