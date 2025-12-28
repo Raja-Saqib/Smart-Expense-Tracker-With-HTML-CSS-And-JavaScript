@@ -22,6 +22,10 @@ const ctx = canvas.getContext("2d");
 const patternToggle = document.getElementById("patternToggle");
 const donutToggle = document.getElementById("donutToggle");
 const chartStatus = document.getElementById("chartStatus");
+const chartView = document.getElementById("chartView");
+const tableView = document.getElementById("tableView");
+const viewChartRadio = document.getElementById("viewChart");
+const viewTableRadio = document.getElementById("viewTable");
 
 const init = () => {
   const data = getFiltered(transactions, monthEl);
@@ -38,6 +42,12 @@ const init = () => {
   });
   donutToggle.checked = chartMode === "donut";
   patternToggle.checked = patternMode;
+
+  viewChartRadio.checked = viewMode === "chart";
+  viewTableRadio.checked = viewMode === "table";
+
+  chartView.hidden = viewMode !== "chart";
+  tableView.hidden = viewMode !== "table";
 };
 
 initEvents({
@@ -86,9 +96,9 @@ donutToggle.addEventListener("change", () => {
   chartMode = donutToggle.checked ? "donut" : "pie";
   localStorage.setItem("chartMode", chartMode);
   chartStatus.textContent =
-  chartMode === "donut"
-    ? "Donut chart enabled"
-    : "Pie chart enabled";
+    chartMode === "donut"
+      ? "Donut chart enabled"
+      : "Pie chart enabled";
   init(); // redraw chart
 });
 
@@ -99,6 +109,27 @@ patternToggle.addEventListener("change", () => {
     ? "Color-blind patterns enabled"
     : "Color-blind patterns disabled";
   init(); // redraw chart + legend
+});
+
+const updateViewMode = mode => {
+  viewMode = mode;
+  localStorage.setItem("viewMode", mode);
+
+  chartView.hidden = mode !== "chart";
+  tableView.hidden = mode !== "table";
+
+  chartStatus.textContent =
+    mode === "chart"
+      ? "Chart view selected"
+      : "Table view selected";
+};
+
+viewChartRadio.addEventListener("change", () => {
+  if (viewChartRadio.checked) updateViewMode("chart");
+});
+
+viewTableRadio.addEventListener("change", () => {
+  if (viewTableRadio.checked) updateViewMode("table");
 });
 
 attachChartHover(canvas);

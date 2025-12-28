@@ -42,41 +42,65 @@
           <input type="checkbox" id="patternToggle" />
           <span>Color-blind patterns</span>
         </label>
+
+        <label class="toggle">
+          <input
+            type="radio"
+            name="viewMode"
+            value="chart"
+            id="viewChart"
+          />
+          <span>Chart</span>
+        </label>
+
+        <label class="toggle">
+          <input
+            type="radio"
+            name="viewMode"
+            value="table"
+            id="viewTable"
+          />
+          <span>Table</span>
+        </label>
       </div>
 
       <div id="chartStatus" aria-live="polite" class="sr-only"></div>
 
-      <canvas 
-        id="expenseChart" 
-        width="300" 
-        height="300" 
-        role="img" 
-        aria-labelledby="chartTitle chartDesc"
-      ></canvas>
-    
-      <p id="chartTitle" class="sr-only">
-        Expense breakdown by category
-      </p>
-    
-      <p id="chartDesc" class="sr-only">
-        Pie chart showing expenses grouped by category with totals and percentages.
-      </p>
-    
-      <div id="chartLegend" class="legend"></div>
+      <div class="chart-view" id="chartView">
+        <canvas 
+          id="expenseChart" 
+          width="300" 
+          height="300" 
+          role="img" 
+          aria-labelledby="chartTitle chartDesc"
+        ></canvas>
+      
+        <p id="chartTitle" class="sr-only">
+          Expense breakdown by category
+        </p>
+      
+        <p id="chartDesc" class="sr-only">
+          Pie chart showing expenses grouped by category with totals and percentages.
+        </p>
+      
+        <div id="chartLegend" class="legend"></div>
+      </div>
     </section>
 
-    <section>
-      <h3>Category Totals</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Category</th>
-            <th>Total Spent</th>
-          </tr>
-        </thead>
-        <tbody id="categoryTable"></tbody>
-      </table>
-    </section>
+    <div class="table-view" id="tableView" hidden>
+      <section>
+        <h3>Category Totals</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Total Spent</th>
+            </tr>
+          </thead>
+          <tbody id="categoryTable"></tbody>
+        </table>
+      </section>
+    </div>
 
     <section class="filter">
       <label for="month">Filter by Month</label>
