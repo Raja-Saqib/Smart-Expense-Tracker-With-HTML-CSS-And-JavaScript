@@ -7,6 +7,7 @@ import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition } from "./chartAnimations.js";
 import { toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
+import { pullFromCloud } from "./cloud/cloudSync.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -135,4 +136,28 @@ viewTableRadio.addEventListener("change", () => {
 attachChartHover(canvas);
 attachChartClick(canvas, getFiltered, init);
 
-init();
+(async () => {
+  const cloudData = await pullFromCloud();
+
+  if (
+    cloudData &&
+    cloudData.transactions &&
+    cloudData.updatedAt >
+      (JSON.parse(localStorage.getItem("cloudUpdatedAt")) || 0)
+  ) {
+    transactions = cloudData.transactions;
+
+    localStorage.setItem(
+      "transactions",
+      JSON.stringify(transactions)
+    );
+    localStorage.setItem(
+      "cloudUpdatedAt",
+      cloudData.updatedAt
+    );
+
+    chartStatus.textContent = "Data restored from cloud";
+  }
+
+  init();
+})();
