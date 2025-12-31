@@ -127,6 +127,7 @@ export const drawChart = ({
     const color = colors[i % colors.length];
 
     slices.push({
+      id: category,
       category,
       value,
       startAngle,

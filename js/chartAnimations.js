@@ -22,39 +22,72 @@ export const animateThemeTransition = ({
   requestAnimationFrame(step);
 };
 
-export const animateChartTransition = ({ from, to }) => {
+const mapSlicesById = slices =>
+  Object.fromEntries(slices.map(s => [s.id, s]));
+
+export const animateChartTransition = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  from,
+  to,
+  duration = 500
+}) => {
   if (prefersReducedMotion) return;
 
-  const duration = 600;
+  const fromMap = mapSlicesById(from);
+  const toMap = mapSlicesById(to);
+
+  const allIds = new Set([
+    ...Object.keys(fromMap),
+    ...Object.keys(toMap)
+  ]);
+
   const start = performance.now();
 
   const frame = now => {
-    const t = Math.min((now - start) / duration, 1);
+    const progress = Math.min((now - start) / duration, 1);
+    ctx.clearRect(0, 0, cx * 2, cy * 2);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    allIds.forEach(id => {
+      const a = fromMap[id];
+      const b = toMap[id];
 
-    to.forEach(targetSlice => {
-      const prev = from.find(
-        s => s.category === targetSlice.category
-      );
+      if (!b) return; // slice removed → fade-out optional
 
       const startAngle =
-        prev?.startAngle ??
-        targetSlice.startAngle;
+        a
+          ? a.startAngle +
+            (b.startAngle - a.startAngle) * progress
+          : b.startAngle;
 
       const endAngle =
-        startAngle +
-        (targetSlice.endAngle - startAngle) * t;
+        a
+          ? a.endAngle +
+            (b.endAngle - a.endAngle) * progress
+          : b.startAngle +
+            (b.endAngle - b.startAngle) * progress;
 
       ctx.beginPath();
       ctx.arc(cx, cy, radius, startAngle, endAngle);
-      ctx.arc(cx, cy, innerRadius, endAngle, startAngle, true);
+      ctx.arc(
+        cx,
+        cy,
+        innerRadius,
+        endAngle,
+        startAngle,
+        true
+      );
       ctx.closePath();
-      ctx.fillStyle = targetSlice.color;
+      ctx.fillStyle = b.color;
       ctx.fill();
     });
 
-    if (t < 1) requestAnimationFrame(frame);
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    }
   };
 
   requestAnimationFrame(frame);
