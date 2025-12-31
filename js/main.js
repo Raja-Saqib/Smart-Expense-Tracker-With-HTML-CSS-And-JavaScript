@@ -8,6 +8,7 @@ import { animateThemeTransition } from "./chartAnimations.js";
 import { toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
 import { pullFromCloud } from "./cloud/cloudSync.js";
+import { animateChartTransition } from "./chartAnimations.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -139,12 +140,19 @@ attachChartClick(canvas, getFiltered, init);
 (async () => {
   const cloudData = await pullFromCloud();
 
+  const localUpdatedAt =
+    JSON.parse(localStorage.getItem("cloudUpdatedAt")) || 0;
+
+  let appliedCloud = false;
+
   if (
     cloudData &&
     cloudData.transactions &&
-    cloudData.updatedAt >
-      (JSON.parse(localStorage.getItem("cloudUpdatedAt")) || 0)
+    cloudData.updatedAt > localUpdatedAt
   ) {
+    // Preserve previous chart state BEFORE overwrite
+    setPreviousSlices(slices);
+
     transactions = cloudData.transactions;
 
     localStorage.setItem(
@@ -156,8 +164,39 @@ attachChartClick(canvas, getFiltered, init);
       cloudData.updatedAt
     );
 
-    chartStatus.textContent = "Data restored from cloud";
+    setCloudMeta(cloudData.meta);
+    appliedCloud = true;
   }
 
+  // Render UI (always)
   init();
+
+  // Animate only if cloud actually changed data
+  if (
+    appliedCloud &&
+    cloudData.chartChange &&
+    previousSlices.length
+  ) {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const radius = 120;
+    const innerRadius =
+      chartMode === "donut" ? 70 : 0;
+
+    animateChartTransition({
+      ctx,
+      cx,
+      cy,
+      radius,
+      innerRadius,
+      from: previousSlices,
+      to: slices
+    });
+
+    chartStatus.textContent =
+      "Chart updated from another device";
+  } else if (appliedCloud) {
+    chartStatus.textContent =
+      "Data restored from cloud";
+  }
 })();

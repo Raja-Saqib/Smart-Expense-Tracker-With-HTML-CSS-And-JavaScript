@@ -94,6 +94,9 @@ export const drawChart = ({
   getFiltered,
   formatMoney
 }) => {
+  // Preserve old slices for transitions
+  setPreviousSlices(slices);
+  
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   legendEl.innerHTML = "";
   setSlices([]);
@@ -262,7 +265,7 @@ export const drawChart = ({
           (index - 1 + items.length) % items.length;
         items[focusedSliceIndex].focus();
       }
-      
+
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         toggleCategoryFilter(slices[index].category);

@@ -3,10 +3,11 @@ const CLOUD_KEY = "expense-tracker-backup";
 // Example endpoint (replace later)
 const CLOUD_URL = "https://jsonblob.com/api/jsonBlob";
 
-export const pushToCloud = async transactions => {
+export const pushToCloud = async (transactions, chartChange) => {
   const payload = {
     updatedAt: Date.now(),
-    transactions
+    transactions,
+    chartChange
   };
 
   await fetch(CLOUD_URL, {
