@@ -186,6 +186,37 @@ Only **expenses** (negative amounts) are included in category analysis.
 
 ---
 
+## Aut0 Merge Conflicts Rules
+
+We’ll apply these rules in order:
+
+### Rule 1: Same category change → auto-merge
+
+If both versions:
+
+* changed amount or text
+* but category stayed the same
+
+**Pick the most recent** `updatedAt`
+
+### Rule 2: Delete vs edit → auto-resolve
+
+If:
+
+* remote deleted
+* local edited (or vice-versa)
+
+**Prefer delete**
+
+(Prevents ghost transactions)
+
+### Rule 3: Category changed differently
+
+If category differs between devices:
+
+**Manual resolution required**
+
+---
 ## How to Run the Project
 
 1. Download or clone the repository

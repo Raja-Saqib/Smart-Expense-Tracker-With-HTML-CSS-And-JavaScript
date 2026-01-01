@@ -44,3 +44,37 @@ export const detectConflicts = (local, remote) => {
 
   return conflicts;
 };
+
+export const autoResolveConflicts = conflicts => {
+  const resolved = [];
+  const unresolved = [];
+
+  conflicts.forEach(c => {
+    const { local, remote } = c;
+
+    // Rule 2: delete wins
+    if (!local && remote) {
+      resolved.push(remote);
+      return;
+    }
+    if (!remote && local) {
+      resolved.push(local);
+      return;
+    }
+
+    // Rule 1: same category → newer wins
+    if (local.category === remote.category) {
+      resolved.push(
+        local.updatedAt > remote.updatedAt
+          ? local
+          : remote
+      );
+      return;
+    }
+
+    // Otherwise → unresolved
+    unresolved.push(c);
+  });
+
+  return { resolved, unresolved };
+};

@@ -160,8 +160,20 @@ attachChartClick(canvas, getFiltered, init);
       cloudData.transactions
     );
 
-    if (conflicts.length) {
-      showConflictModal(conflicts);
+    const { resolved, unresolved } =
+      autoResolveConflicts(conflicts);
+
+    // Apply auto-resolved transactions
+    if (resolved.length) {
+      resolved.forEach(r => {
+        transactions = transactions.map(t =>
+          t.id === r.id ? r : t
+        );
+      });
+    }
+
+    if (unresolved.length) {
+      showConflictModal(unresolved);
       chartStatus.textContent =
         "Sync conflicts detected. Please resolve.";
       return; // ⛔ STOP normal sync
