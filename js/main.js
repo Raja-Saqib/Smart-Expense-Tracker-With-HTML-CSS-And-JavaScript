@@ -136,6 +136,37 @@ viewTableRadio.addEventListener("change", () => {
   if (viewTableRadio.checked) updateViewMode("table");
 });
 
+resolveConflictsBtn.addEventListener("click", () => {
+  setPreviousSlices(slices); // snapshot BEFORE merge
+
+  applyConflictChoices(); // updates transactions
+
+  init(); // redraws chart → new slices
+
+  const changed = getChangedCategories(
+    previousSlices,
+    slices
+  );
+
+  if (changed.length) {
+    highlightChangedSlices({
+      ctx,
+      cx: canvas.width / 2,
+      cy: canvas.height / 2,
+      radius: 120,
+      innerRadius: chartMode === "donut" ? 70 : 0,
+      slices,
+      changedCategories: changed
+    });
+
+    chartStatus.textContent =
+      `Conflicts resolved. Updated categories: ${changed.join(", ")}`;
+  } else {
+    chartStatus.textContent =
+      "Conflicts resolved with no chart changes";
+  }
+});
+
 attachChartHover(canvas);
 attachChartClick(canvas, getFiltered, init);
 
@@ -197,30 +228,29 @@ attachChartClick(canvas, getFiltered, init);
   // Render UI (always)
   init();
 
-  // Animate only if cloud actually changed data
-  if (
-    appliedCloud &&
-    cloudData.chartChange &&
-    previousSlices.length
-  ) {
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const radius = 120;
-    const innerRadius =
-      chartMode === "donut" ? 70 : 0;
+  if (appliedCloud && previousSlices?.length && slices.length) {
+    const changed = getChangedCategories(
+      previousSlices,
+      slices
+    );
 
-    animateChartTransition({
-      ctx,
-      cx,
-      cy,
-      radius,
-      innerRadius,
-      from: previousSlices,
-      to: slices
-    });
+    if (changed.length) {
+      highlightChangedSlices({
+        ctx,
+        cx: canvas.width / 2,
+        cy: canvas.height / 2,
+        radius: 120,
+        innerRadius: chartMode === "donut" ? 70 : 0,
+        slices,
+        changedCategories: changed
+      });
 
-    chartStatus.textContent =
-      "Chart updated from another device";
+      chartStatus.textContent =
+        `Updated categories: ${changed.join(", ")}`;
+    } else {
+      chartStatus.textContent =
+        "Cloud data applied (no chart changes)";
+    }
   } else if (appliedCloud) {
     chartStatus.textContent =
       "Data restored from cloud";

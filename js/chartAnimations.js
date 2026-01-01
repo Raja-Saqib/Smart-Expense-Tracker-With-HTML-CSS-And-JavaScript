@@ -92,3 +92,34 @@ export const animateChartTransition = ({
 
   requestAnimationFrame(frame);
 };
+
+export const highlightChangedSlices = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  slices,
+  changedCategories
+}) => {
+  slices.forEach(s => {
+    if (!changedCategories.includes(s.category))
+      return;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 6, s.startAngle, s.endAngle);
+    ctx.arc(
+      cx,
+      cy,
+      innerRadius,
+      s.endAngle,
+      s.startAngle,
+      true
+    );
+    ctx.closePath();
+
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  });
+};
