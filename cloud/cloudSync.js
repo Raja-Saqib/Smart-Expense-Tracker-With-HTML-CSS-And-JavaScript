@@ -22,3 +22,25 @@ export const pullFromCloud = async () => {
   if (!res.ok) return null;
   return await res.json();
 };
+
+export const detectConflicts = (local, remote) => {
+  const conflicts = [];
+
+  remote.forEach(r => {
+    const l = local.find(t => t.id === r.id);
+    if (!l) return;
+
+    if (
+      l.updatedAt !== r.updatedAt &&
+      l.updatedBy !== r.updatedBy
+    ) {
+      conflicts.push({
+        id: r.id,
+        local: l,
+        remote: r
+      });
+    }
+  });
+
+  return conflicts;
+};

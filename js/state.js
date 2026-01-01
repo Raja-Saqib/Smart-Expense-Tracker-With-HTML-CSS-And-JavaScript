@@ -38,7 +38,10 @@ export const addTransaction = e => {
     text: textEl.value,
     category: categoryEl.value,
     amount: +amountEl.value,
-    date: existing?.date ?? new Date().toISOString()
+    date: existing?.date ?? new Date().toISOString(),
+
+    updatedAt: Date.now(),
+    updatedBy: deviceId
   };
 
   transactions = editId

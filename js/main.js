@@ -9,6 +9,8 @@ import { toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
 import { pullFromCloud } from "./cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
+import { detectConflicts } from "../cloud/cloudSync.js";
+import { showConflictModal } from "./ui.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -152,6 +154,18 @@ attachChartClick(canvas, getFiltered, init);
   ) {
     // Preserve previous chart state BEFORE overwrite
     setPreviousSlices(slices);
+
+    const conflicts = detectConflicts(
+      transactions,
+      cloudData.transactions
+    );
+
+    if (conflicts.length) {
+      showConflictModal(conflicts);
+      chartStatus.textContent =
+        "Sync conflicts detected. Please resolve.";
+      return; // ⛔ STOP normal sync
+    }
 
     transactions = cloudData.transactions;
 

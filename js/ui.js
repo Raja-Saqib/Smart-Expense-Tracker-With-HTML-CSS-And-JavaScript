@@ -34,3 +34,60 @@ export const renderCategories = (tableBody, data) => {
     tableBody.appendChild(row);
   });
 };
+
+const renderConflict = conflict => `
+  <div class="conflict-card">
+    <h4>${conflict.local.text}</h4>
+
+    <label>
+      <input type="radio" name="${conflict.id}" value="local" checked />
+      Keep this device
+      (${formatMoney(conflict.local.amount)})
+    </label>
+
+    <label>
+      <input type="radio" name="${conflict.id}" value="remote" />
+      Use cloud version
+      (${formatMoney(conflict.remote.amount)})
+    </label>
+  </div>
+`;
+
+export const showConflictModal = conflicts => {
+  const modal = document.getElementById("conflictModal");
+  const list = modal.querySelector("#conflictList");
+
+  list.innerHTML = "";
+
+  conflicts.forEach(c => {
+    list.insertAdjacentHTML(
+      "beforeend",
+      renderConflict(c)
+    );
+  });
+
+  modal.hidden = false;
+  modal.focus();
+};
+
+export const applyConflictResolutions = conflicts => {
+  conflicts.forEach(c => {
+    const choice = document.querySelector(
+      `input[name="${c.id}"]:checked`
+    ).value;
+
+    transactions = transactions.map(t =>
+      t.id === c.id
+        ? choice === "local"
+          ? c.local
+          : c.remote
+        : t
+    );
+  });
+
+  saveData({ type: "merge" });
+  init();
+
+  chartStatus.textContent =
+    "Conflicts resolved and synced";
+};
