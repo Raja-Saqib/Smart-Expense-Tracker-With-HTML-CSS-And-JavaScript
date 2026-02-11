@@ -137,6 +137,13 @@ viewTableRadio.addEventListener("change", () => {
 });
 
 resolveConflictsBtn.addEventListener("click", () => {
+  // Save undo snapshot BEFORE applying choices
+  pushUndoState({
+    transactions,
+    slices,
+    cloudMeta
+  });
+
   setPreviousSlices(slices); // snapshot BEFORE merge
 
   applyConflictChoices(); // updates transactions
@@ -183,9 +190,6 @@ attachChartClick(canvas, getFiltered, init);
     cloudData.transactions &&
     cloudData.updatedAt > localUpdatedAt
   ) {
-    // Preserve previous chart state BEFORE overwrite
-    setPreviousSlices(slices);
-
     const conflicts = detectConflicts(
       transactions,
       cloudData.transactions
@@ -194,6 +198,22 @@ attachChartClick(canvas, getFiltered, init);
     const { resolved, unresolved } =
       autoResolveConflicts(conflicts);
 
+    if (unresolved.length) {
+      showConflictModal(unresolved);
+      chartStatus.textContent =
+        "Sync conflicts detected. Please resolve.";
+      return; // ⛔ STOP normal sync
+    }
+
+    // Save undo snapshot BEFORE overwriting
+    pushUndoState({ 
+      transactions, 
+      slices, 
+      cloudMeta 
+    });
+    // Preserve previous chart state BEFORE overwrite
+    setPreviousSlices(slices);
+
     // Apply auto-resolved transactions
     if (resolved.length) {
       resolved.forEach(r => {
@@ -201,13 +221,6 @@ attachChartClick(canvas, getFiltered, init);
           t.id === r.id ? r : t
         );
       });
-    }
-
-    if (unresolved.length) {
-      showConflictModal(unresolved);
-      chartStatus.textContent =
-        "Sync conflicts detected. Please resolve.";
-      return; // ⛔ STOP normal sync
     }
 
     transactions = cloudData.transactions;
