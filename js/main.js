@@ -11,6 +11,7 @@ import { pullFromCloud } from "./cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
+import { pushUndoState, createUndoState } from "./historyState.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -138,11 +139,15 @@ viewTableRadio.addEventListener("change", () => {
 
 resolveConflictsBtn.addEventListener("click", () => {
   // Save undo snapshot BEFORE applying choices
-  pushUndoState({
-    transactions,
-    slices,
-    cloudMeta
-  });
+  pushUndoState(
+    createUndoState({
+      transactions,
+      slices,
+      cloudMeta,
+      chartMode,
+      label: "Undo conflict merge"
+    })
+  );
 
   setPreviousSlices(slices); // snapshot BEFORE merge
 
@@ -206,11 +211,16 @@ attachChartClick(canvas, getFiltered, init);
     }
 
     // Save undo snapshot BEFORE overwriting
-    pushUndoState({ 
-      transactions, 
-      slices, 
-      cloudMeta 
-    });
+    pushUndoState(
+      createUndoState({
+        transactions,
+        slices,
+        cloudMeta,
+        chartMode,
+        label: "Undo cloud sync"
+      })
+    );
+
     // Preserve previous chart state BEFORE overwrite
     setPreviousSlices(slices);
 
