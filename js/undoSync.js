@@ -1,18 +1,19 @@
-import { undo } from "./historyState.js";
+import { undo, canUndo } from "./historyState.js";
 
 undoBtn.addEventListener("click", () => {
+  if (!canUndo()) return;
+
+  const previousSlices = structuredClone(slices);
+
   const prev = undo();
   if (!prev) return;
 
-  // Capture current slices BEFORE restoring
-  const previousSlices = structuredClone(slices);
-
-  transactions = prev.data.transactions;
-  setCloudMeta(prev.data.cloudMeta);
-  chartMode = prev.chart.chartMode;
+  transactions = prev.state.transactions;
+  setCloudMeta(prev.state.cloudMeta);
+  chartMode = prev.state.chartMode;
 
   saveLocalTransactions(transactions);
-  init(); // re-renders + recalculates slices
+  init(); // recalculates slices
 
   const changed = getChangedCategories(
     previousSlices,

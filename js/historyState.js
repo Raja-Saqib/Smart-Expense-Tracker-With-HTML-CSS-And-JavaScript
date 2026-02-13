@@ -1,5 +1,3 @@
-// state/undoManager.js
-
 import { isUndoStateEqual } from "./undoCompare.js";
 
 const MAX_STACK_SIZE = 30;
@@ -8,11 +6,11 @@ let undoStack = [];
 let redoStack = [];
 
 /**
- * Create a structured undo snapshot
+ * Create canonical undo snapshot
+ * (NO slices stored — slices are derived)
  */
 export const createUndoState = ({
   transactions,
-  slices,
   cloudMeta,
   chartMode,
   label = "State change"
@@ -20,52 +18,47 @@ export const createUndoState = ({
   id: crypto.randomUUID(),
   timestamp: Date.now(),
   label,
-  data: {
+  state: {
     transactions: structuredClone(transactions),
-    cloudMeta: structuredClone(cloudMeta)
-  },
-  chart: {
-    slices: structuredClone(slices),
+    cloudMeta: structuredClone(cloudMeta),
     chartMode
   }
 });
 
 /**
- * Push new undo state with dedupe + compression
+ * Push new undo state with dedupe + cap
  */
 export const pushUndoState = state => {
   const last = undoStack[undoStack.length - 1];
 
-  // 🔹 Deduplicate identical states
   if (last && isUndoStateEqual(last, state)) {
-    return;
+    return; // prevent duplicate
   }
 
   undoStack.push(state);
 
-  // 🔹 Cap stack size
   if (undoStack.length > MAX_STACK_SIZE) {
     undoStack.shift();
   }
 
-  // 🔹 Clear redo stack on new action
+  // Clear redo stack on new action
   redoStack = [];
 };
 
 /**
- * Undo last state
+ * Undo (true undo semantics)
  */
 export const undo = () => {
-  if (!undoStack.length) return null;
+  if (undoStack.length < 2) return null;
 
   const current = undoStack.pop();
   redoStack.push(current);
 
-  return undoStack[undoStack.length - 1] || null;
+  return undoStack[undoStack.length - 1];
 };
 
 /**
- * Redo previously undone state
+ * Redo
  */
 export const redo = () => {
   if (!redoStack.length) return null;
@@ -75,23 +68,10 @@ export const redo = () => {
   return state;
 };
 
-/**
- * Peek last undo label (for UI)
- */
-export const getLastUndoLabel = () => {
-  const last = undoStack[undoStack.length - 1];
-  return last?.label || null;
-};
+export const canUndo = () => undoStack.length > 1;
+export const canRedo = () => redoStack.length > 0;
 
-/**
- * Clear all history
- */
 export const clearUndoHistory = () => {
   undoStack = [];
   redoStack = [];
 };
-
-/**
- * Optional debug info
- */
-export const getUndoStackSize = () => undoStack.length;

@@ -142,7 +142,6 @@ resolveConflictsBtn.addEventListener("click", () => {
   pushUndoState(
     createUndoState({
       transactions,
-      slices,
       cloudMeta,
       chartMode,
       label: "Undo conflict merge"
@@ -214,7 +213,6 @@ attachChartClick(canvas, getFiltered, init);
     pushUndoState(
       createUndoState({
         transactions,
-        slices,
         cloudMeta,
         chartMode,
         label: "Undo cloud sync"
