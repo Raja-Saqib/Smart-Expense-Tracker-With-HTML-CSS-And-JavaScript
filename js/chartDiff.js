@@ -6,11 +6,16 @@ export const getChangedCategories = (
     prev.map(s => [s.category, s.value])
   );
 
-  return next
-    .filter(
-      s =>
-        !prevMap[s.category] ||
-        prevMap[s.category] !== s.value
-    )
-    .map(s => s.category);
+  const nextMap = Object.fromEntries(
+    next.map(s => [s.category, s.value])
+  );
+
+  const allCategories = new Set([
+    ...Object.keys(prevMap),
+    ...Object.keys(nextMap)
+  ]);
+
+  return [...allCategories].filter(cat => {
+    return prevMap[cat] !== nextMap[cat];
+  });
 };
