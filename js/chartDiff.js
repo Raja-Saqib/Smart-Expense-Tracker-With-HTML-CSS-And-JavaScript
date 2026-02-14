@@ -15,7 +15,9 @@ export const getChangedCategories = (
     ...Object.keys(nextMap)
   ]);
 
+  const EPSILON = 0.0001;
+
   return [...allCategories].filter(cat => {
-    return prevMap[cat] !== nextMap[cat];
+    return Math.abs((prevMap[cat] || 0) - (nextMap[cat] || 0)) > EPSILON;
   });
 };
