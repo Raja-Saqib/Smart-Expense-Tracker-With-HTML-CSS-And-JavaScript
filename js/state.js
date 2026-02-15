@@ -1,4 +1,5 @@
 import { pushToCloud } from "./cloud/cloudSync.js";
+import { broadcastState } from "./crossTabSync.js";
 
 export let transactions =
   JSON.parse(localStorage.getItem("transactions")) || [];
@@ -6,13 +7,21 @@ export let transactions =
 export let editId = null;
 export let activeCategory = null;
 
-export const saveData = async (meta = {}) => {
-  localStorage.setItem("transactions", JSON.stringify(transactions));
+export const saveData = async (
+  transactions,
+  meta = {}
+) => {
+  localStorage.setItem(
+    "transactions",
+    JSON.stringify(transactions)
+  );
+
   try {
     await pushToCloud(transactions, meta);
-    chartStatus.textContent = "Data synced to cloud";
+    return { success: true };
   } catch (e) {
     console.warn("Cloud sync failed, saved locally");
+    return { success: false };
   }
 };
 
@@ -22,7 +31,7 @@ export const toggleCategoryFilter = category => {
   activeCategory = activeCategory === category ? null : category;
 };
 
-export const addTransaction = e => {
+export const addTransaction = async e => {
   e.preventDefault();
 
   if (!textEl.value || !categoryEl.value || !amountEl.value)
@@ -48,7 +57,8 @@ export const addTransaction = e => {
     ? transactions.map(t => (t.id === editId ? data : t))
     : [...transactions, data];
 
-  saveData(
+  await saveData(
+    transactions,
     editId
       ? {
           type: "edit",
@@ -61,22 +71,35 @@ export const addTransaction = e => {
         }
   );
 
+  broadcastState({
+    transactions,
+    cloudMeta,
+    chartMode
+  });
+
   editId = null;
   form.querySelector("button").textContent =
     "Add Transaction";
   form.reset();
+  
   init();
 };
 
-export const deleteTransaction = id => {
+export const deleteTransaction = async id => {
   const t = transactions.find(t => t.id === id);
   if (!t) return;
 
   transactions = transactions.filter(tx => tx.id !== id);
 
-  saveData({
+  await saveData(transactions, {
     type: "delete",
     category: t.category
+  });
+
+  broadcastState({
+    transactions,
+    cloudMeta,
+    chartMode
   });
 
   init();

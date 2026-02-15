@@ -4,7 +4,7 @@ import { renderList, updateSummary, renderCategories } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
-import { animateThemeTransition } from "./chartAnimations.js";
+import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
 import { toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
 import { pullFromCloud } from "./cloud/cloudSync.js";
@@ -12,6 +12,9 @@ import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
 import { pushUndoState, createUndoState } from "./historyState.js";
+import { listenToBroadcast } from "./crossTabSync.js";
+import { getChangedCategories } from "./chartDiff.js";
+import { setCloudMeta } from "../cloud/cloudState.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -277,3 +280,65 @@ attachChartClick(canvas, getFiltered, init);
       "Data restored from cloud";
   }
 })();
+
+listenToBroadcast(payload => {
+  if (!payload) return;
+
+  const previousSlices = structuredClone(slices);
+
+  transactions = payload.transactions;
+  setCloudMeta(payload.cloudMeta);
+  chartMode = payload.chartMode;
+
+  localStorage.setItem(
+    "transactions",
+    JSON.stringify(transactions)
+  );
+  
+  init();
+
+  const changed = getChangedCategories(
+    previousSlices,
+    slices
+  );
+
+  if (changed.length) {
+    highlightChangedSlices({
+      ctx,
+      cx: canvas.width / 2,
+      cy: canvas.height / 2,
+      radius: 120,
+      innerRadius: chartMode === "donut" ? 70 : 0,
+      slices,
+      changedCategories: changed
+    });
+  }
+
+  chartStatus.textContent = "Updated from another tab";
+});
+
+window.addEventListener("storage", e => {
+  if (e.key === "transactions") {
+    const previousSlices = structuredClone(slices);
+
+    transactions = JSON.parse(e.newValue);
+    init();
+
+    const changed = getChangedCategories(
+      previousSlices,
+      slices
+    );
+
+    if (changed.length) {
+      highlightChangedSlices({
+        ctx,
+        cx: canvas.width / 2,
+        cy: canvas.height / 2,
+        radius: 120,
+        innerRadius: chartMode === "donut" ? 70 : 0,
+        slices,
+        changedCategories: changed
+      });
+    }
+  }
+});

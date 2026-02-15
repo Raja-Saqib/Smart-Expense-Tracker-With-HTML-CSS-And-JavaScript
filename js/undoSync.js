@@ -1,6 +1,11 @@
+import { setCloudMeta } from "../cloud/cloudState.js";
+import { highlightChangedSlices } from "./chartAnimations.js";
+import { getChangedCategories } from "./chartDiff.js";
+import { chartMode } from "./chartState.js";
 import { undo, canUndo } from "./historyState.js";
+import { saveData, transactions } from "./state.js";
 
-undoBtn.addEventListener("click", () => {
+undoBtn.addEventListener("click", async () => {
   if (!canUndo()) return;
 
   const previousSlices = structuredClone(slices);
@@ -12,7 +17,17 @@ undoBtn.addEventListener("click", () => {
   setCloudMeta(prev.state.cloudMeta);
   chartMode = prev.state.chartMode;
 
-  saveLocalTransactions(transactions);
+  const result = await saveData(
+    transactions,
+    { type: "undo" }
+  );
+
+  broadcastState({
+    transactions,
+    cloudMeta,
+    chartMode
+  });
+
   init(); // recalculates slices
 
   const changed = getChangedCategories(
@@ -34,5 +49,7 @@ undoBtn.addEventListener("click", () => {
   }
 
   chartStatus.textContent =
-    prev.label || "Last action undone";
+    result.success
+      ? prev.label || "Last action undone"
+      : "Undo applied (cloud offline)";
 });
