@@ -1,3 +1,4 @@
+import { getNextUndoLabel } from "./historyState.js";
 import { saveData } from "./state.js";
 import { formatMoney } from "./utils.js";
 
@@ -91,4 +92,16 @@ export const applyConflictResolutions = conflicts => {
 
   chartStatus.textContent =
     "Conflicts resolved and synced";
+};
+
+export const updateUndoUI = () => {
+  const label = getNextUndoLabel();
+
+  if (!label) {
+    undoBtn.disabled = true;
+    undoBtn.textContent = "Undo";
+  } else {
+    undoBtn.disabled = false;
+    undoBtn.textContent = label;
+  }
 };

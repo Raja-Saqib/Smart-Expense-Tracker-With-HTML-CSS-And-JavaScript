@@ -75,3 +75,9 @@ export const clearUndoHistory = () => {
   undoStack = [];
   redoStack = [];
 };
+
+export const getNextUndoLabel = () => {
+  if (undoStack.length < 2) return null;
+
+  return undoStack[undoStack.length - 1]?.label || null;
+};

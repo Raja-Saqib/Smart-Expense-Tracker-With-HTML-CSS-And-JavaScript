@@ -1,5 +1,7 @@
 import { pushToCloud } from "./cloud/cloudSync.js";
 import { broadcastState } from "./crossTabSync.js";
+import { createUndoState, pushUndoState } from "./historyState.js";
+import { updateUndoUI } from "./ui.js";
 
 export let transactions =
   JSON.parse(localStorage.getItem("transactions")) || [];
@@ -85,6 +87,8 @@ export const addTransaction = async e => {
     })
   );
 
+  updateUndoUI();
+
   // MUTATE
   transactions = editId
     ? transactions.map(t => (t.id === editId ? data : t))
@@ -137,6 +141,8 @@ export const deleteTransaction = async id => {
       label: "Undo delete"
     })
   );
+
+  updateUndoUI();
 
   // MUTATE
   transactions = transactions.filter(tx => tx.id !== id);

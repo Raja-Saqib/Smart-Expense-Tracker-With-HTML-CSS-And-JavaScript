@@ -1,6 +1,6 @@
 import { transactions, setTransactions, saveData } from "./state.js";
 import { getFiltered } from "./filters.js";
-import { renderList, updateSummary, renderCategories } from "./ui.js";
+import { renderList, updateSummary, renderCategories, updateUndoUI } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -151,6 +151,8 @@ resolveConflictsBtn.addEventListener("click", () => {
     })
   );
 
+  updateUndoUI();
+
   setPreviousSlices(slices); // snapshot BEFORE merge
 
   applyConflictChoices(); // updates transactions
@@ -221,6 +223,8 @@ attachChartClick(canvas, getFiltered, init);
         label: "Undo cloud sync"
       })
     );
+
+    updateUndoUI();
 
     // Preserve previous chart state BEFORE overwrite
     setPreviousSlices(slices);
@@ -294,7 +298,7 @@ listenToBroadcast(payload => {
     "transactions",
     JSON.stringify(transactions)
   );
-  
+
   init();
 
   const changed = getChangedCategories(

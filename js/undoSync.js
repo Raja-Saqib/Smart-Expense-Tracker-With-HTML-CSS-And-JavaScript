@@ -4,6 +4,7 @@ import { getChangedCategories } from "./chartDiff.js";
 import { chartMode } from "./chartState.js";
 import { undo, canUndo } from "./historyState.js";
 import { saveData, transactions } from "./state.js";
+import { updateUndoUI } from "./ui.js";
 
 undoBtn.addEventListener("click", async () => {
   if (!canUndo()) return;
@@ -12,6 +13,8 @@ undoBtn.addEventListener("click", async () => {
 
   const prev = undo();
   if (!prev) return;
+
+  updateUndoUI();
 
   transactions = prev.state.transactions;
   setCloudMeta(prev.state.cloudMeta);
