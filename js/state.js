@@ -53,11 +53,22 @@ export const addTransaction = async e => {
     updatedBy: deviceId
   };
 
+  // SNAPSHOT BEFORE MUTATION
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta,
+      chartMode,
+      label: editId ? "Undo edit" : "Undo add"
+    })
+  );
+
+  // MUTATE
   transactions = editId
     ? transactions.map(t => (t.id === editId ? data : t))
     : [...transactions, data];
 
-  await saveData(
+  const result = await saveData(
     transactions,
     editId
       ? {
@@ -70,6 +81,12 @@ export const addTransaction = async e => {
           category: data.category
         }
   );
+
+  if (!result.success) {
+    chartStatus.textContent = "Saved locally (cloud offline)";
+  } else {
+    chartStatus.textContent = "Data synced to cloud";
+  }
 
   broadcastState({
     transactions,
@@ -89,12 +106,29 @@ export const deleteTransaction = async id => {
   const t = transactions.find(t => t.id === id);
   if (!t) return;
 
+  // SNAPSHOT BEFORE MUTATION
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta,
+      chartMode,
+      label: "Undo delete"
+    })
+  );
+
+  // MUTATE
   transactions = transactions.filter(tx => tx.id !== id);
 
-  await saveData(transactions, {
+  const result = await saveData(transactions, {
     type: "delete",
     category: t.category
   });
+
+  if (!result.success) {
+    chartStatus.textContent = "Saved locally (cloud offline)";
+  } else {
+    chartStatus.textContent = "Data synced to cloud";
+  }
 
   broadcastState({
     transactions,
