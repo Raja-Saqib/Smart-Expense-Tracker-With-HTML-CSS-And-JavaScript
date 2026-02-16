@@ -42,6 +42,28 @@ export const addTransaction = async e => {
 
   const existing = transactions.find(t => t.id === editId);
 
+  // If editing, detect no-op BEFORE creating new object
+  if (editId && existing) {
+    const isUnchanged =
+      existing.text === textEl.value &&
+      existing.category === categoryEl.value &&
+      existing.amount === +amountEl.value;
+
+    if (isUnchanged) {
+      // Reset UI but do nothing else
+      editId = null;
+      form.querySelector("button").textContent = "Add Transaction";
+      
+      textEl.value = existing.text;
+      amountEl.value = existing.amount;
+      categoryEl.value = existing.category;
+
+      chartStatus.textContent = "No changes detected";
+      
+      return;
+    }
+  }
+
   const data = {
     id: editId ?? Date.now(),
     text: textEl.value,
