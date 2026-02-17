@@ -100,3 +100,6 @@ export const jumpToState = index => {
 
   return target;
 };
+
+export const getCurrentIndex = () =>
+  undoStack.length - 1;

@@ -15,6 +15,7 @@ import { pushUndoState, createUndoState } from "./historyState.js";
 import { listenToBroadcast } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { setCloudMeta } from "../cloud/cloudState.js";
+import { initDebugPanel } from "./debugPanel.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -256,6 +257,12 @@ attachChartClick(canvas, getFiltered, init);
   // Render UI (always)
   init();
   updateUndoUI();
+
+  initDebugPanel({
+    deviceId,
+    getCloudMeta: () => cloudMeta,
+    getChartMode: () => chartMode
+  });
 
   if (appliedCloud && previousSlices?.length && slices.length) {
     const changed = getChangedCategories(
