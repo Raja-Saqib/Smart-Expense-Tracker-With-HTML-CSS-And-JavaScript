@@ -255,6 +255,7 @@ attachChartClick(canvas, getFiltered, init);
 
   // Render UI (always)
   init();
+  updateUndoUI();
 
   if (appliedCloud && previousSlices?.length && slices.length) {
     const changed = getChangedCategories(

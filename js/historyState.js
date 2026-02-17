@@ -81,3 +81,22 @@ export const getNextUndoLabel = () => {
 
   return undoStack[undoStack.length - 1]?.label || null;
 };
+
+export const getUndoStack = () => [...undoStack];
+export const getRedoStack = () => [...redoStack];
+
+export const jumpToState = index => {
+  if (index < 0 || index >= undoStack.length) return null;
+
+  const target = undoStack[index];
+
+  // Move everything after index to redo stack
+  redoStack = [
+    ...undoStack.slice(index + 1),
+    ...redoStack
+  ];
+
+  undoStack = undoStack.slice(0, index + 1);
+
+  return target;
+};
