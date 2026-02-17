@@ -2,6 +2,7 @@ import { isUndoStateEqual } from "./undoCompare.js";
 import { publish } from "./eventBus.js";
 import { deepFreeze } from "./deepFreeze.js";
 import { isDev } from "./deepFreeze.js";
+import { validateSnapshot } from "./stateValidator.js";
 
 const MAX_STACK_SIZE = 30;
 
@@ -30,6 +31,7 @@ export const createUndoState = ({
   };
 
   if (isDev) {
+    validateSnapshot(snapshot);
     deepFreeze(snapshot);
   }
 
