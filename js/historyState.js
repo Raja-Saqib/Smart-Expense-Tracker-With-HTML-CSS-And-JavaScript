@@ -1,4 +1,7 @@
 import { isUndoStateEqual } from "./undoCompare.js";
+import { publish } from "./eventBus.js";
+import { deepFreeze } from "./deepFreeze.js";
+import { isDev } from "./deepFreeze.js";
 
 const MAX_STACK_SIZE = 30;
 
@@ -14,16 +17,24 @@ export const createUndoState = ({
   cloudMeta,
   chartMode,
   label = "State change"
-}) => ({
-  id: crypto.randomUUID(),
-  timestamp: Date.now(),
-  label,
-  state: {
-    transactions: structuredClone(transactions),
-    cloudMeta: structuredClone(cloudMeta),
-    chartMode
+}) => {
+  const snapshot = {
+    id: crypto.randomUUID(),
+    timestamp: Date.now(),
+    label,
+    state: {
+      transactions: structuredClone(transactions),
+      cloudMeta: structuredClone(cloudMeta),
+      chartMode
+    }
+  };
+
+  if (isDev) {
+    deepFreeze(snapshot);
   }
-});
+
+  return snapshot;
+};
 
 /**
  * Push new undo state with dedupe + cap
@@ -36,6 +47,8 @@ export const pushUndoState = state => {
   }
 
   undoStack.push(state);
+
+  publish("history:changed");
 
   if (undoStack.length > MAX_STACK_SIZE) {
     undoStack.shift();
@@ -54,6 +67,8 @@ export const undo = () => {
   const current = undoStack.pop();
   redoStack.push(current);
 
+  publish("history:changed");
+
   return undoStack[undoStack.length - 1];
 };
 
@@ -65,6 +80,9 @@ export const redo = () => {
 
   const state = redoStack.pop();
   undoStack.push(state);
+
+  publish("history:changed");
+
   return state;
 };
 
@@ -97,6 +115,8 @@ export const jumpToState = index => {
   ];
 
   undoStack = undoStack.slice(0, index + 1);
+
+  publish("history:changed");
 
   return target;
 };
