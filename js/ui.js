@@ -105,3 +105,24 @@ export const updateUndoUI = () => {
     undoBtn.textContent = label;
   }
 };
+
+document.addEventListener("keydown", e => {
+  const ctrlOrCmd = e.ctrlKey || e.metaKey;
+
+  if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+    return;
+  }
+
+  if (ctrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    if (canUndo()) undoBtn.click();
+  }
+
+  if (
+    (ctrlOrCmd && e.key.toLowerCase() === "y") ||
+    (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "z")
+  ) {
+    e.preventDefault();
+    if (canRedo()) redoBtn.click();
+  }
+});
