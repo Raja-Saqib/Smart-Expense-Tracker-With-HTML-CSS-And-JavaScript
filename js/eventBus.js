@@ -1,4 +1,4 @@
-const listeners = {};
+const listeners = Object.create(null);
 
 export const subscribe = (event, callback) => {
   if (!listeners[event]) {
@@ -9,13 +9,24 @@ export const subscribe = (event, callback) => {
 
   return () => {
     listeners[event].delete(callback);
+
+    // Clean up empty sets
+    if (listeners[event].size === 0) {
+      delete listeners[event];
+    }
   };
 };
 
 export const publish = (event, payload) => {
-  if (!listeners[event]) return;
+  const eventListeners = listeners[event];
+  if (!eventListeners) return;
 
-  for (const cb of listeners[event]) {
-    cb(payload);
-  }
+  // Clone to avoid mutation issues during iteration
+  [...eventListeners].forEach(cb => {
+    try {
+      cb(payload);
+    } catch (error) {
+      console.error(`Error in "${event}" listener`, error);
+    }
+  });
 };
