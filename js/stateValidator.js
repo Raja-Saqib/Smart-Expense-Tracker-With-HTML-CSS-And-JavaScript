@@ -1,15 +1,25 @@
 export const validateSnapshot = snapshot => {
-  if (!snapshot || typeof snapshot !== "object")
-    throw new Error("Invalid snapshot");
+  if (!snapshot || typeof snapshot !== "object") {
+    throw new Error("Invalid snapshot object");
+  }
 
-  if (!Array.isArray(snapshot.state.transactions))
+  if (!snapshot.state || typeof snapshot.state !== "object") {
+    throw new Error("Invalid snapshot.state");
+  }
+
+  const { transactions, cloudMeta, chartMode } = snapshot.state;
+
+  if (!Array.isArray(transactions)) {
     throw new Error("Invalid transactions array");
+  }
 
-  if (typeof snapshot.state.cloudMeta !== "object")
-    throw new Error("Invalid cloudMeta");
+  if (!cloudMeta || typeof cloudMeta !== "object") {
+    throw new Error("Invalid cloudMeta object");
+  }
 
-  if (typeof snapshot.state.chartMode !== "string")
+  if (typeof chartMode !== "string") {
     throw new Error("Invalid chartMode");
+  }
 
   return true;
 };

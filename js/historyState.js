@@ -50,14 +50,14 @@ export const pushUndoState = state => {
 
   undoStack.push(state);
 
-  publish("history:changed");
-
   if (undoStack.length > MAX_STACK_SIZE) {
     undoStack.shift();
   }
 
   // Clear redo stack on new action
   redoStack = [];
+
+  publish("history:changed");
 };
 
 /**
@@ -94,6 +94,7 @@ export const canRedo = () => redoStack.length > 0;
 export const clearUndoHistory = () => {
   undoStack = [];
   redoStack = [];
+  publish("history:changed");
 };
 
 export const getNextUndoLabel = () => {
@@ -111,10 +112,9 @@ export const jumpToState = index => {
   const target = undoStack[index];
 
   // Move everything after index to redo stack
-  redoStack = [
-    ...undoStack.slice(index + 1),
-    ...redoStack
-  ];
+  const removed = undoStack.slice(index + 1);
+
+  redoStack = [...removed.reverse(), ...redoStack];
 
   undoStack = undoStack.slice(0, index + 1);
 
