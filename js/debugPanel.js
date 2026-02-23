@@ -1,16 +1,15 @@
-import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
-import { chartMode } from "./chartState.js";
 import { subscribe } from "./eventBus.js";
 import { getUndoStack, getRedoStack, getCurrentIndex, jumpToState } from "./historyState.js";
 import { diffSnapshots } from "./snapshotDiff.js";
-import { transactions } from "./state.js";
+import { MAX_STACK_SIZE } from "./historyState.js";
 
 let panel;
 
 export const initDebugPanel = ({
   deviceId,
   getCloudMeta,
-  getChartMode
+  getChartMode,
+  applySnapshot
 }) => {
   panel = document.createElement("div");
 
@@ -54,8 +53,8 @@ export const initDebugPanel = ({
         ${undo.map((s, i) => {
             const prev = undo[i - 1];
             const diffs = prev
-                ? diffSnapshots(prev, s).join(", ")
-                : "initial state";
+                ? diffSnapshots(prev, s)
+                : ["initial state"];
 
             return `
                 <div data-index="${i}" style="margin-bottom:6px;">
@@ -86,7 +85,8 @@ export const initDebugPanel = ({
   };
 
   subscribe("history:changed", render); 
-
+  render(); // Initial render
+  
   document.addEventListener("keydown", e => {
     if (
       e.ctrlKey &&
@@ -107,13 +107,7 @@ export const initDebugPanel = ({
     const state = jumpToState(index);
     if (!state) return;
 
-    // Apply state (UI layer responsibility)
-    transactions = state.state.transactions;
-    setCloudMeta(state.state.cloudMeta);
-    chartMode = state.state.chartMode;
-
-    init();
-    updateUndoUI();
+    applySnapshot(state);
 
     if (e.target.dataset.toggle !== undefined) {
         const id = e.target.dataset.toggle;

@@ -133,6 +133,26 @@ const updateViewMode = mode => {
       : "Table view selected";
 };
 
+const applySnapshot = snapshot => {
+  if (!snapshot?.state) return;
+
+  const { transactions: tx, cloudMeta, chartMode: mode } = snapshot.state;
+
+  // Apply state
+  transactions = structuredClone(tx);
+  setCloudMeta(structuredClone(cloudMeta));
+  chartMode = mode;
+
+  // Persist locally (optional but recommended for consistency)
+  localStorage.setItem("transactions", JSON.stringify(transactions));
+
+  // Re-render UI
+  init();
+
+  // Update undo/redo buttons
+  updateUndoUI();
+};
+
 viewChartRadio.addEventListener("change", () => {
   if (viewChartRadio.checked) updateViewMode("chart");
 });
@@ -261,7 +281,8 @@ attachChartClick(canvas, getFiltered, init);
   initDebugPanel({
     deviceId,
     getCloudMeta: () => cloudMeta,
-    getChartMode: () => chartMode
+    getChartMode: () => chartMode,
+    applySnapshot
   });
 
   if (appliedCloud && previousSlices?.length && slices.length) {
