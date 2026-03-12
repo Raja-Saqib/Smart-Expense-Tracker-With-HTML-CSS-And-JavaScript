@@ -3,32 +3,59 @@ const CLOUD_KEY = "expense-tracker-backup";
 // Example endpoint (replace later)
 const CLOUD_URL = "https://jsonblob.com/api/jsonBlob";
 
-export const pushToCloud = async (transactions, chartChange) => {
+export const pushToCloud = async ({
+  transactions,
+  cloudMeta,
+  chartMode
+}) => {
   const payload = {
+    version: (cloudMeta?.version ?? 0) + 1,
     updatedAt: Date.now(),
+    updatedBy: cloudMeta?.deviceId ?? "unknown",
     transactions,
-    chartChange
+    chartMode
   };
 
-  await fetch(CLOUD_URL, {
+  const res = await fetch(CLOUD_URL, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   });
+
+  if (!res.ok) {
+    throw new Error("Cloud push failed");
+  }
+
+  return payload;
 };
 
 export const pullFromCloud = async () => {
   const res = await fetch(CLOUD_URL);
+
   if (!res.ok) return null;
-  return await res.json();
+
+  const data = await res.json();
+
+  if (!data?.transactions || !Array.isArray(data.transactions)) {
+    console.warn("Invalid cloud data shape");
+    return null;
+  }
+
+  return data;
 };
 
-export const detectConflicts = (local, remote) => {
+export const detectConflicts = (
+  local,
+  remote
+) => {
   const conflicts = [];
 
-  remote.forEach(r => {
-    const l = local.find(t => t.id === r.id);
-    if (!l) return;
+  const localMap = new Map(local.map(t => [t.id, t]));
+
+  for (const r of remote) {
+    const l = localMap.get(r.id);
+
+    if (!l) continue;
 
     if (
       l.updatedAt !== r.updatedAt &&
@@ -40,7 +67,7 @@ export const detectConflicts = (local, remote) => {
         remote: r
       });
     }
-  });
+  }
 
   return conflicts;
 };
@@ -49,32 +76,19 @@ export const autoResolveConflicts = conflicts => {
   const resolved = [];
   const unresolved = [];
 
-  conflicts.forEach(c => {
+  for (const c of conflicts) {
     const { local, remote } = c;
 
-    // Rule 2: delete wins
-    if (!local && remote) {
-      resolved.push(remote);
-      return;
-    }
-    if (!remote && local) {
-      resolved.push(local);
-      return;
-    }
-
-    // Rule 1: same category → newer wins
     if (local.category === remote.category) {
       resolved.push(
         local.updatedAt > remote.updatedAt
           ? local
           : remote
       );
-      return;
+    } else {
+      unresolved.push(c);
     }
-
-    // Otherwise → unresolved
-    unresolved.push(c);
-  });
+  }
 
   return { resolved, unresolved };
 };
