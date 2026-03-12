@@ -52,3 +52,6 @@ export const isUndoStateEqual = (prev, next) => {
     prev.state.chartMode === next.state.chartMode
   );
 };
+
+export { compareTransactions };
+export { shallowEqual as compareCloudMeta };

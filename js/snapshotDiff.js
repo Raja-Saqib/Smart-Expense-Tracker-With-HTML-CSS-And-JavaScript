@@ -1,25 +1,25 @@
+import {
+  compareTransactions,
+  compareCloudMeta
+} from "./undoCompare.js";
+
 export const diffSnapshots = (prev, next) => {
   const changes = [];
 
-  if (!prev || !next) return changes;
+  if (!prev?.state || !next?.state) return changes;
 
-  if (
-    JSON.stringify(prev.state.transactions) !==
-    JSON.stringify(next.state.transactions)
-  ) {
+  const a = prev.state;
+  const b = next.state;
+
+  if (!compareTransactions(a.transactions, b.transactions)) {
     changes.push("transactions changed");
   }
 
-  if (
-    JSON.stringify(prev.state.cloudMeta) !==
-    JSON.stringify(next.state.cloudMeta)
-  ) {
+  if (!compareCloudMeta(a.cloudMeta, b.cloudMeta)) {
     changes.push("cloudMeta changed");
   }
 
-  if (
-    prev.state.chartMode !== next.state.chartMode
-  ) {
+  if (a.chartMode !== b.chartMode) {
     changes.push("chartMode changed");
   }
 
