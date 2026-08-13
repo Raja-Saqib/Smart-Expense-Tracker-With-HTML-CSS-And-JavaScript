@@ -208,110 +208,57 @@ attachChartHover(canvas);
 attachChartClick(canvas, getFiltered, init);
 
 (async () => {
-  const cloudData = await pullFromCloud();
+  const cloudData = await pullFromCloud(); 
+  
+  if (!cloudData) { 
+    init(); 
+    initDebugPanel({
+      deviceId, 
+      getCloudMeta: () => cloudMeta, 
+      getChartMode: () => chartMode, 
+      applySnapshot 
+    }); 
+    return; 
+  } 
+  
+  const remoteVersion = cloudData.version ?? 0; 
+  const localVersion = cloudMeta?.version ?? 0; 
+  
+  if (remoteVersion > localVersion) { 
+    // Save undo snapshot BEFORE overwrite 
+    pushUndoState( 
+      createUndoState({ 
+        transactions, 
+        cloudMeta, 
+        chartMode, 
+        label: "Before cloud restore" 
+      }) 
+    ); 
+    // Apply full snapshot 
+    applySnapshot({ 
+      state: { 
+        transactions: cloudData.transactions, 
+        cloudMeta: { 
+          version: cloudData.version, 
+          updatedAt: cloudData.updatedAt, 
+          deviceId: cloudData.deviceId 
+        }, 
+        chartMode: cloudData.chartMode 
+      } 
+    }); 
+    
+    chartStatus.textContent = "Cloud state restored"; 
+  } 
+  
+  init(); 
+  updateUndoUI(); 
 
-  const localUpdatedAt =
-    JSON.parse(localStorage.getItem("cloudUpdatedAt")) || 0;
-
-  let appliedCloud = false;
-
-  if (
-    cloudData &&
-    cloudData.transactions &&
-    cloudData.updatedAt > localUpdatedAt
-  ) {
-    const conflicts = detectConflicts(
-      transactions,
-      cloudData.transactions
-    );
-
-    const { resolved, unresolved } =
-      autoResolveConflicts(conflicts);
-
-    if (unresolved.length) {
-      showConflictModal(unresolved);
-      chartStatus.textContent =
-        "Sync conflicts detected. Please resolve.";
-      return; // ⛔ STOP normal sync
-    }
-
-    // Save undo snapshot BEFORE overwriting
-    pushUndoState(
-      createUndoState({
-        transactions,
-        cloudMeta,
-        chartMode,
-        label: "Undo cloud sync"
-      })
-    );
-
-    updateUndoUI();
-
-    // Preserve previous chart state BEFORE overwrite
-    setPreviousSlices(slices);
-
-    // Apply auto-resolved transactions
-    if (resolved.length) {
-      resolved.forEach(r => {
-        transactions = transactions.map(t =>
-          t.id === r.id ? r : t
-        );
-      });
-    }
-
-    transactions = cloudData.transactions;
-
-    localStorage.setItem(
-      "transactions",
-      JSON.stringify(transactions)
-    );
-    localStorage.setItem(
-      "cloudUpdatedAt",
-      cloudData.updatedAt
-    );
-
-    setCloudMeta(cloudData.meta);
-    appliedCloud = true;
-  }
-
-  // Render UI (always)
-  init();
-  updateUndoUI();
-
-  initDebugPanel({
-    deviceId,
-    getCloudMeta: () => cloudMeta,
-    getChartMode: () => chartMode,
-    applySnapshot
+  initDebugPanel({ 
+    deviceId, 
+    getCloudMeta: () => cloudMeta, 
+    getChartMode: () => chartMode, 
+    applySnapshot 
   });
-
-  if (appliedCloud && previousSlices?.length && slices.length) {
-    const changed = getChangedCategories(
-      previousSlices,
-      slices
-    );
-
-    if (changed.length) {
-      highlightChangedSlices({
-        ctx,
-        cx: canvas.width / 2,
-        cy: canvas.height / 2,
-        radius: 120,
-        innerRadius: chartMode === "donut" ? 70 : 0,
-        slices,
-        changedCategories: changed
-      });
-
-      chartStatus.textContent =
-        `Updated categories: ${changed.join(", ")}`;
-    } else {
-      chartStatus.textContent =
-        "Cloud data applied (no chart changes)";
-    }
-  } else if (appliedCloud) {
-    chartStatus.textContent =
-      "Data restored from cloud";
-  }
 })();
 
 listenToBroadcast(payload => {
