@@ -5,7 +5,7 @@ import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
-import { toggleChartMode } from "./chartState.js";
+import { chartMode, patternMode, viewMode, slices, prefersReducedMotion, setChartMode, setPatternMode, setViewMode, toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
 import { pullFromCloud } from "./cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
@@ -14,7 +14,7 @@ import { showConflictModal } from "./ui.js";
 import { pushUndoState, createUndoState } from "./historyState.js";
 import { listenToBroadcast } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
-import { setCloudMeta } from "../cloud/cloudState.js";
+import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { initDebugPanel } from "./debugPanel.js";
 
 // DOM
@@ -90,7 +90,11 @@ themeBtn.addEventListener("click", () => {
       redraw: () => drawChart({
         canvas,
         ctx,
-        data: getFiltered(),
+        data: getFiltered(
+          transactions,
+          monthEl,
+          activeCategory
+        ),
         legendEl,
         getFiltered,
         formatMoney
@@ -102,7 +106,7 @@ themeBtn.addEventListener("click", () => {
 });
 
 donutToggle.addEventListener("change", () => {
-  chartMode = donutToggle.checked ? "donut" : "pie";
+  setChartMode(donutToggle.checked ? "donut" : "pie");
   localStorage.setItem("chartMode", chartMode);
   chartStatus.textContent =
     chartMode === "donut"
@@ -112,7 +116,7 @@ donutToggle.addEventListener("change", () => {
 });
 
 patternToggle.addEventListener("change", () => {
-  patternMode = patternToggle.checked;
+  setPatternMode(patternToggle.checked);
   localStorage.setItem("patternMode", patternMode);
   chartStatus.textContent = patternMode
     ? "Color-blind patterns enabled"
@@ -121,7 +125,7 @@ patternToggle.addEventListener("change", () => {
 });
 
 const updateViewMode = mode => {
-  viewMode = mode;
+  setViewMode(mode);
   localStorage.setItem("viewMode", mode);
 
   chartView.hidden = mode !== "chart";
@@ -139,9 +143,9 @@ const applySnapshot = snapshot => {
   const { transactions: tx, cloudMeta, chartMode: mode } = snapshot.state;
 
   // Apply state
-  transactions = structuredClone(tx);
+  setTransactions(structuredClone(tx));
   setCloudMeta(structuredClone(cloudMeta));
-  chartMode = mode;
+  setChartMode(mode);
 
   // Persist locally (optional but recommended for consistency)
   localStorage.setItem("transactions", JSON.stringify(transactions));
@@ -166,7 +170,7 @@ resolveConflictsBtn.addEventListener("click", () => {
   pushUndoState(
     createUndoState({
       transactions,
-      cloudMeta,
+      cloudMeta: getCloudMeta(),
       chartMode,
       label: "Undo conflict merge"
     })
@@ -174,7 +178,7 @@ resolveConflictsBtn.addEventListener("click", () => {
 
   updateUndoUI();
 
-  setPreviousSlices(slices); // snapshot BEFORE merge
+  const previousSlices = structuredClone(slices);
 
   applyConflictChoices(); // updates transactions
 
@@ -214,7 +218,7 @@ attachChartClick(canvas, getFiltered, init);
     init(); 
     initDebugPanel({
       deviceId, 
-      getCloudMeta: () => cloudMeta, 
+      getCloudMeta, 
       getChartMode: () => chartMode, 
       applySnapshot 
     }); 
@@ -222,14 +226,14 @@ attachChartClick(canvas, getFiltered, init);
   } 
   
   const remoteVersion = cloudData.version ?? 0; 
-  const localVersion = cloudMeta?.version ?? 0; 
+  const localVersion = getCloudMeta()?.version ?? 0; 
   
   if (remoteVersion > localVersion) { 
     // Save undo snapshot BEFORE overwrite 
     pushUndoState( 
       createUndoState({ 
         transactions, 
-        cloudMeta, 
+        cloudMeta: getCloudMeta(), 
         chartMode, 
         label: "Before cloud restore" 
       }) 
@@ -255,7 +259,7 @@ attachChartClick(canvas, getFiltered, init);
 
   initDebugPanel({ 
     deviceId, 
-    getCloudMeta: () => cloudMeta, 
+    getCloudMeta, 
     getChartMode: () => chartMode, 
     applySnapshot 
   });
@@ -266,9 +270,9 @@ listenToBroadcast(payload => {
 
   const previousSlices = structuredClone(slices);
 
-  transactions = payload.transactions;
+  setTransactions(structuredClone(payload.transactions));
   setCloudMeta(payload.cloudMeta);
-  chartMode = payload.chartMode;
+  setChartMode(payload.chartMode);
 
   localStorage.setItem(
     "transactions",
@@ -301,7 +305,7 @@ window.addEventListener("storage", e => {
   if (e.key === "transactions") {
     const previousSlices = structuredClone(slices);
 
-    transactions = JSON.parse(e.newValue);
+    setTransactions(JSON.parse(e.newValue));
     init();
 
     const changed = getChangedCategories(

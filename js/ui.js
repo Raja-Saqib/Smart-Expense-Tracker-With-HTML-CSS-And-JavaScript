@@ -1,5 +1,5 @@
 import { getNextUndoLabel } from "./historyState.js";
-import { saveData } from "./state.js";
+import { saveData, transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
 
 export const renderList = (listEl, data, addToDOM) => {
@@ -78,16 +78,25 @@ export const applyConflictResolutions = conflicts => {
       `input[name="${c.id}"]:checked`
     ).value;
 
-    transactions = transactions.map(t =>
-      t.id === c.id
-        ? choice === "local"
-          ? c.local
-          : c.remote
-        : t
+    setTransactions(
+      transactions.map(t =>
+        t.id === c.id
+          ? choice === "local"
+            ? c.local
+            : c.remote
+          : t
+      )
     );
   });
 
-  saveData({ type: "merge" });
+  saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "merge"
+    }
+  });
   init();
 
   chartStatus.textContent =

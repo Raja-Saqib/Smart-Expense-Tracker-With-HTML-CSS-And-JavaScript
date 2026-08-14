@@ -1,8 +1,13 @@
-import { slices } from "./chartState.js";
 import { toggleCategoryFilter } from "./state.js";
 
-export const attachChartClick = (canvas, getFiltered, init) => {
+export const attachChartClick = (
+  canvas,
+  getSlices,
+  getFiltered,
+  init
+) => {
   canvas.addEventListener("click", e => {
+    const slices = getSlices();
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left - canvas.width / 2;
     const y = e.clientY - rect.top - canvas.height / 2;

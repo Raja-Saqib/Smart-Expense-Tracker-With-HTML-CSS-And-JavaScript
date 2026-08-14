@@ -1,4 +1,4 @@
-import { prefersReducedMotion } from "./chartState";
+import { prefersReducedMotion } from "./chartState.js";
 
 export const animateThemeTransition = ({
   ctx,

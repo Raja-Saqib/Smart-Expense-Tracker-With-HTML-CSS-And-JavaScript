@@ -6,19 +6,23 @@ const CLOUD_URL = "https://jsonblob.com/api/jsonBlob";
 export const pushToCloud = async ({
   transactions,
   cloudMeta,
-  chartMode
+  chartMode,
+  meta = {}
 }) => {
   const payload = {
     version: (cloudMeta?.version ?? 0) + 1,
     updatedAt: Date.now(),
     updatedBy: cloudMeta?.deviceId ?? "unknown",
     transactions,
-    chartMode
+    chartMode,
+    meta
   };
 
   const res = await fetch(CLOUD_URL, {
     method: "PUT",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json"
+    },
     body: JSON.stringify(payload)
   });
 

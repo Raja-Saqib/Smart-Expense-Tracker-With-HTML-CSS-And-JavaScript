@@ -2,6 +2,8 @@ import { pushToCloud } from "./cloud/cloudSync.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
 import { updateUndoUI } from "./ui.js";
+import { getCloudMeta } from "./cloud/cloudState.js";
+import { chartMode } from "./chartState.js";
 
 export let transactions =
   JSON.parse(localStorage.getItem("transactions")) || [];
@@ -11,6 +13,8 @@ export let activeCategory = null;
 
 export const saveData = async (
   transactions,
+  cloudMeta,
+  chartMode,
   meta = {}
 ) => {
   localStorage.setItem(
@@ -19,7 +23,13 @@ export const saveData = async (
   );
 
   try {
-    await pushToCloud(transactions, meta);
+    await pushToCloud({
+      transactions,
+      cloudMeta,
+      chartMode,
+      meta
+    });
+
     return { success: true };
   } catch (e) {
     console.warn("Cloud sync failed, saved locally");
@@ -81,7 +91,7 @@ export const addTransaction = async e => {
   pushUndoState(
     createUndoState({
       transactions,
-      cloudMeta,
+      cloudMeta: getCloudMeta(),
       chartMode,
       label: editId ? "Undo edit" : "Undo add"
     })
@@ -90,13 +100,17 @@ export const addTransaction = async e => {
   updateUndoUI();
 
   // MUTATE
-  transactions = editId
-    ? transactions.map(t => (t.id === editId ? data : t))
-    : [...transactions, data];
-
-  const result = await saveData(
-    transactions,
+  setTransactions(
     editId
+      ? transactions.map(t => (t.id === editId ? data : t))
+      : [...transactions, data]
+  );
+
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: editId
       ? {
           type: "edit",
           category: data.category,
@@ -106,7 +120,7 @@ export const addTransaction = async e => {
           type: "add",
           category: data.category
         }
-  );
+  });
 
   if (!result.success) {
     chartStatus.textContent = "Saved locally (cloud offline)";
@@ -116,7 +130,7 @@ export const addTransaction = async e => {
 
   broadcastState({
     transactions,
-    cloudMeta,
+    cloudMeta: getCloudMeta(),
     chartMode
   });
 
@@ -136,7 +150,7 @@ export const deleteTransaction = async id => {
   pushUndoState(
     createUndoState({
       transactions,
-      cloudMeta,
+      cloudMeta: getCloudMeta(),
       chartMode,
       label: "Undo delete"
     })
@@ -145,11 +159,18 @@ export const deleteTransaction = async id => {
   updateUndoUI();
 
   // MUTATE
-  transactions = transactions.filter(tx => tx.id !== id);
+  setTransactions(
+    transactions.filter(tx => tx.id !== id)
+  );
 
-  const result = await saveData(transactions, {
-    type: "delete",
-    category: t.category
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "delete",
+      category: t.category
+    }
   });
 
   if (!result.success) {
@@ -160,7 +181,7 @@ export const deleteTransaction = async id => {
 
   broadcastState({
     transactions,
-    cloudMeta,
+    cloudMeta: getCloudMeta(),
     chartMode
   });
 

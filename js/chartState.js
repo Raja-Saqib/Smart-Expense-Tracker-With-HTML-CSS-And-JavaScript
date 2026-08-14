@@ -19,3 +19,19 @@ export const toggleChartMode = () =>
 export const prefersReducedMotion = window.matchMedia(
   "(prefers-reduced-motion: reduce)"
 ).matches;
+
+export const setChartMode = mode => {
+  chartMode = mode;
+};
+
+export const setPatternMode = mode => {
+  patternMode = mode;
+};
+
+export const setViewMode = mode => {
+  viewMode = mode;
+};
+
+export const setFocusedSliceIndex = index => {
+  focusedSliceIndex = index;
+};

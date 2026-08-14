@@ -1,4 +1,4 @@
-import { slices, setSlices, chartTotal, setChartTotal, patternMode } from "./chartState.js";
+import { slices, setSlices, chartTotal, setChartTotal, patternMode, chartMode } from "./chartState.js";
 import { prefersReducedMotion } from "./chartState.js";
 import { createPatterns } from "./chartPatterns.js";
 
@@ -92,7 +92,9 @@ export const drawChart = ({
   data,
   legendEl,
   getFiltered,
-  formatMoney
+  formatMoney,
+  patternMode,
+  chartMode,
 }) => {
   // Preserve old slices for transitions
   setPreviousSlices(slices);

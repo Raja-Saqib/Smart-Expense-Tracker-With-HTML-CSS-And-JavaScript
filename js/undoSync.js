@@ -1,10 +1,10 @@
-import { setCloudMeta } from "../cloud/cloudState.js";
+import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { highlightChangedSlices } from "./chartAnimations.js";
 import { getChangedCategories } from "./chartDiff.js";
-import { chartMode } from "./chartState.js";
+import { chartMode, setChartMode, slices } from "./chartState.js";
 import { broadcastState } from "./crossTabSync.js";
 import { undo, canUndo, canRedo, redo } from "./historyState.js";
-import { saveData, transactions } from "./state.js";
+import { saveData, transactions, setTransactions } from "./state.js";
 import { updateUndoUI } from "./ui.js";
 
 undoBtn.addEventListener("click", async () => {
@@ -15,18 +15,22 @@ undoBtn.addEventListener("click", async () => {
   const prev = undo();
   if (!prev) return;
 
-  transactions = prev.state.transactions;
+  setTransactions(prev.state.transactions);
   setCloudMeta(prev.state.cloudMeta);
-  chartMode = prev.state.chartMode;
+  setChartMode(prev.state.chartMode);
 
-  const result = await saveData(
+  const result = await saveData({
     transactions,
-    { type: "undo" }
-  );
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "undo"
+    }
+  });
 
   broadcastState({
     transactions,
-    cloudMeta,
+    cloudMeta: getCloudMeta(),
     chartMode
   });
 
@@ -66,18 +70,22 @@ redoBtn.addEventListener("click", async () => {
   const next = redo();
   if (!next) return;
 
-  transactions = next.state.transactions;
+  setTransactions(next.state.transactions);
   setCloudMeta(next.state.cloudMeta);
-  chartMode = next.state.chartMode;
+  setChartMode(next.state.chartMode);
 
-  const result = await saveData(
-    transactions, 
-    { type: "redo" }
-  );
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "redo"
+    }
+  });
 
   broadcastState({
     transactions,
-    cloudMeta,
+    cloudMeta: getCloudMeta(),
     chartMode
   });
 

@@ -1,7 +1,14 @@
 import { slices, chartTotal, chartMode } from "./chartState.js";
 import { formatMoney } from "./utils.js";
 
-export const attachChartHover = canvas => {
+export const attachChartHover = (
+  canvas,
+  {
+    getSlices,
+    getChartTotal,
+    getChartMode
+  }
+) => {
   canvas.addEventListener("mousemove", e => {
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left - canvas.width / 2;

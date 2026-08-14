@@ -1,7 +1,7 @@
 import { setCloudMeta } from "../cloud/cloudState.js";
-import { chartMode } from "./chartState.js";
+import { chartMode, setChartMode } from "./chartState.js";
 import { getUndoStack, jumpToState } from "./historyState.js";
-import { saveData, transactions } from "./state.js";
+import { saveData, transactions, setTransactions } from "./state.js";
 import { updateUndoUI } from "./ui.js";
 
 export const renderHistoryInspector = (
@@ -32,11 +32,18 @@ renderHistoryInspector(historyList, index => {
   const state = jumpToState(index);
   if (!state) return;
 
-  transactions = state.state.transactions;
+  setTransactions(structuredClone(state.state.transactions));
   setCloudMeta(state.state.cloudMeta);
-  chartMode = state.state.chartMode;
+  setChartMode(state.state.chartMode);
 
-  saveData(transactions);
+  saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "history-jump"
+    }
+  });
   init();
   updateUndoUI();
 });
