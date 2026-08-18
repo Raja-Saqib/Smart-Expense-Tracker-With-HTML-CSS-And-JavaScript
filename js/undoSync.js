@@ -5,7 +5,6 @@ import { chartMode, setChartMode, slices } from "./chartState.js";
 import { broadcastState } from "./crossTabSync.js";
 import { undo, canUndo, canRedo, redo } from "./historyState.js";
 import { saveData, transactions, setTransactions } from "./state.js";
-import { updateUndoUI } from "./ui.js";
 
 undoBtn.addEventListener("click", async () => {
   if (!canUndo()) return;
@@ -53,9 +52,7 @@ undoBtn.addEventListener("click", async () => {
       changedCategories: changed
     });
   }
-
-  updateUndoUI();
-
+  
   chartStatus.textContent =
     result.success
       ? prev.label || "Last action undone"
@@ -107,9 +104,7 @@ redoBtn.addEventListener("click", async () => {
       changedCategories: changed
     });
   }
-
-  updateUndoUI();
-
+  
   chartStatus.textContent = 
     result.success
       ? next.label || "Action redone"

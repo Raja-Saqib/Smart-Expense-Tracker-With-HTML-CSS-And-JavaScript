@@ -1,5 +1,6 @@
-import { transactions, setTransactions, saveData } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory } from "./state.js";
 import { getFiltered } from "./filters.js";
+import { formatMoney } from "./utils.js";
 import { renderList, updateSummary, renderCategories, updateUndoUI } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
@@ -35,9 +36,10 @@ const chartView = document.getElementById("chartView");
 const tableView = document.getElementById("tableView");
 const viewChartRadio = document.getElementById("viewChart");
 const viewTableRadio = document.getElementById("viewTable");
+const legendEl = document.getElementById("chartLegend");
 
 const init = () => {
-  const data = getFiltered(transactions, monthEl);
+  const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
   updateSummary(balanceEl, incomeEl, expenseEl, data);
   renderCategories(tableBody, data);
