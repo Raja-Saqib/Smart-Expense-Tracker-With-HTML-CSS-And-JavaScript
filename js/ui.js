@@ -1,3 +1,4 @@
+import { subscribe } from "./eventBus.js";
 import { getNextUndoLabel } from "./historyState.js";
 import { saveData, transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
@@ -114,6 +115,10 @@ export const updateUndoUI = () => {
     undoBtn.textContent = label;
   }
 };
+
+subscribe("history:changed", () => {
+  updateUndoUI();
+});
 
 document.addEventListener("keydown", e => {
   const ctrlOrCmd = e.ctrlKey || e.metaKey;

@@ -1,4 +1,8 @@
-let cloudMeta = null;
+let cloudMeta = {
+  version: 0,
+  updatedAt: 0,
+  deviceId: null
+};
 
 export const getCloudMeta = () => cloudMeta;
 

@@ -1,7 +1,6 @@
 import { pushToCloud } from "./cloud/cloudSync.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
-import { updateUndoUI } from "./ui.js";
 import { getCloudMeta } from "./cloud/cloudState.js";
 import { chartMode } from "./chartState.js";
 
@@ -11,12 +10,12 @@ export let transactions =
 export let editId = null;
 export let activeCategory = null;
 
-export const saveData = async (
+export const saveData = async ({
   transactions,
   cloudMeta,
   chartMode,
   meta = {}
-) => {
+}) => {
   localStorage.setItem(
     "transactions",
     JSON.stringify(transactions)
@@ -96,9 +95,7 @@ export const addTransaction = async e => {
       label: editId ? "Undo edit" : "Undo add"
     })
   );
-
-  updateUndoUI();
-
+  
   // MUTATE
   setTransactions(
     editId
@@ -155,9 +152,7 @@ export const deleteTransaction = async id => {
       label: "Undo delete"
     })
   );
-
-  updateUndoUI();
-
+  
   // MUTATE
   setTransactions(
     transactions.filter(tx => tx.id !== id)
