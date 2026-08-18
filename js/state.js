@@ -86,7 +86,14 @@ export const addTransaction = async e => {
     updatedBy: deviceId
   };
 
-  // SNAPSHOT BEFORE MUTATION
+  // MUTATE
+  setTransactions(
+    editId
+    ? transactions.map(t => (t.id === editId ? data : t))
+    : [...transactions, data]
+  );
+  
+  // SNAPSHOT AFTER MUTATION
   pushUndoState(
     createUndoState({
       transactions,
@@ -96,13 +103,6 @@ export const addTransaction = async e => {
     })
   );
   
-  // MUTATE
-  setTransactions(
-    editId
-      ? transactions.map(t => (t.id === editId ? data : t))
-      : [...transactions, data]
-  );
-
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),
@@ -143,7 +143,12 @@ export const deleteTransaction = async id => {
   const t = transactions.find(t => t.id === id);
   if (!t) return;
 
-  // SNAPSHOT BEFORE MUTATION
+  // MUTATE
+  setTransactions(
+    transactions.filter(tx => tx.id !== id)
+  );
+  
+  // SNAPSHOT AFTER MUTATION
   pushUndoState(
     createUndoState({
       transactions,
@@ -153,11 +158,6 @@ export const deleteTransaction = async id => {
     })
   );
   
-  // MUTATE
-  setTransactions(
-    transactions.filter(tx => tx.id !== id)
-  );
-
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),

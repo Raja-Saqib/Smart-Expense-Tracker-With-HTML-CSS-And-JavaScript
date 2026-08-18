@@ -12,7 +12,7 @@ import { pullFromCloud } from "./cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory } from "./historyState.js";
 import { listenToBroadcast } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -60,6 +60,20 @@ const init = () => {
   chartView.hidden = viewMode !== "chart";
   tableView.hidden = viewMode !== "table";
 };
+
+// INITIAL HISTORY STATE
+if (!hasHistory()) {
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: "Initial state"
+    })
+  );
+}
+
+init();
 
 initEvents({
   form,
@@ -168,7 +182,14 @@ viewTableRadio.addEventListener("change", () => {
 });
 
 resolveConflictsBtn.addEventListener("click", () => {
-  // Save undo snapshot BEFORE applying choices
+  
+  const previousSlices = structuredClone(slices);
+
+  applyConflictChoices(); // updates transactions
+
+  init(); // redraws chart → new slices
+
+  // Snapshot AFTER applying choices
   pushUndoState(
     createUndoState({
       transactions,
@@ -177,14 +198,6 @@ resolveConflictsBtn.addEventListener("click", () => {
       label: "Undo conflict merge"
     })
   );
-
-  updateUndoUI();
-
-  const previousSlices = structuredClone(slices);
-
-  applyConflictChoices(); // updates transactions
-
-  init(); // redraws chart → new slices
 
   const changed = getChangedCategories(
     previousSlices,
@@ -231,15 +244,7 @@ attachChartClick(canvas, getFiltered, init);
   const localVersion = getCloudMeta()?.version ?? 0; 
   
   if (remoteVersion > localVersion) { 
-    // Save undo snapshot BEFORE overwrite 
-    pushUndoState( 
-      createUndoState({ 
-        transactions, 
-        cloudMeta: getCloudMeta(), 
-        chartMode, 
-        label: "Before cloud restore" 
-      }) 
-    ); 
+
     // Apply full snapshot 
     applySnapshot({ 
       state: { 
@@ -252,7 +257,17 @@ attachChartClick(canvas, getFiltered, init);
         chartMode: cloudData.chartMode 
       } 
     }); 
-    
+
+    // Snapshot AFTER cloud restore 
+    pushUndoState( 
+      createUndoState({ 
+        transactions, 
+        cloudMeta: getCloudMeta(), 
+        chartMode, 
+        label: "Undo cloud restore" 
+      }) 
+    ); 
+     
     chartStatus.textContent = "Cloud state restored"; 
   } 
   

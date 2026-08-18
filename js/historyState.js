@@ -90,6 +90,7 @@ export const redo = () => {
 
 export const canUndo = () => undoStack.length > 1;
 export const canRedo = () => redoStack.length > 0;
+export const hasHistory = () => undoStack.length > 0;
 
 export const clearUndoHistory = () => {
   undoStack = [];
