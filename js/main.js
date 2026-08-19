@@ -181,14 +181,14 @@ viewTableRadio.addEventListener("change", () => {
   if (viewTableRadio.checked) updateViewMode("table");
 });
 
-resolveConflictsBtn.addEventListener("click", () => {
+resolveConflictsBtn.addEventListener("click", async () => {
   
   const previousSlices = structuredClone(slices);
 
+  // 1. MUTATE
   applyConflictChoices(); // updates transactions
-
-  init(); // redraws chart → new slices
-
+  
+  // 2. SNAPSHOT AFTER MUTATION
   // Snapshot AFTER applying choices
   pushUndoState(
     createUndoState({
@@ -199,11 +199,33 @@ resolveConflictsBtn.addEventListener("click", () => {
     })
   );
 
+  // 3. PERSIST
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "merge"
+    }
+  });
+
+  // 4. BROADCAST
+  broadcastState({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode
+  });
+
+  // 5. RENDER ONCE
+  init();
+
+  // 6. COMPARE OLD vs NEW CHART STATE
   const changed = getChangedCategories(
     previousSlices,
     slices
   );
 
+  // 7. HIGHLIGHT CHANGED CATEGORIES
   if (changed.length) {
     highlightChangedSlices({
       ctx,
@@ -216,10 +238,14 @@ resolveConflictsBtn.addEventListener("click", () => {
     });
 
     chartStatus.textContent =
-      `Conflicts resolved. Updated categories: ${changed.join(", ")}`;
+      result.success
+        ? `Conflicts resolved. Updated categories: ${changed.join(", ")}`
+        : `Conflicts resolved locally. Cloud offline. Updated categories: ${changed.join(", ")}`;
   } else {
     chartStatus.textContent =
-      "Conflicts resolved with no chart changes";
+      result.success
+        ? "Conflicts resolved with no chart changes"
+        : "Conflicts resolved locally (cloud offline)";
   }
 });
 
