@@ -1,5 +1,5 @@
 import { subscribe } from "./eventBus.js";
-import { getNextUndoLabel } from "./historyState.js";
+import { getNextUndoLabel, canUndo, canRedo } from "./historyState.js";
 import { transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
 

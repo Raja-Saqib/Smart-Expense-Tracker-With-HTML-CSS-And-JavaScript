@@ -65,8 +65,8 @@ const init = () => {
 if (!hasHistory()) {
   pushUndoState(
     createUndoState({
-      transactions,
-      cloudMeta: getCloudMeta(),
+      transactions: structuredClone(transactions),
+      cloudMeta: structuredClone(getCloudMeta()),
       chartMode,
       label: "Initial state"
     })
