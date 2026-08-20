@@ -270,8 +270,19 @@ attachChartClick(canvas, getFiltered, init);
   const localVersion = getCloudMeta()?.version ?? 0; 
   
   if (remoteVersion > localVersion) { 
-
-    // Apply full snapshot 
+ 
+    // Capture local state before it is replaced 
+    const localStateBeforeCloudRestore = createUndoState({ 
+      transactions: structuredClone(transactions), 
+      cloudMeta: structuredClone(getCloudMeta()), 
+      chartMode, 
+      label: "Before cloud restore" 
+    }); 
+ 
+    // Record the state being replaced 
+    pushUndoState(localStateBeforeCloudRestore); 
+ 
+    // Apply full remote snapshot 
     applySnapshot({ 
       state: { 
         transactions: cloudData.transactions, 
@@ -283,17 +294,17 @@ attachChartClick(canvas, getFiltered, init);
         chartMode: cloudData.chartMode 
       } 
     }); 
-
-    // Snapshot AFTER cloud restore 
+ 
+    // Record the newly restored cloud state 
     pushUndoState( 
       createUndoState({ 
         transactions, 
         cloudMeta: getCloudMeta(), 
         chartMode, 
-        label: "Undo cloud restore" 
+        label: "Cloud restore" 
       }) 
     ); 
-     
+ 
     chartStatus.textContent = "Cloud state restored"; 
   } 
   
