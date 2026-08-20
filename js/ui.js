@@ -1,6 +1,6 @@
 import { subscribe } from "./eventBus.js";
 import { getNextUndoLabel } from "./historyState.js";
-import { saveData, transactions, setTransactions } from "./state.js";
+import { transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
 
 export const renderList = (listEl, data, addToDOM) => {
@@ -75,9 +75,13 @@ export const showConflictModal = conflicts => {
 
 export const applyConflictResolutions = conflicts => {
   conflicts.forEach(c => {
-    const choice = document.querySelector(
+    const selected = document.querySelector(
       `input[name="${c.id}"]:checked`
-    ).value;
+    );
+
+    if (!selected) return;
+
+    const choice = selected.value;
 
     setTransactions(
       transactions.map(t =>
@@ -89,19 +93,6 @@ export const applyConflictResolutions = conflicts => {
       )
     );
   });
-
-  saveData({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode,
-    meta: {
-      type: "merge"
-    }
-  });
-  init();
-
-  chartStatus.textContent =
-    "Conflicts resolved and synced";
 };
 
 export const updateUndoUI = () => {

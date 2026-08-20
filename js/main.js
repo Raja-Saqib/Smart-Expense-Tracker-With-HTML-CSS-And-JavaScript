@@ -1,7 +1,7 @@
 import { transactions, setTransactions, saveData, activeCategory } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney } from "./utils.js";
-import { renderList, updateSummary, renderCategories, updateUndoUI } from "./ui.js";
+import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -186,7 +186,7 @@ resolveConflictsBtn.addEventListener("click", async () => {
   const previousSlices = structuredClone(slices);
 
   // 1. MUTATE
-  applyConflictChoices(); // updates transactions
+  applyConflictResolutions(conflicts); // updates transactions
   
   // 2. SNAPSHOT AFTER MUTATION
   // Snapshot AFTER applying choices
