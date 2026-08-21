@@ -1,7 +1,7 @@
-import { pushToCloud } from "./cloud/cloudSync.js";
+import { pushToCloud } from "../cloud/cloudSync.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
-import { getCloudMeta } from "./cloud/cloudState.js";
+import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { chartMode } from "./chartState.js";
 
 export let transactions =
@@ -22,14 +22,27 @@ export const saveData = async ({
   );
 
   try {
-    await pushToCloud({
+    const cloudState = await pushToCloud({
       transactions,
       cloudMeta,
       chartMode,
       meta
     });
 
-    return { success: true };
+    setCloudMeta({
+      version: cloudState.version,
+      updatedAt: cloudState.updatedAt,
+      deviceId: cloudState.updatedBy
+    });
+
+    return {
+      success: true,
+      cloudMeta: {
+        version: cloudState.version,
+        updatedAt: cloudState.updatedAt,
+        deviceId: cloudState.updatedBy
+      }
+    };
   } catch (e) {
     console.warn("Cloud sync failed, saved locally");
     return { success: false };
