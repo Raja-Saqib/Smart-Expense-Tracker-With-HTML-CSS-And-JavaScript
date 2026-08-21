@@ -8,11 +8,11 @@ import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
 import { chartMode, patternMode, viewMode, slices, prefersReducedMotion, setChartMode, setPatternMode, setViewMode, toggleChartMode } from "./chartState.js";
 import { initEvents } from "./events.js";
-import { pullFromCloud } from "./cloud/cloudSync.js";
+import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState } from "./historyState.js";
 import { listenToBroadcast } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -325,12 +325,23 @@ listenToBroadcast(payload => {
   const previousSlices = structuredClone(slices);
 
   setTransactions(structuredClone(payload.transactions));
-  setCloudMeta(payload.cloudMeta);
+  setCloudMeta(structuredClone(payload.cloudMeta));
   setChartMode(payload.chartMode);
 
   localStorage.setItem(
     "transactions",
     JSON.stringify(transactions)
+  );
+
+  // Replace the current history state because
+  // this tab did not perform a new local action.
+  replaceCurrentUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: "Cross-tab update"
+    })
   );
 
   init();
