@@ -3,7 +3,7 @@ import { highlightChangedSlices } from "./chartAnimations.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { chartMode, setChartMode, slices } from "./chartState.js";
 import { broadcastState } from "./crossTabSync.js";
-import { undo, canUndo, canRedo, redo } from "./historyState.js";
+import { undo, canUndo, canRedo, redo, createUndoState, replaceCurrentUndoState } from "./historyState.js";
 import { saveData, transactions, setTransactions } from "./state.js";
 
 let historyOperationInProgress = false;
@@ -32,6 +32,15 @@ undoBtn.addEventListener("click", async () => {
         type: "undo"
       }
     });
+
+    replaceCurrentUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        label: prev.label
+      })
+    );
   
     broadcastState({
       transactions,
@@ -92,6 +101,15 @@ redoBtn.addEventListener("click", async () => {
         type: "redo"
       }
     });
+
+    replaceCurrentUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        label: next.label
+      })
+    );
   
     broadcastState({
       transactions,

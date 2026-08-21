@@ -61,6 +61,20 @@ export const pushUndoState = state => {
 };
 
 /**
+ * Replace the current undo state without affecting redo history.
+ *
+ * Used when persistence updates metadata (for example cloud version)
+ * after an undo/redo operation.
+ */
+export const replaceCurrentUndoState = state => {
+  if (!undoStack.length) return;
+
+  undoStack[undoStack.length - 1] = state;
+
+  publish("history:changed");
+};
+
+/**
  * Undo (true undo semantics)
  */
 export const undo = () => {
