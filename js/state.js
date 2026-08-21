@@ -106,16 +106,7 @@ export const addTransaction = async e => {
     : [...transactions, data]
   );
   
-  // SNAPSHOT AFTER MUTATION
-  pushUndoState(
-    createUndoState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode,
-      label: editId ? "Undo edit" : "Undo add"
-    })
-  );
-  
+  // PERSIST
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),
@@ -131,6 +122,16 @@ export const addTransaction = async e => {
           category: data.category
         }
   });
+
+  // SNAPSHOT AFTER PERSISTENCE
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: editId ? "Undo edit" : "Undo add"
+    })
+  );
 
   if (!result.success) {
     chartStatus.textContent = "Saved locally (cloud offline)";
@@ -161,16 +162,7 @@ export const deleteTransaction = async id => {
     transactions.filter(tx => tx.id !== id)
   );
   
-  // SNAPSHOT AFTER MUTATION
-  pushUndoState(
-    createUndoState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode,
-      label: "Undo delete"
-    })
-  );
-  
+  // PERSIST
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),
@@ -180,6 +172,16 @@ export const deleteTransaction = async id => {
       category: t.category
     }
   });
+
+  // SNAPSHOT AFTER PERSISTENCE
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: "Undo delete"
+    })
+  );
 
   if (!result.success) {
     chartStatus.textContent = "Saved locally (cloud offline)";
