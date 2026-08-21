@@ -188,18 +188,7 @@ resolveConflictsBtn.addEventListener("click", async () => {
   // 1. MUTATE
   applyConflictResolutions(conflicts); // updates transactions
   
-  // 2. SNAPSHOT AFTER MUTATION
-  // Snapshot AFTER applying choices
-  pushUndoState(
-    createUndoState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode,
-      label: "Undo conflict merge"
-    })
-  );
-
-  // 3. PERSIST
+  // 2. PERSIST
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),
@@ -208,6 +197,16 @@ resolveConflictsBtn.addEventListener("click", async () => {
       type: "merge"
     }
   });
+
+  // 3. SNAPSHOT AFTER PERSISTENCE
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: "Undo conflict merge"
+    })
+  );
 
   // 4. BROADCAST
   broadcastState({
