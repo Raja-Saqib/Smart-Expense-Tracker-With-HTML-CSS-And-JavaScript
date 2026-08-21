@@ -306,11 +306,12 @@ attachChartClick(canvas, getFiltered, init);
     ); 
  
     chartStatus.textContent = "Cloud state restored"; 
+  } else { 
+    // No cloud restore occurred, so perform the normal initial render. 
+    init(); 
+    updateUndoUI(); 
   } 
   
-  init(); 
-  updateUndoUI(); 
-
   initDebugPanel({ 
     deviceId, 
     getCloudMeta, 
