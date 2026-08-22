@@ -8,6 +8,11 @@ const channel =
 let listener = null;
 
 /**
+ * Whether BroadcastChannel is available
+ */
+export const isBroadcastAvailable = () => channel !== null;
+
+/**
  * Broadcast state change to other tabs
  */
 export const broadcastState = payload => {

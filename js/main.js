@@ -13,7 +13,7 @@ import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
 import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState } from "./historyState.js";
-import { listenToBroadcast } from "./crossTabSync.js";
+import { listenToBroadcast, isBroadcastAvailable } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { initDebugPanel } from "./debugPanel.js";
@@ -367,27 +367,46 @@ listenToBroadcast(payload => {
 });
 
 window.addEventListener("storage", e => {
-  if (e.key === "transactions") {
-    const previousSlices = structuredClone(slices);
+  if (e.key !== "transactions") return;
 
-    setTransactions(JSON.parse(e.newValue));
-    init();
+  // BroadcastChannel is the primary synchronization mechanism.
+  // localStorage storage-event is only the fallback.
+  if (isBroadcastAvailable()) return;
 
-    const changed = getChangedCategories(
-      previousSlices,
-      slices
-    );
+  if (!e.newValue) return;
 
-    if (changed.length) {
-      highlightChangedSlices({
-        ctx,
-        cx: canvas.width / 2,
-        cy: canvas.height / 2,
-        radius: 120,
-        innerRadius: chartMode === "donut" ? 70 : 0,
-        slices,
-        changedCategories: changed
-      });
-    }
+  const previousSlices = structuredClone(slices);
+
+  setTransactions(JSON.parse(e.newValue));
+
+  replaceCurrentUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: structuredClone(getCloudMeta()),
+      chartMode,
+      label: "Cross-tab update"
+    })
+  );
+
+  init();
+
+  const changed = getChangedCategories(
+    previousSlices,
+    slices
+  );
+
+  if (changed.length) {
+    highlightChangedSlices({
+      ctx,
+      cx: canvas.width / 2,
+      cy: canvas.height / 2,
+      radius: 120,
+      innerRadius: chartMode === "donut" ? 70 : 0,
+      slices,
+      changedCategories: changed
+    });
   }
+
+  chartStatus.textContent =
+    "Updated from another tab";
 });
