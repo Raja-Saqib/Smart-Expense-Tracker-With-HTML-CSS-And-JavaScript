@@ -1,5 +1,7 @@
 const CLOUD_META_KEY = "cloudMeta";
 
+export const STORAGE_SYNC_KEY = "expenseTrackerSyncState";
+
 const DEFAULT_CLOUD_META = {
   version: 0,
   updatedAt: 0,

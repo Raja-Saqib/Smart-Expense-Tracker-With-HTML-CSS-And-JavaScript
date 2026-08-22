@@ -367,17 +367,38 @@ listenToBroadcast(payload => {
 });
 
 window.addEventListener("storage", e => {
-  if (e.key !== "transactions") return;
-
-  // BroadcastChannel is the primary synchronization mechanism.
-  // localStorage storage-event is only the fallback.
   if (isBroadcastAvailable()) return;
+
+  if (e.key !== "expenseTrackerSyncState") return;
 
   if (!e.newValue) return;
 
+  let persistedState;
+
+  try {
+    persistedState = JSON.parse(e.newValue);
+  } catch {
+    return;
+  }
+
+  if (
+    !persistedState ||
+    !Array.isArray(persistedState.transactions)
+  ) {
+    return;
+  }
+
   const previousSlices = structuredClone(slices);
 
-  setTransactions(JSON.parse(e.newValue));
+  setTransactions(
+    structuredClone(persistedState.transactions)
+  );
+
+  setCloudMeta(
+    structuredClone(persistedState.cloudMeta)
+  );
+
+  setChartMode(persistedState.chartMode);
 
   replaceCurrentUndoState(
     createUndoState({

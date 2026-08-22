@@ -35,16 +35,35 @@ export const saveData = async ({
       deviceId: cloudState.updatedBy
     });
 
+    const synchronizedState = {
+      transactions: structuredClone(transactions),
+      cloudMeta: structuredClone(getCloudMeta()),
+      chartMode
+    };
+
+    localStorage.setItem(
+      "expenseTrackerSyncState",
+      JSON.stringify(synchronizedState)
+    );
+
     return {
       success: true,
-      cloudMeta: {
-        version: cloudState.version,
-        updatedAt: cloudState.updatedAt,
-        deviceId: cloudState.updatedBy
-      }
+      cloudMeta: structuredClone(getCloudMeta())
     };
   } catch (e) {
     console.warn("Cloud sync failed, saved locally");
+
+    const synchronizedState = {
+      transactions: structuredClone(transactions),
+      cloudMeta: structuredClone(getCloudMeta()),
+      chartMode
+    };
+
+    localStorage.setItem(
+      "expenseTrackerSyncState",
+      JSON.stringify(synchronizedState)
+    );
+
     return { success: false };
   }
 };
