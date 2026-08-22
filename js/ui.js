@@ -96,15 +96,17 @@ export const applyConflictResolutions = conflicts => {
 };
 
 export const updateUndoUI = () => {
-  const label = getNextUndoLabel();
+  const undoLabel = getNextUndoLabel();
 
-  if (!label) {
+  if (!undoLabel) {
     undoBtn.disabled = true;
     undoBtn.textContent = "Undo";
   } else {
     undoBtn.disabled = false;
-    undoBtn.textContent = label;
+    undoBtn.textContent = undoLabel;
   }
+
+  redoBtn.disabled = !canRedo();
 };
 
 subscribe("history:changed", () => {
