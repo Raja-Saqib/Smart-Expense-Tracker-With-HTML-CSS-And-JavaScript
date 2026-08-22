@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoStateAndClearRedo } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -333,12 +333,10 @@ listenToBroadcast(payload => {
     JSON.stringify(transactions)
   );
 
-  // Replace the current history state because
-  // this tab did not perform a new local action.
-  replaceCurrentUndoState(
+  replaceCurrentUndoStateAndClearRedo(
     createUndoState({
       transactions,
-      cloudMeta: getCloudMeta(),
+      cloudMeta: structuredClone(getCloudMeta()),
       chartMode,
       label: "Cross-tab update"
     })
@@ -400,7 +398,7 @@ window.addEventListener("storage", e => {
 
   setChartMode(persistedState.chartMode);
 
-  replaceCurrentUndoState(
+  replaceCurrentUndoStateAndClearRedo(
     createUndoState({
       transactions,
       cloudMeta: structuredClone(getCloudMeta()),

@@ -75,6 +75,21 @@ export const replaceCurrentUndoState = state => {
 };
 
 /**
+ * Replace the current undo state and invalidate redo history.
+ *
+ * Used when an external state replacement occurs,
+ * such as a cross-tab synchronization update.
+ */
+export const replaceCurrentUndoStateAndClearRedo = state => {
+  if (!undoStack.length) return;
+
+  undoStack[undoStack.length - 1] = state;
+  redoStack = [];
+
+  publish("history:changed");
+};
+
+/**
  * Undo (true undo semantics)
  */
 export const undo = () => {
