@@ -1,7 +1,7 @@
 import { transactions, setTransactions, saveData, activeCategory } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney } from "./utils.js";
-import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
+import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions, renderHistory } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoStateAndClearRedo } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -37,6 +37,8 @@ const tableView = document.getElementById("tableView");
 const viewChartRadio = document.getElementById("viewChart");
 const viewTableRadio = document.getElementById("viewTable");
 const legendEl = document.getElementById("chartLegend");
+const historyPanel = document.getElementById("historyPanel");
+const historyList = document.getElementById("historyList");
 
 const init = () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
@@ -59,6 +61,8 @@ const init = () => {
 
   chartView.hidden = viewMode !== "chart";
   tableView.hidden = viewMode !== "table";
+
+  renderHistory(historyList);
 };
 
 // INITIAL HISTORY STATE
@@ -181,6 +185,62 @@ viewTableRadio.addEventListener("change", () => {
   if (viewTableRadio.checked) updateViewMode("table");
 });
 
+const restoreHistoryState = async target => {
+  if (!target?.state) return false;
+
+  const {
+    transactions: tx,
+    cloudMeta,
+    chartMode: mode
+  } = target.state;
+
+  setTransactions(structuredClone(tx));
+  setCloudMeta(structuredClone(cloudMeta));
+  setChartMode(mode);
+
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "history-jump"
+    }
+  });
+
+  replaceCurrentUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: target.label
+    })
+  );
+
+  broadcastState({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode
+  });
+
+  init();
+
+  return result.success;
+};
+
+const jumpToHistoryState = async index => {
+  const target = jumpToState(index);
+
+  if (!target) return false;
+
+  const success = await restoreHistoryState(target);
+
+  chartStatus.textContent = success
+    ? `Restored: ${target.label}`
+    : `Restored locally: ${target.label} (cloud offline)`;
+
+  return success;
+};
+
 resolveConflictsBtn.addEventListener("click", async () => {
   
   const previousSlices = structuredClone(slices);
@@ -260,7 +320,7 @@ attachChartClick(canvas, getFiltered, init);
       deviceId, 
       getCloudMeta, 
       getChartMode: () => chartMode, 
-      applySnapshot 
+      jumpToHistoryState 
     }); 
     return; 
   } 
@@ -315,7 +375,7 @@ attachChartClick(canvas, getFiltered, init);
     deviceId, 
     getCloudMeta, 
     getChartMode: () => chartMode, 
-    applySnapshot 
+    jumpToHistoryState 
   });
 })();
 
@@ -428,4 +488,16 @@ window.addEventListener("storage", e => {
 
   chartStatus.textContent =
     "Updated from another tab";
+});
+
+historyList.addEventListener("click", async e => {
+  const button = e.target.closest("[data-history-index]");
+
+  if (!button) return;
+
+  const index = Number(button.dataset.historyIndex);
+
+  if (!Number.isInteger(index)) return;
+
+  await jumpToHistoryState(index);
 });

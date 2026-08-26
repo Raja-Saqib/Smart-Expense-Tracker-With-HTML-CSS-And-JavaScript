@@ -1,19 +1,19 @@
 import { subscribe } from "./eventBus.js";
-import { getUndoStack, getRedoStack, getCurrentIndex, jumpToState } from "./historyState.js";
+import { getUndoStack, getRedoStack, getCurrentIndex } from "./historyState.js";
 import { diffSnapshots } from "./snapshotDiff.js";
 import { MAX_STACK_SIZE } from "./historyState.js";
 
 let panel;
 
 export const initDebugPanel = ({
-  deviceId,
-  getCloudMeta,
-  getChartMode,
-  applySnapshot
+    deviceId,
+    getCloudMeta,
+    getChartMode,
+    jumpToHistoryState
 }) => {
-  panel = document.createElement("div");
+    panel = document.createElement("div");
 
-  panel.style.cssText = `
+    panel.style.cssText = `
     position: fixed;
     bottom: 10px;
     right: 10px;
@@ -29,17 +29,17 @@ export const initDebugPanel = ({
     display: none;
   `;
 
-  document.body.appendChild(panel);
+    document.body.appendChild(panel);
 
-  const render = () => {
-    const undo = getUndoStack();
-    const redo = getRedoStack();
-    const index = undo.length ? getCurrentIndex() : "N/A";
-    const threshold = MAX_STACK_SIZE - 2;
-    const nearLimit = undo.length >= threshold;
-    const cloudMeta = getCloudMeta();
+    const render = () => {
+        const undo = getUndoStack();
+        const redo = getRedoStack();
+        const index = undo.length ? getCurrentIndex() : "N/A";
+        const threshold = MAX_STACK_SIZE - 2;
+        const nearLimit = undo.length >= threshold;
+        const cloudMeta = getCloudMeta();
 
-    panel.innerHTML = `
+        panel.innerHTML = `
         <strong>DEBUG PANEL</strong><br/><br/>
         Undo stack: ${undo.length}<br/>
         Redo stack: ${redo.length}<br/>
@@ -77,47 +77,53 @@ export const initDebugPanel = ({
         <br/><br/>
         <strong>Redo Entries:</strong><br/>
         ${redo.map((s, i) => `${i}. ${s.label}`).join("<br/>")}
-        ${nearLimit ? 
-            `<div style="color:orange;">
+        ${nearLimit ?
+                `<div style="color:orange;">
                 ⚠ Undo stack nearing limit (${undo.length}/${MAX_STACK_SIZE})
-            </div>` 
-        : ""}`
-  };
+            </div>`
+                : ""}`
+    };
 
-  subscribe("history:changed", render); 
-  render(); // Initial render
-  
-  document.addEventListener("keydown", e => {
-    if (
-      e.ctrlKey &&
-      e.shiftKey &&
-      e.key.toLowerCase() === "d"
-    ) {
-      panel.style.display =
-        panel.style.display === "none"
-          ? "block"
-          : "none";
-    }
-  });
-  panel.addEventListener("click", e => {
-    const target = e.target.closest("[data-index]");
-    if (!target) return;
+    subscribe("history:changed", render);
+    render(); // Initial render
 
-    const index = Number(target.dataset.index);
-    const state = jumpToState(index);
-    if (!state) return;
-
-    applySnapshot(state);
-
-    if (e.target.dataset.toggle !== undefined) {
-        const id = e.target.dataset.toggle;
-        const diffEl = panel.querySelector(`[data-diff="${id}"]`);
-        if (diffEl) {
-            diffEl.style.display =
-            diffEl.style.display === "none"
-                ? "block"
-                : "none";
+    document.addEventListener("keydown", e => {
+        if (
+            e.ctrlKey &&
+            e.shiftKey &&
+            e.key.toLowerCase() === "d"
+        ) {
+            panel.style.display =
+                panel.style.display === "none"
+                    ? "block"
+                    : "none";
         }
-    }
-  });
+    });
+    panel.addEventListener("click", async e => {
+        const toggle = e.target.closest("[data-toggle]");
+
+        if (toggle) {
+            const id = toggle.dataset.toggle;
+            const diffEl = panel.querySelector(`[data-diff="${id}"]`);
+
+            if (diffEl) {
+                diffEl.style.display =
+                    diffEl.style.display === "none"
+                        ? "block"
+                        : "none";
+            }
+
+            return;
+        }
+
+        const target = e.target.closest("[data-index]");
+
+        if (!target) return;
+
+        const index = Number(target.dataset.index);
+
+        if (!Number.isInteger(index)) return;
+
+        await jumpToHistoryState(index);
+    });
 };
