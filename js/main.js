@@ -50,13 +50,14 @@ const restoreHistoryState = async target => {
     chartMode: mode
   } = target.state;
 
+  const currentCloudMeta = structuredClone(getCloudMeta());
+
   setTransactions(structuredClone(tx));
-  setCloudMeta(structuredClone(cloudMeta));
   setChartMode(mode);
 
   const result = await saveData({
     transactions,
-    cloudMeta: getCloudMeta(),
+    cloudMeta: currentCloudMeta,
     chartMode,
     meta: {
       type: "history-jump"

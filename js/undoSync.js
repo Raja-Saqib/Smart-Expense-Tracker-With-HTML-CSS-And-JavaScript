@@ -20,13 +20,14 @@ undoBtn.addEventListener("click", async () => {
     const prev = undo();
     if (!prev) return;
   
+    const currentCloudMeta = structuredClone(getCloudMeta());
+
     setTransactions(structuredClone(prev.state.transactions));
-    setCloudMeta(structuredClone(prev.state.cloudMeta));
     setChartMode(prev.state.chartMode);
   
     const result = await saveData({
       transactions,
-      cloudMeta: getCloudMeta(),
+      cloudMeta: currentCloudMeta,
       chartMode,
       meta: {
         type: "undo"
@@ -89,13 +90,14 @@ redoBtn.addEventListener("click", async () => {
     const next = redo();
     if (!next) return;
   
+    const currentCloudMeta = structuredClone(getCloudMeta());
+
     setTransactions(structuredClone(next.state.transactions));
-    setCloudMeta(structuredClone(next.state.cloudMeta));
     setChartMode(next.state.chartMode);
   
     const result = await saveData({
       transactions,
-      cloudMeta: getCloudMeta(),
+      cloudMeta: currentCloudMeta,
       chartMode,
       meta: {
         type: "redo"
