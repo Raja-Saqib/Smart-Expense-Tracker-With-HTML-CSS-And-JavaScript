@@ -1,7 +1,7 @@
 import { transactions, setTransactions, saveData, activeCategory } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney } from "./utils.js";
-import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions, renderHistory } from "./ui.js";
+import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -17,6 +17,7 @@ import { listenToBroadcast, isBroadcastAvailable } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { initDebugPanel } from "./debugPanel.js";
+import { renderHistoryInspector } from "./historyInspector.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -40,6 +41,62 @@ const legendEl = document.getElementById("chartLegend");
 const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 
+const restoreHistoryState = async target => {
+  if (!target?.state) return false;
+
+  const {
+    transactions: tx,
+    cloudMeta,
+    chartMode: mode
+  } = target.state;
+
+  setTransactions(structuredClone(tx));
+  setCloudMeta(structuredClone(cloudMeta));
+  setChartMode(mode);
+
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "history-jump"
+    }
+  });
+
+  replaceCurrentUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: target.label
+    })
+  );
+
+  broadcastState({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode
+  });
+
+  init();
+
+  return result.success;
+};
+
+const jumpToHistoryState = async index => {
+  const target = jumpToState(index);
+
+  if (!target) return false;
+
+  const success = await restoreHistoryState(target);
+
+  chartStatus.textContent = success
+    ? `Restored: ${target.label}`
+    : `Restored locally: ${target.label} (cloud offline)`;
+
+  return success;
+};
+
 const init = () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
@@ -62,7 +119,7 @@ const init = () => {
   chartView.hidden = viewMode !== "chart";
   tableView.hidden = viewMode !== "table";
 
-  renderHistory(historyList);
+  renderHistoryInspector(historyList, jumpToHistoryState);
 };
 
 // INITIAL HISTORY STATE
@@ -184,62 +241,6 @@ viewChartRadio.addEventListener("change", () => {
 viewTableRadio.addEventListener("change", () => {
   if (viewTableRadio.checked) updateViewMode("table");
 });
-
-const restoreHistoryState = async target => {
-  if (!target?.state) return false;
-
-  const {
-    transactions: tx,
-    cloudMeta,
-    chartMode: mode
-  } = target.state;
-
-  setTransactions(structuredClone(tx));
-  setCloudMeta(structuredClone(cloudMeta));
-  setChartMode(mode);
-
-  const result = await saveData({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode,
-    meta: {
-      type: "history-jump"
-    }
-  });
-
-  replaceCurrentUndoState(
-    createUndoState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode,
-      label: target.label
-    })
-  );
-
-  broadcastState({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode
-  });
-
-  init();
-
-  return result.success;
-};
-
-const jumpToHistoryState = async index => {
-  const target = jumpToState(index);
-
-  if (!target) return false;
-
-  const success = await restoreHistoryState(target);
-
-  chartStatus.textContent = success
-    ? `Restored: ${target.label}`
-    : `Restored locally: ${target.label} (cloud offline)`;
-
-  return success;
-};
 
 resolveConflictsBtn.addEventListener("click", async () => {
   
@@ -490,14 +491,3 @@ window.addEventListener("storage", e => {
     "Updated from another tab";
 });
 
-historyList.addEventListener("click", async e => {
-  const button = e.target.closest("[data-history-index]");
-
-  if (!button) return;
-
-  const index = Number(button.dataset.historyIndex);
-
-  if (!Number.isInteger(index)) return;
-
-  await jumpToHistoryState(index);
-});

@@ -1,49 +1,43 @@
-import { setCloudMeta } from "../cloud/cloudState.js";
-import { chartMode, setChartMode } from "./chartState.js";
-import { getUndoStack, jumpToState } from "./historyState.js";
-import { saveData, transactions, setTransactions } from "./state.js";
-import { updateUndoUI } from "./ui.js";
+import {
+  getUndoStack,
+  getCurrentIndex
+} from "./historyState.js";
 
 export const renderHistoryInspector = (
   container,
   onJump
 ) => {
-  const stack = getUndoStack();
+  const history = getUndoStack();
+  const currentIndex = getCurrentIndex();
 
   container.innerHTML = "";
 
-  stack.forEach((state, index) => {
+  history.forEach((entry, index) => {
     const li = document.createElement("li");
 
-    const date = new Date(state.timestamp)
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.dataset.historyIndex = index;
+
+    const date = new Date(entry.timestamp)
       .toLocaleTimeString();
 
-    li.textContent = `${index + 1}. ${state.label} (${date})`;
+    button.textContent =
+      index === currentIndex
+        ? `${index + 1}. ${entry.label} (${date}) — Current`
+        : `${index + 1}. ${entry.label} (${date})`;
 
-    li.addEventListener("click", () => {
-      onJump(index);
+    if (index === currentIndex) {
+      button.disabled = true;
+      button.setAttribute("aria-current", "step");
+    }
+
+    button.addEventListener("click", async () => {
+      await onJump(index);
     });
 
+    li.appendChild(button);
     container.appendChild(li);
   });
 };
-
-renderHistoryInspector(historyList, index => {
-  const state = jumpToState(index);
-  if (!state) return;
-
-  setTransactions(structuredClone(state.state.transactions));
-  setCloudMeta(state.state.cloudMeta);
-  setChartMode(state.state.chartMode);
-
-  saveData({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode,
-    meta: {
-      type: "history-jump"
-    }
-  });
-  init();
-  updateUndoUI();
-});

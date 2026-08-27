@@ -1,5 +1,5 @@
 import { subscribe } from "./eventBus.js";
-import { getNextUndoLabel, canUndo, canRedo, getUndoStack, getCurrentIndex } from "./historyState.js";
+import { getNextUndoLabel, canUndo, canRedo } from "./historyState.js";
 import { transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
 
@@ -107,35 +107,6 @@ export const updateUndoUI = () => {
   }
 
   redoBtn.disabled = !canRedo();
-};
-
-export const renderHistory = historyList => {
-  const history = getUndoStack();
-  const currentIndex = getCurrentIndex();
-
-  historyList.innerHTML = "";
-
-  history.forEach((entry, index) => {
-    const li = document.createElement("li");
-
-    const button = document.createElement("button");
-
-    button.type = "button";
-    button.dataset.historyIndex = index;
-
-    button.textContent =
-      index === currentIndex
-        ? `${entry.label} (Current)`
-        : entry.label;
-
-    if (index === currentIndex) {
-      button.disabled = true;
-      button.setAttribute("aria-current", "step");
-    }
-
-    li.appendChild(button);
-    historyList.appendChild(li);
-  });
 };
 
 subscribe("history:changed", () => {
