@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -84,6 +84,10 @@ const restoreHistoryState = async target => {
 };
 
 const jumpToHistoryState = async index => {
+  const currentIndex = getCurrentIndex();
+
+  if (index === currentIndex) return false;
+
   const target = jumpToState(index);
 
   if (!target) return false;
