@@ -4,7 +4,7 @@ import { deepFreeze } from "./deepFreeze.js";
 import { isDev } from "./deepFreeze.js";
 import { validateSnapshot } from "./stateValidator.js";
 
-const MAX_STACK_SIZE = 30;
+export const MAX_STACK_SIZE = 30;
 
 let undoStack = [];
 let redoStack = [];

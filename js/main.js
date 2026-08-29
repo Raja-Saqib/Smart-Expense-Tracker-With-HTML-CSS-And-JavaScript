@@ -1,4 +1,4 @@
-import { transactions, setTransactions, saveData, activeCategory } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory, addTransactionToDOM } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney } from "./utils.js";
 import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
@@ -314,8 +314,17 @@ resolveConflictsBtn.addEventListener("click", async () => {
   }
 });
 
-attachChartHover(canvas);
-attachChartClick(canvas, getFiltered, init);
+attachChartHover(canvas, {
+  getSlices: () => slices,
+  getChartTotal: () => chartTotal,
+  getChartMode: () => chartMode
+});
+attachChartClick(
+  canvas,
+  () => slices,
+  getFiltered,
+  init
+);
 
 (async () => {
   const cloudData = await pullFromCloud(); 
