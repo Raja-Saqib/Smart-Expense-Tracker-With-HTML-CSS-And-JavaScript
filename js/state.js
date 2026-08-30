@@ -74,63 +74,76 @@ export const toggleCategoryFilter = category => {
   activeCategory = activeCategory === category ? null : category;
 };
 
-export const addTransaction = async e => {
-  e.preventDefault();
+export const addTransaction = async ({
+  text,
+  category,
+  amount,
+  deviceId,
+  chartMode,
+  onComplete
+}) => {
+  if (!text || !category || !amount) {
+    return {
+      success: false,
+      error: "All fields are required"
+    };
+  }
 
-  if (!textEl.value || !categoryEl.value || !amountEl.value)
-    return showError("All fields are required");
+  if (+amount === 0) {
+    return {
+      success: false,
+      error: "Amount cannot be zero"
+    };
+  }
 
-  if (+amountEl.value === 0)
-    return showError("Amount cannot be zero");
+  const numericAmount = +amount;
 
   const existing = transactions.find(t => t.id === editId);
 
-  // If editing, detect no-op BEFORE creating new object
+  // Editing: detect no-op before creating a new object
   if (editId && existing) {
     const isUnchanged =
-      existing.text === textEl.value &&
-      existing.category === categoryEl.value &&
-      existing.amount === +amountEl.value;
+      existing.text === text &&
+      existing.category === category &&
+      existing.amount === numericAmount;
 
     if (isUnchanged) {
-      // Reset UI but do nothing else
       editId = null;
-      form.querySelector("button").textContent = "Add Transaction";
-      
-      textEl.value = existing.text;
-      amountEl.value = existing.amount;
-      categoryEl.value = existing.category;
 
-      chartStatus.textContent = "No changes detected";
-      
-      return;
+      return {
+        success: true,
+        noChanges: true
+      };
     }
   }
 
-  const data = {
-    id: editId ?? Date.now(),
-    text: textEl.value,
-    category: categoryEl.value,
-    amount: +amountEl.value,
-    date: existing?.date ?? new Date().toISOString(),
+  const currentEditId = editId;
 
+  const data = {
+    id: currentEditId ?? Date.now(),
+    text,
+    category,
+    amount: numericAmount,
+    date: existing?.date ?? new Date().toISOString(),
     updatedAt: Date.now(),
     updatedBy: deviceId
   };
 
   // MUTATE
   setTransactions(
-    editId
-    ? transactions.map(t => (t.id === editId ? data : t))
-    : [...transactions, data]
+    currentEditId
+      ? transactions.map(t =>
+          t.id === currentEditId ? data : t
+        )
+      : [...transactions, data]
   );
-  
+
   // PERSIST
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),
     chartMode,
-    meta: editId
+    meta: currentEditId
       ? {
           type: "edit",
           category: data.category,
@@ -148,15 +161,11 @@ export const addTransaction = async e => {
       transactions,
       cloudMeta: getCloudMeta(),
       chartMode,
-      label: editId ? "Undo edit" : "Undo add"
+      label: currentEditId
+        ? "Undo edit"
+        : "Undo add"
     })
   );
-
-  if (!result.success) {
-    chartStatus.textContent = "Saved locally (cloud offline)";
-  } else {
-    chartStatus.textContent = "Data synced to cloud";
-  }
 
   broadcastState({
     transactions,
@@ -165,22 +174,39 @@ export const addTransaction = async e => {
   });
 
   editId = null;
-  form.querySelector("button").textContent =
-    "Add Transaction";
-  form.reset();
-  
-  init();
+
+  if (!result.success) {
+    return {
+      success: false,
+      offline: true,
+      transaction: data
+    };
+  }
+
+  return {
+    success: true,
+    transaction: data
+  };
 };
 
-export const deleteTransaction = async id => {
+export const deleteTransaction = async (
+  id,
+  { chartMode }
+) => {
   const t = transactions.find(t => t.id === id);
-  if (!t) return;
+
+  if (!t) {
+    return {
+      success: false,
+      error: "Transaction not found"
+    };
+  }
 
   // MUTATE
   setTransactions(
     transactions.filter(tx => tx.id !== id)
   );
-  
+
   // PERSIST
   const result = await saveData({
     transactions,
@@ -202,47 +228,26 @@ export const deleteTransaction = async id => {
     })
   );
 
-  if (!result.success) {
-    chartStatus.textContent = "Saved locally (cloud offline)";
-  } else {
-    chartStatus.textContent = "Data synced to cloud";
-  }
-
   broadcastState({
     transactions,
     cloudMeta: getCloudMeta(),
     chartMode
   });
 
-  init();
+  return {
+    success: result.success,
+    offline: !result.success,
+    transaction: t
+  };
 };
 
 export const editTransaction = id => {
   const t = transactions.find(t => t.id === id);
-  if (!t) return;
 
-  textEl.value = t.text;
-  amountEl.value = t.amount;
-  categoryEl.value = t.category;  
+  if (!t) return null;
+
   editId = id;
-  form.querySelector("button").textContent = "Update Transaction";
+
+  return structuredClone(t);
 };
 
-export const addTransactionToDOM = t => {
-  const li = document.createElement("li");
-  li.className = t.amount < 0 ? "minus" : "plus";
-
-  li.innerHTML = `
-    <div>
-      <strong>${t.text}</strong>
-      <small>(${t.category})</small>
-    </div>
-    <span>${formatMoney(Math.abs(t.amount))}</span>
-    <div>
-      <button data-edit="${t.id}">✏️</button>
-      <button data-delete="${t.id}">❌</button>
-    </div>
-  `;
-
-  listEl.appendChild(li);
-};

@@ -3,6 +3,25 @@ import { getNextUndoLabel, canUndo, canRedo } from "./historyState.js";
 import { transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
 
+export const addTransactionToDOM = t => {
+  const li = document.createElement("li");
+  li.className = t.amount < 0 ? "minus" : "plus";
+
+  li.innerHTML = `
+    <div>
+      <strong>${t.text}</strong>
+      <small>(${t.category})</small>
+    </div>
+    <span>${formatMoney(Math.abs(t.amount))}</span>
+    <div>
+      <button data-edit="${t.id}">✏️</button>
+      <button data-delete="${t.id}">❌</button>
+    </div>
+  `;
+
+  listEl.appendChild(li);
+};
+
 export const renderList = (listEl, data, addToDOM) => {
   listEl.innerHTML = "";
   if (!data.length) {

@@ -1,7 +1,7 @@
-import { transactions, setTransactions, saveData, activeCategory, addTransactionToDOM, addTransaction, editTransaction, deleteTransaction } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney } from "./utils.js";
-import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
+import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -26,6 +26,9 @@ const expenseEl = document.getElementById("expense");
 const listEl = document.getElementById("list");
 const tableBody = document.getElementById("categoryTable");
 const form = document.getElementById("form");
+const textEl = document.getElementById("text");
+const categoryEl = document.getElementById("category");
+const amountEl = document.getElementById("amount");
 const monthEl = document.getElementById("month");
 const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
@@ -158,6 +161,77 @@ const init = () => {
   renderHistoryInspector(historyList, jumpToHistoryState);
 };
 
+const handleAddTransaction = async e => {
+  e.preventDefault();
+
+  const result = await addTransaction({
+    text: textEl.value.trim(),
+    category: categoryEl.value,
+    amount: amountEl.value,
+    deviceId,
+    chartMode
+  });
+
+  if (!result.success && result.error) {
+    chartStatus.textContent = result.error;
+    return;
+  }
+
+  if (result.noChanges) {
+    form.querySelector("button").textContent =
+      "Add Transaction";
+
+    form.reset();
+
+    chartStatus.textContent =
+      "No changes detected";
+
+    init();
+    return;
+  }
+
+  chartStatus.textContent = result.offline
+    ? "Saved locally (cloud offline)"
+    : "Data synced to cloud";
+
+  form.reset();
+
+  form.querySelector("button").textContent =
+    "Add Transaction";
+
+  init();
+};
+
+const handleEditTransaction = id => {
+  const transaction = editTransaction(id);
+
+  if (!transaction) return;
+
+  textEl.value = transaction.text;
+  amountEl.value = transaction.amount;
+  categoryEl.value = transaction.category;
+
+  form.querySelector("button").textContent =
+    "Update Transaction";
+};
+
+const handleDeleteTransaction = async id => {
+  const result = await deleteTransaction(id, {
+    chartMode
+  });
+
+  if (!result.success && result.error) {
+    chartStatus.textContent = result.error;
+    return;
+  }
+
+  chartStatus.textContent = result.offline
+    ? "Saved locally (cloud offline)"
+    : "Data synced to cloud";
+
+  init();
+};
+
 // INITIAL HISTORY STATE
 if (!hasHistory()) {
   pushUndoState(
@@ -180,9 +254,9 @@ initEvents({
   handlers: {
     init,
     toggleTheme,
-    addTransaction,
-    editTransaction,
-    deleteTransaction
+    addTransaction: handleAddTransaction,
+    editTransaction: handleEditTransaction,
+    deleteTransaction: handleDeleteTransaction
   }
 });
 
