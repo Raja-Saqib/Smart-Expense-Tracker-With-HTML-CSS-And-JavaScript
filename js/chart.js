@@ -1,4 +1,4 @@
-import { slices, setSlices, chartTotal, setChartTotal, patternMode, chartMode } from "./chartState.js";
+import { slices, setSlices, chartTotal, setChartTotal, patternMode, chartMode, setPreviousSlices } from "./chartState.js";
 import { prefersReducedMotion } from "./chartState.js";
 import { createPatterns } from "./chartPatterns.js";
 

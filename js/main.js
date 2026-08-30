@@ -1,4 +1,4 @@
-import { transactions, setTransactions, saveData, activeCategory, addTransactionToDOM } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory, addTransactionToDOM, addTransaction, editTransaction, deleteTransaction } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney } from "./utils.js";
 import { renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
@@ -102,6 +102,37 @@ const jumpToHistoryState = async index => {
   return success;
 };
 
+const toggleTheme = () => {
+  document.body.classList.toggle("dark");
+
+  localStorage.setItem(
+    "theme",
+    document.body.classList.contains("dark") ? "dark" : "light"
+  );
+
+  if (!prefersReducedMotion) {
+    animateThemeTransition({
+      ctx,
+      canvas,
+      redraw: () =>
+        drawChart({
+          canvas,
+          ctx,
+          data: getFiltered(
+            transactions,
+            monthEl,
+            activeCategory
+          ),
+          legendEl,
+          getFiltered,
+          formatMoney
+        })
+    });
+  } else {
+    init();
+  }
+};
+
 const init = () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
@@ -148,43 +179,16 @@ initEvents({
   themeBtn,
   handlers: {
     init,
-    toggleTheme: () => document.body.classList.toggle("dark")
+    toggleTheme,
+    addTransaction,
+    editTransaction,
+    deleteTransaction
   }
 });
 
 toggleBtn.addEventListener("click", () => {
   toggleChartMode();
   init(); 
-});
-
-themeBtn.addEventListener("click", () => {
-  document.body.classList.toggle("dark");
-
-  localStorage.setItem(
-    "theme",
-    document.body.classList.contains("dark") ? "dark" : "light"
-  );
-
-  if (!prefersReducedMotion) {
-    animateThemeTransition({
-      ctx,
-      canvas,
-      redraw: () => drawChart({
-        canvas,
-        ctx,
-        data: getFiltered(
-          transactions,
-          monthEl,
-          activeCategory
-        ),
-        legendEl,
-        getFiltered,
-        formatMoney
-      })
-    });
-  } else {
-    init();
-  }
 });
 
 donutToggle.addEventListener("change", () => {
