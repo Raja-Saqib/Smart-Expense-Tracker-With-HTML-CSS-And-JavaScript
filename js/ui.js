@@ -5,6 +5,7 @@ import { formatMoney } from "./utils.js";
 
 export const addTransactionToDOM = t => {
   const li = document.createElement("li");
+
   li.className = t.amount < 0 ? "minus" : "plus";
 
   li.innerHTML = `
@@ -19,16 +20,20 @@ export const addTransactionToDOM = t => {
     </div>
   `;
 
-  listEl.appendChild(li);
+  return li;
 };
 
 export const renderList = (listEl, data, addToDOM) => {
   listEl.innerHTML = "";
+
   if (!data.length) {
     listEl.innerHTML = "<li>No transactions yet</li>";
     return;
   }
-  data.forEach(addToDOM);
+
+  data.forEach(t => {
+    listEl.appendChild(addToDOM(t));
+  });
 };
 
 export const updateSummary = (balanceEl, incomeEl, expenseEl, data) => {

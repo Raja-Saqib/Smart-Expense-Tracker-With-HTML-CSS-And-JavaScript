@@ -1,6 +1,7 @@
 import { slices, setSlices, chartTotal, setChartTotal, patternMode, chartMode, setPreviousSlices } from "./chartState.js";
 import { prefersReducedMotion } from "./chartState.js";
 import { createPatterns } from "./chartPatterns.js";
+import { activeCategory } from "./state.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);

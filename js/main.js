@@ -266,12 +266,16 @@ toggleBtn.addEventListener("click", () => {
 });
 
 donutToggle.addEventListener("change", () => {
-  setChartMode(donutToggle.checked ? "donut" : "pie");
-  localStorage.setItem("chartMode", chartMode);
+  const mode = donutToggle.checked ? "donut" : "pie";
+
+  setChartMode(mode);
+  localStorage.setItem("chartMode", mode);
+
   chartStatus.textContent =
-    chartMode === "donut"
+    mode === "donut"
       ? "Donut chart enabled"
       : "Pie chart enabled";
+
   init(); // redraw chart
 });
 
