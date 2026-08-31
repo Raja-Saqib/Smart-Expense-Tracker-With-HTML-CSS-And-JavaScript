@@ -80,7 +80,6 @@ export const addTransaction = async ({
   amount,
   deviceId,
   chartMode,
-  onComplete
 }) => {
   if (!text || !category || !amount) {
     return {
