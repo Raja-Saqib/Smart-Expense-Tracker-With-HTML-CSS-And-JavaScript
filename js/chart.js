@@ -1,7 +1,7 @@
-import { slices, setSlices, chartTotal, setChartTotal, patternMode, chartMode, setPreviousSlices } from "./chartState.js";
+import { slices, setSlices, setChartTotal, patternMode, chartMode, setPreviousSlices, setFocusedSliceIndex } from "./chartState.js";
 import { prefersReducedMotion } from "./chartState.js";
 import { createPatterns } from "./chartPatterns.js";
-import { activeCategory } from "./state.js";
+import { activeCategory, toggleCategoryFilter } from "./state.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);
@@ -38,6 +38,47 @@ export const highlightSlice = (
   ctx.strokeStyle = slice.color;
   ctx.lineWidth = 4;
   ctx.stroke();
+};
+
+const drawSlices = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  slices,
+  patternMode
+}) => {
+  slices.forEach(s => {
+    ctx.beginPath();
+
+    ctx.arc(
+      cx,
+      cy,
+      radius,
+      s.startAngle,
+      s.endAngle
+    );
+
+    ctx.arc(
+      cx,
+      cy,
+      innerRadius,
+      s.endAngle,
+      s.startAngle,
+      true
+    );
+
+    ctx.closePath();
+
+    ctx.fillStyle = s.color;
+    ctx.fill();
+
+    if (patternMode) {
+      ctx.fillStyle = s.pattern;
+      ctx.fill();
+    }
+  });
 };
 
 const animateSlices = ({
@@ -86,6 +127,7 @@ const animateSlices = ({
 
   requestAnimationFrame(frame);
 };
+
 export const drawChart = ({
   canvas,
   ctx,
@@ -95,7 +137,16 @@ export const drawChart = ({
   formatMoney,
 }) => {
   // Preserve old slices for transitions
-  setPreviousSlices(slices);
+  // const previous = structuredClone(slices);
+  const previous = slices.map(s => ({
+    id: s.id,
+    category: s.category,
+    value: s.value,
+    startAngle: s.startAngle,
+    endAngle: s.endAngle,
+    color: s.color
+  }));
+  setPreviousSlices(previous);
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   legendEl.innerHTML = "";
@@ -120,6 +171,19 @@ export const drawChart = ({
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const radius = 120;
+    
+  const drawTotal = () => {
+    ctx.fillStyle = getComputedStyle(document.body)
+      .getPropertyValue("--chart-text")
+      .trim();
+
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText("Total", cx, cy - 10);
+    ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+  };
 
   entries.forEach(([category, value], i) => {
     const sliceAngle = (value / totalAmount) * Math.PI * 2;
@@ -183,44 +247,20 @@ export const drawChart = ({
       radius,
       innerRadius,
       slices,
-      onComplete: () => {
-        ctx.fillStyle = getComputedStyle(document.body)
-          .getPropertyValue("--chart-text")
-          .trim();
-        ctx.font = "bold 14px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("Total", cx, cy - 10);
-        ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
-      }
+      onComplete: drawTotal,
     });
   } else {
-      slices.forEach(s => {
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, s.startAngle, s.endAngle);
-        ctx.arc(cx, cy, innerRadius, s.endAngle, s.startAngle, true);
-        ctx.closePath();
+      drawSlices({
+        ctx,
+        cx,
+        cy,
+        radius,
+        innerRadius,
+        slices,
+        patternMode
+      });
 
-        // Base color
-        ctx.fillStyle = s.color;
-        ctx.fill();
-
-        // Pattern overlay
-        if (patternMode) {
-          ctx.fillStyle = s.pattern;
-          ctx.fill();
-        }
-
-    });
-
-    ctx.fillStyle = getComputedStyle(document.body)
-      .getPropertyValue("--chart-text")
-      .trim();
-    ctx.font = "bold 14px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Total", cx, cy - 10);
-    ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+      drawTotal();
   }
 
   legendEl.querySelectorAll(".legend-item").forEach((item, index) => {
@@ -256,15 +296,23 @@ export const drawChart = ({
 
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        focusedSliceIndex = (index + 1) % items.length;
-        items[focusedSliceIndex].focus();
+
+        const nextIndex = (index + 1) % items.length;
+
+        setFocusedSliceIndex(nextIndex);
+
+        items[nextIndex].focus();
       }
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        focusedSliceIndex =
+
+        const previousIndex =
           (index - 1 + items.length) % items.length;
-        items[focusedSliceIndex].focus();
+
+        setFocusedSliceIndex(previousIndex);
+
+        items[previousIndex].focus();
       }
 
       if (e.key === "Enter" || e.key === " ") {
@@ -285,12 +333,5 @@ export const drawChart = ({
 
   });
 
-  ctx.fillStyle = getComputedStyle(document.body)
-    .getPropertyValue("--chart-text")
-    .trim();
-  ctx.font = "bold 14px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("Total", cx, cy - 10);
-  ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+  
 };
