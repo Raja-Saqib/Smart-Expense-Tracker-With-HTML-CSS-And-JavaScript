@@ -86,7 +86,6 @@ const animateSlices = ({
 
   requestAnimationFrame(frame);
 };
-
 export const drawChart = ({
   canvas,
   ctx,
@@ -94,8 +93,6 @@ export const drawChart = ({
   legendEl,
   getFiltered,
   formatMoney,
-  patternMode,
-  chartMode,
 }) => {
   // Preserve old slices for transitions
   setPreviousSlices(slices);
