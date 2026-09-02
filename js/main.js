@@ -16,6 +16,7 @@ import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, re
 import { listenToBroadcast, isBroadcastAvailable, broadcastState } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
+import { deviceId } from "./deviceIdentity.js";
 import { initDebugPanel } from "./debugPanel.js";
 import { renderHistoryInspector } from "./historyInspector.js";
 
