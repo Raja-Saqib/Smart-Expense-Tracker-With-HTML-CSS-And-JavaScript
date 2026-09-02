@@ -3,17 +3,37 @@ export const initEvents = ({
   monthEl,
   listEl,
   themeBtn,
+  undoBtn,
+  redoBtn,
   handlers
 }) => {
   form.addEventListener("submit", handlers.addTransaction);
+
   monthEl.addEventListener("change", handlers.init);
 
   listEl.addEventListener("click", e => {
-    if (e.target.dataset.edit)
-      handlers.editTransaction(+e.target.dataset.edit);
-    if (e.target.dataset.delete)
-      handlers.deleteTransaction(+e.target.dataset.delete);
+    const editButton = e.target.closest("[data-edit]");
+    const deleteButton = e.target.closest("[data-delete]");
+
+    if (editButton) {
+      handlers.editTransaction(+editButton.dataset.edit);
+      return;
+    }
+
+    if (deleteButton) {
+      handlers.deleteTransaction(+deleteButton.dataset.delete);
+    }
   });
 
   themeBtn.addEventListener("click", handlers.toggleTheme);
+
+  undoBtn.addEventListener("click", handlers.undo);
+  redoBtn.addEventListener("click", handlers.redo);
+
+  document.addEventListener("keydown", e => {
+    handlers.keydown(e, {
+      undoBtn,
+      redoBtn
+    });
+  });
 };

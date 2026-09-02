@@ -19,6 +19,15 @@ import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { deviceId } from "./deviceIdentity.js";
 import { initDebugPanel } from "./debugPanel.js";
 import { renderHistoryInspector } from "./historyInspector.js";
+import {
+  getNextUndoLabel,
+  canRedo
+} from "./historyState.js";
+import { subscribe } from "./eventBus.js";
+import {
+  performUndo,
+  performRedo
+} from "./undoSync.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -44,6 +53,8 @@ const viewTableRadio = document.getElementById("viewTable");
 const legendEl = document.getElementById("chartLegend");
 const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
+const undoBtn = document.getElementById("undoBtn");
+const redoBtn = document.getElementById("redoBtn");
 
 const restoreHistoryState = async target => {
   if (!target?.state) return false;
@@ -232,6 +243,46 @@ const handleDeleteTransaction = async id => {
   init();
 };
 
+const handleUndo = async () => {
+  await performUndo({
+    init,
+    ctx,
+    canvas,
+    chartStatus
+  });
+};
+
+const handleRedo = async () => {
+  await performRedo({
+    init,
+    ctx,
+    canvas,
+    chartStatus
+  });
+};
+
+const handleKeydown = (e, { undoBtn, redoBtn }) => {
+  const ctrlOrCmd = e.ctrlKey || e.metaKey;
+
+  if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+    return;
+  }
+
+  if (ctrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "z") {
+    e.preventDefault();
+    undoBtn.click();
+    return;
+  }
+
+  if (
+    (ctrlOrCmd && e.key.toLowerCase() === "y") ||
+    (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "z")
+  ) {
+    e.preventDefault();
+    redoBtn.click();
+  }
+};
+
 // INITIAL HISTORY STATE
 if (!hasHistory()) {
   pushUndoState(
@@ -244,19 +295,37 @@ if (!hasHistory()) {
   );
 }
 
-init();
+const refreshUndoUI = () => {
+  updateUndoUI(
+    undoBtn,
+    redoBtn,
+    {
+      undoLabel: getNextUndoLabel(),
+      canRedo: canRedo()
+    }
+  );
+};
+
+subscribe("history:changed", refreshUndoUI);
+
+refreshUndoUI();
 
 initEvents({
   form,
   monthEl,
   listEl,
   themeBtn,
+  undoBtn,
+  redoBtn,
   handlers: {
-    init,
-    toggleTheme,
     addTransaction: handleAddTransaction,
+    init,
     editTransaction: handleEditTransaction,
-    deleteTransaction: handleDeleteTransaction
+    deleteTransaction: handleDeleteTransaction,
+    toggleTheme,
+    undo: handleUndo,
+    redo: handleRedo,
+    keydown: handleKeydown
   }
 });
 
@@ -322,7 +391,7 @@ const applySnapshot = snapshot => {
   init();
 
   // Update undo/redo buttons
-  updateUndoUI();
+  refreshUndoUI();
 };
 
 viewChartRadio.addEventListener("change", () => {
@@ -469,7 +538,7 @@ attachChartClick(
   } else { 
     // No cloud restore occurred, so perform the normal initial render. 
     init(); 
-    updateUndoUI(); 
+    refreshUndoUI(); 
   } 
   
   initDebugPanel({ 

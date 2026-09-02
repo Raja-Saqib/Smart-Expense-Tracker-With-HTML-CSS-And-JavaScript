@@ -1,5 +1,3 @@
-import { subscribe } from "./eventBus.js";
-import { getNextUndoLabel, canUndo, canRedo } from "./historyState.js";
 import { transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
 
@@ -48,7 +46,7 @@ export const updateSummary = (balanceEl, incomeEl, expenseEl, data) => {
 };
 
 export const renderCategories = (tableBody, data) => {
-  tableBody.innerHTML = {};
+  tableBody.innerHTML = "";
   const totals = {};
 
   data.filter(t => t.amount < 0).forEach(t => {
@@ -119,9 +117,27 @@ export const applyConflictResolutions = conflicts => {
   });
 };
 
-export const updateUndoUI = () => {
-  const undoLabel = getNextUndoLabel();
+// replacement of applyConflictResolutions()
+export const getConflictResolutions = conflicts => {
+  return conflicts.flatMap(c => {
+    const selected = document.querySelector(
+      `input[name="${c.id}"]:checked`
+    );
 
+    if (!selected) return [];
+
+    return [{
+      id: c.id,
+      choice: selected.value
+    }];
+  });
+};
+
+export const updateUndoUI = (
+  undoBtn,
+  redoBtn,
+  { undoLabel, canRedo }
+) => {
   if (!undoLabel) {
     undoBtn.disabled = true;
     undoBtn.textContent = "Undo";
@@ -130,30 +146,6 @@ export const updateUndoUI = () => {
     undoBtn.textContent = undoLabel;
   }
 
-  redoBtn.disabled = !canRedo();
+  redoBtn.disabled = !canRedo;
 };
 
-subscribe("history:changed", () => {
-  updateUndoUI();
-});
-
-document.addEventListener("keydown", e => {
-  const ctrlOrCmd = e.ctrlKey || e.metaKey;
-
-  if (["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
-    return;
-  }
-
-  if (ctrlOrCmd && !e.shiftKey && e.key.toLowerCase() === "z") {
-    e.preventDefault();
-    if (canUndo()) undoBtn.click();
-  }
-
-  if (
-    (ctrlOrCmd && e.key.toLowerCase() === "y") ||
-    (ctrlOrCmd && e.shiftKey && e.key.toLowerCase() === "z")
-  ) {
-    e.preventDefault();
-    if (canRedo()) redoBtn.click();
-  }
-});
