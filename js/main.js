@@ -169,7 +169,6 @@ const handleAddTransaction = async e => {
     text: textEl.value.trim(),
     category: categoryEl.value,
     amount: amountEl.value,
-    deviceId,
     chartMode
   });
 
@@ -484,7 +483,10 @@ attachChartClick(
 listenToBroadcast(payload => {
   if (!payload) return;
 
-  const previousSlices = structuredClone(slices);
+  const previousSlices = slices.map(slice => ({
+    category: slice.category,
+    value: slice.value
+  }));
 
   setTransactions(structuredClone(payload.transactions));
   setCloudMeta(structuredClone(payload.cloudMeta));
@@ -548,7 +550,10 @@ window.addEventListener("storage", e => {
     return;
   }
 
-  const previousSlices = structuredClone(slices);
+  const previousSlices = slices.map(slice => ({
+    category: slice.category,
+    value: slice.value
+  }));
 
   setTransactions(
     structuredClone(persistedState.transactions)

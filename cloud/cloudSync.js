@@ -7,12 +7,13 @@ export const pushToCloud = async ({
   transactions,
   cloudMeta,
   chartMode,
+  deviceId,
   meta = {}
 }) => {
   const payload = {
     version: (cloudMeta?.version ?? 0) + 1,
     updatedAt: Date.now(),
-    updatedBy: cloudMeta?.deviceId ?? "unknown",
+    updatedBy: deviceId,
     transactions,
     chartMode,
     meta

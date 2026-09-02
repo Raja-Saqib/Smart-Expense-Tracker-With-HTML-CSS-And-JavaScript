@@ -3,6 +3,7 @@ import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { chartMode } from "./chartState.js";
+import { deviceId } from "./deviceIdentity.js";
 
 export let transactions =
   JSON.parse(localStorage.getItem("transactions")) || [];
@@ -26,6 +27,7 @@ export const saveData = async ({
       transactions,
       cloudMeta,
       chartMode,
+      deviceId,
       meta
     });
 
@@ -78,7 +80,6 @@ export const addTransaction = async ({
   text,
   category,
   amount,
-  deviceId,
   chartMode,
 }) => {
   if (!text || !category || !amount) {
