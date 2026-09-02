@@ -6,14 +6,14 @@ import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
-import { chartMode, patternMode, viewMode, slices, prefersReducedMotion, setChartMode, setPatternMode, setViewMode, toggleChartMode } from "./chartState.js";
+import { chartMode, patternMode, viewMode, slices, prefersReducedMotion, setChartMode, setPatternMode, setViewMode, toggleChartMode, chartTotal } from "./chartState.js";
 import { initEvents } from "./events.js";
 import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
 import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex } from "./historyState.js";
-import { listenToBroadcast, isBroadcastAvailable } from "./crossTabSync.js";
+import { listenToBroadcast, isBroadcastAvailable, broadcastState } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { initDebugPanel } from "./debugPanel.js";
@@ -260,10 +260,10 @@ initEvents({
   }
 });
 
-toggleBtn.addEventListener("click", () => {
-  toggleChartMode();
-  init(); 
-});
+// toggleBtn.addEventListener("click", () => {
+//   toggleChartMode();
+//   init(); 
+// });
 
 donutToggle.addEventListener("change", () => {
   const mode = donutToggle.checked ? "donut" : "pie";
@@ -280,11 +280,15 @@ donutToggle.addEventListener("change", () => {
 });
 
 patternToggle.addEventListener("change", () => {
-  setPatternMode(patternToggle.checked);
-  localStorage.setItem("patternMode", patternMode);
-  chartStatus.textContent = patternMode
+  const mode = patternToggle.checked;
+
+  setPatternMode(mode);
+  localStorage.setItem("patternMode", mode);
+
+  chartStatus.textContent = mode
     ? "Color-blind patterns enabled"
     : "Color-blind patterns disabled";
+    
   init(); // redraw chart + legend
 });
 
@@ -328,7 +332,7 @@ viewChartRadio.addEventListener("change", () => {
 viewTableRadio.addEventListener("change", () => {
   if (viewTableRadio.checked) updateViewMode("table");
 });
-
+/*
 resolveConflictsBtn.addEventListener("click", async () => {
   
   const previousSlices = structuredClone(slices);
@@ -395,7 +399,7 @@ resolveConflictsBtn.addEventListener("click", async () => {
         : "Conflicts resolved locally (cloud offline)";
   }
 });
-
+*/
 attachChartHover(canvas, {
   getSlices: () => slices,
   getChartTotal: () => chartTotal,
