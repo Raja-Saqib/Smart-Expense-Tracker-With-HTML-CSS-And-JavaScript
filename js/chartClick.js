@@ -3,7 +3,6 @@ import { toggleCategoryFilter } from "./state.js";
 export const attachChartClick = (
   canvas,
   getSlices,
-  getFiltered,
   init
 ) => {
   canvas.addEventListener("click", e => {

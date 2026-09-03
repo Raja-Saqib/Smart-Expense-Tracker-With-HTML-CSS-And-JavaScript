@@ -117,6 +117,13 @@ const jumpToHistoryState = async index => {
   return success;
 };
 
+const getCurrentFiltered = () =>
+  getFiltered(
+    transactions,
+    monthEl,
+    activeCategory
+  );
+
 const toggleTheme = () => {
   document.body.classList.toggle("dark");
 
@@ -133,13 +140,9 @@ const toggleTheme = () => {
         drawChart({
           canvas,
           ctx,
-          data: getFiltered(
-            transactions,
-            monthEl,
-            activeCategory
-          ),
+          data: getCurrentFiltered(),
           legendEl,
-          getFiltered,
+          getFiltered: getCurrentFiltered,
           formatMoney
         })
     });
@@ -158,7 +161,7 @@ const init = () => {
     ctx,
     data,
     legendEl,
-    getFiltered,
+    getFiltered: getCurrentFiltered,
     formatMoney
   });
   donutToggle.checked = chartMode === "donut";
@@ -334,16 +337,44 @@ initEvents({
 //   init(); 
 // });
 
-donutToggle.addEventListener("change", () => {
+donutToggle.addEventListener("change", async () => {
   const mode = donutToggle.checked ? "donut" : "pie";
 
   setChartMode(mode);
   localStorage.setItem("chartMode", mode);
 
+  const result = await saveData({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode,
+    meta: {
+      type: "chart-mode"
+    }
+  });
+
+  pushUndoState(
+    createUndoState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      label: "Undo chart mode"
+    })
+  );
+
+  broadcastState({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode
+  });
+
   chartStatus.textContent =
-    mode === "donut"
-      ? "Donut chart enabled"
-      : "Pie chart enabled";
+    result.success
+      ? mode === "donut"
+        ? "Donut chart enabled"
+        : "Pie chart enabled"
+      : mode === "donut"
+        ? "Donut chart enabled (cloud offline)"
+        : "Pie chart enabled (cloud offline)";
 
   init(); // redraw chart
 });
@@ -477,7 +508,6 @@ attachChartHover(canvas, {
 attachChartClick(
   canvas,
   () => slices,
-  getFiltered,
   init
 );
 
