@@ -1,6 +1,6 @@
-import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, toggleCategoryFilter } from "./state.js";
 import { getFiltered } from "./filters.js";
-import { formatMoney } from "./utils.js";
+import { formatMoney, showError } from "./utils.js";
 import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
@@ -19,6 +19,7 @@ import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
 import { deviceId } from "./deviceIdentity.js";
 import { initDebugPanel } from "./debugPanel.js";
 import { renderHistoryInspector } from "./historyInspector.js";
+import { exportToCSV } from "./csvExport.js";
 import {
   getNextUndoLabel,
   canRedo
@@ -51,6 +52,8 @@ const tableView = document.getElementById("tableView");
 const viewChartRadio = document.getElementById("viewChart");
 const viewTableRadio = document.getElementById("viewTable");
 const legendEl = document.getElementById("chartLegend");
+const exportBtn = document.getElementById("exportCSV");
+const clearFilterBtn = document.getElementById("clearFilter");
 const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 const undoBtn = document.getElementById("undoBtn");
@@ -149,6 +152,16 @@ const toggleTheme = () => {
   } else {
     init();
   }
+};
+
+const clearFilter = () => {
+  monthEl.value = "";
+  toggleCategoryFilter(null); // only if your current state architecture has this setter
+  init();
+};
+
+const handleExportCSV = () => {
+  exportToCSV(getCurrentFiltered(), showError);
 };
 
 const init = () => {
@@ -316,6 +329,8 @@ refreshUndoUI();
 initEvents({
   form,
   monthEl,
+  clearFilterBtn,
+  exportBtn,
   listEl,
   themeBtn,
   undoBtn,
@@ -323,6 +338,8 @@ initEvents({
   handlers: {
     addTransaction: handleAddTransaction,
     init,
+    clearFilter,
+    exportCSV: handleExportCSV,
     editTransaction: handleEditTransaction,
     deleteTransaction: handleDeleteTransaction,
     toggleTheme,

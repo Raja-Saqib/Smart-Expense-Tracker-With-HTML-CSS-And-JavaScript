@@ -1,6 +1,8 @@
 export const initEvents = ({
   form,
   monthEl,
+  clearFilterBtn,
+  exportBtn,
   listEl,
   themeBtn,
   undoBtn,
@@ -10,6 +12,10 @@ export const initEvents = ({
   form.addEventListener("submit", handlers.addTransaction);
 
   monthEl.addEventListener("change", handlers.init);
+
+  clearFilterBtn.addEventListener("click", handlers.clearFilter);
+
+  exportBtn.addEventListener("click", handlers.exportCSV);
 
   listEl.addEventListener("click", e => {
     const editButton = e.target.closest("[data-edit]");
