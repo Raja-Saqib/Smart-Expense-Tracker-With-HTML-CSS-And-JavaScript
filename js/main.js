@@ -126,32 +126,69 @@ const getCurrentFiltered = () =>
     transactions,
     monthEl,
     activeCategory
+);
+
+const getFocusedLegendCategory = () => {
+  const activeElement = document.activeElement;
+
+  if (
+    !activeElement ||
+    !activeElement.classList.contains("legend-item")
+  ) {
+    return null;
+  }
+
+  return activeElement.dataset.category ?? null;
+};
+
+const restoreLegendFocus = category => {
+  if (!category) return;
+
+  const target = legendEl.querySelector(
+    `.legend-item[data-category="${CSS.escape(category)}"]`
   );
 
+  target?.focus({
+    preventScroll: true
+  });
+};
+
 const toggleTheme = () => {
+  const focusedLegendCategory =
+    getFocusedLegendCategory();
+
   document.body.classList.toggle("dark");
 
   localStorage.setItem(
     "theme",
-    document.body.classList.contains("dark") ? "dark" : "light"
+    document.body.classList.contains("dark")
+      ? "dark"
+      : "light"
   );
+
+  const redraw = () => {
+    drawChart({
+      canvas,
+      ctx,
+      data: getCurrentFiltered(),
+      legendEl,
+      getFiltered: getCurrentFiltered,
+      formatMoney
+    });
+
+    restoreLegendFocus(
+      focusedLegendCategory
+    );
+  };
 
   if (!prefersReducedMotion) {
     animateThemeTransition({
       ctx,
       canvas,
-      redraw: () =>
-        drawChart({
-          canvas,
-          ctx,
-          data: getCurrentFiltered(),
-          legendEl,
-          getFiltered: getCurrentFiltered,
-          formatMoney
-        })
+      redraw
     });
   } else {
-    init();
+    redraw();
   }
 };
 

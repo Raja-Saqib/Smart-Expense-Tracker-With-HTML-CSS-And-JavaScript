@@ -265,6 +265,7 @@ export const drawChart = ({
 
     item.type = "button";
     item.className = "legend-item";
+    item.dataset.category = category;
 
     item.setAttribute(
       "aria-label",
