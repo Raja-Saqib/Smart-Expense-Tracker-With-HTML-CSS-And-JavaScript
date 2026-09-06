@@ -2,6 +2,10 @@ import { slices, setSlices, setChartTotal, patternMode, chartMode, setPreviousSl
 import { prefersReducedMotion } from "./chartState.js";
 import { createPatterns } from "./chartPatterns.js";
 import { activeCategory, toggleCategoryFilter } from "./state.js";
+import {
+  CHART_OUTER_RADIUS,
+  CHART_DONUT_INNER_RADIUS
+} from "./chartGeometry.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);
@@ -29,7 +33,7 @@ export const highlightSlice = (
   ctx.arc(
     canvas.width / 2,
     canvas.height / 2,
-    125,
+    CHART_OUTER_RADIUS + 5,
     slice.startAngle,
     slice.endAngle
   );
@@ -148,9 +152,12 @@ const redrawCanvas = ({
 
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const radius = 120;
+  const radius = CHART_OUTER_RADIUS;
+
   const innerRadius =
-    chartMode === "donut" ? 70 : 0;
+    chartMode === "donut"
+      ? CHART_DONUT_INNER_RADIUS
+      : 0;
 
   drawSlices({
     ctx,
@@ -221,7 +228,7 @@ export const drawChart = ({
   let startAngle = 0;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const radius = 120;
+  const radius = CHART_OUTER_RADIUS;
     
   const drawTotal = () => {
     ctx.fillStyle = getComputedStyle(document.body)
@@ -307,7 +314,10 @@ export const drawChart = ({
     startAngle = endAngle;
   });
 
-  const innerRadius = chartMode === "donut" ? 70 : 0;
+  const innerRadius =
+    chartMode === "donut"
+      ? CHART_DONUT_INNER_RADIUS
+      : 0;
 
   // Animate unless reduced motion is preferred
   if (!prefersReducedMotion) {

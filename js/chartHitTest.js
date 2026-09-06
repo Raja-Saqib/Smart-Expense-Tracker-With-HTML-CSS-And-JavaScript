@@ -1,12 +1,15 @@
 // js/chartHitTest.js
 
+import {
+  CHART_OUTER_RADIUS,
+  CHART_DONUT_INNER_RADIUS
+} from "./chartGeometry.js";
+
 export const getChartHit = ({
   canvas,
   event,
   slices,
-  chartMode,
-  outerRadius = 120,
-  donutInnerRadius = 70
+  chartMode
 }) => {
   if (!slices.length) return null;
 
@@ -28,15 +31,13 @@ export const getChartHit = ({
 
   const innerRadius =
     chartMode === "donut"
-      ? donutInnerRadius
+      ? CHART_DONUT_INNER_RADIUS
       : 0;
 
-  // Outside the chart
-  if (distance > outerRadius) {
+  if (distance > CHART_OUTER_RADIUS) {
     return null;
   }
 
-  // Inside the donut hole
   if (distance < innerRadius) {
     return null;
   }
