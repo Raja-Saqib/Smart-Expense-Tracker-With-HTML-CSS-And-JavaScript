@@ -1,3 +1,18 @@
+const escapeCSVValue = value => {
+  const text = String(value ?? "");
+
+  if (
+    text.includes(",") ||
+    text.includes('"') ||
+    text.includes("\n") ||
+    text.includes("\r")
+  ) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+
+  return text;
+};
+
 export const exportToCSV = (data, showError) => {
   if (!data.length) {
     showError("No data to export");
@@ -15,12 +30,16 @@ export const exportToCSV = (data, showError) => {
   ];
 
   const csv = rows
-    .map(row => row.join(","))
-    .join("\n");
+    .map(row =>
+      row.map(escapeCSVValue).join(",")
+    )
+    .join("\r\n");
 
   const blob = new Blob(
     [csv],
-    { type: "text/csv" }
+    {
+      type: "text/csv;charset=utf-8"
+    }
   );
 
   const url = URL.createObjectURL(blob);

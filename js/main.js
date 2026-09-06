@@ -1,4 +1,4 @@
-import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, toggleCategoryFilter } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, setActiveCategory, } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
 import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
@@ -51,6 +51,7 @@ const chartView = document.getElementById("chartView");
 const tableView = document.getElementById("tableView");
 const viewChartRadio = document.getElementById("viewChart");
 const viewTableRadio = document.getElementById("viewTable");
+const errorEl = document.getElementById("error");
 const legendEl = document.getElementById("chartLegend");
 const exportBtn = document.getElementById("exportCSV");
 const clearFilterBtn = document.getElementById("clearFilter");
@@ -156,12 +157,17 @@ const toggleTheme = () => {
 
 const clearFilter = () => {
   monthEl.value = "";
-  toggleCategoryFilter(null); // only if your current state architecture has this setter
+  setActiveCategory(null); 
   init();
+
+  chartStatus.textContent = "Filters cleared";
 };
 
 const handleExportCSV = () => {
-  exportToCSV(getCurrentFiltered(), showError);
+  exportToCSV(
+    getCurrentFiltered(),
+    message => showError(errorEl, message)
+  );
 };
 
 const init = () => {

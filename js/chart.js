@@ -17,17 +17,15 @@ export const getChartColors = () => {
 export const highlightSlice = (
   ctx,
   canvas,
-  getFiltered,
-  drawChart,
   index
 ) => {
-  drawChart(getFiltered());
-
   const slice = slices[index];
+
   if (!slice) return;
 
+  ctx.save();
+
   ctx.beginPath();
-  ctx.moveTo(canvas.width / 2, canvas.height / 2);
   ctx.arc(
     canvas.width / 2,
     canvas.height / 2,
@@ -35,9 +33,12 @@ export const highlightSlice = (
     slice.startAngle,
     slice.endAngle
   );
+
   ctx.strokeStyle = slice.color;
   ctx.lineWidth = 4;
   ctx.stroke();
+
+  ctx.restore();
 };
 
 const drawSlices = ({
@@ -128,6 +129,56 @@ const animateSlices = ({
   requestAnimationFrame(frame);
 };
 
+const redrawCanvas = ({
+  ctx,
+  canvas,
+  patternMode,
+  chartMode,
+  slices,
+  formatMoney
+}) => {
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  if (!slices.length) return;
+
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = 120;
+  const innerRadius =
+    chartMode === "donut" ? 70 : 0;
+
+  drawSlices({
+    ctx,
+    cx,
+    cy,
+    radius,
+    innerRadius,
+    slices,
+    patternMode
+  });
+
+  const totalAmount = slices.reduce(
+    (total, slice) => total + slice.value,
+    0
+  );
+
+  ctx.fillStyle = getComputedStyle(document.body)
+    .getPropertyValue("--chart-text")
+    .trim();
+
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillText("Total", cx, cy - 10);
+  ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+};
+
 export const drawChart = ({
   canvas,
   ctx,
@@ -186,9 +237,14 @@ export const drawChart = ({
   };
 
   entries.forEach(([category, value], i) => {
-    const sliceAngle = (value / totalAmount) * Math.PI * 2;
-    const endAngle = startAngle + sliceAngle;
-    const color = colors[i % colors.length];
+    const sliceAngle =
+      (value / totalAmount) * Math.PI * 2;
+
+    const endAngle =
+      startAngle + sliceAngle;
+
+    const color =
+      colors[i % colors.length];
 
     slices.push({
       id: category,
@@ -197,34 +253,48 @@ export const drawChart = ({
       startAngle,
       endAngle,
       color,
-      pattern: patterns[i % patterns.length],
+      pattern:
+        patterns[i % patterns.length],
     });
 
-    const percent = ((value / totalAmount) * 100).toFixed(1);
-    const item = document.createElement("div");
+    const percent =
+      ((value / totalAmount) * 100).toFixed(1);
+
+    const item =
+      document.createElement("button");
+
+    item.type = "button";
     item.className = "legend-item";
-    item.setAttribute("role", "listitem");
+
     item.setAttribute(
       "aria-label",
       `${category}, ${formatMoney(value)}, ${percent} percent`
     );
+
     item.setAttribute(
-      "aria-selected",
-      activeCategory === category ? "true" : "false"
-    );
-    item.setAttribute(
-      "aria-pressed", 
-      activeCategory === category ? "true" : "false"
+      "aria-pressed",
+      activeCategory === category
+        ? "true"
+        : "false"
     );
 
     item.innerHTML = `
-      <span class="legend-color" aria-hidden="true"></span>
-      <span><strong>${category}</strong>: ${formatMoney(value)} (${percent}%)</span>
+      <span
+        class="legend-color"
+        aria-hidden="true"
+      ></span>
+
+      <span>
+        <strong>${category}</strong>:
+        ${formatMoney(value)}
+        (${percent}%)
+      </span>
     `;
 
     legendEl.appendChild(item);
 
-    const swatch = item.querySelector(".legend-color");
+    const swatch =
+      item.querySelector(".legend-color");
 
     swatch.style.backgroundColor = color;
 
@@ -263,63 +333,32 @@ export const drawChart = ({
       drawTotal();
   }
 
-  legendEl.querySelectorAll(".legend-item").forEach((item, index) => {
-    item.tabIndex = 0;
-
-    item.addEventListener("focus", () =>
-      highlightSlice(ctx, canvas, getFiltered, () =>
-        drawChart({
-          canvas,
+  legendEl.querySelectorAll(".legend-item").forEach(
+    (item, index) => {
+      item.addEventListener("focus", () => {
+        highlightSlice(
           ctx,
-          data: getFiltered(),
-          legendEl,
-          getFiltered,
+          canvas,
+          index
+        );
+      });
+
+      item.addEventListener("blur", () => {
+        redrawCanvas({
+          ctx,
+          canvas,
+          patternMode,
+          chartMode,
+          slices,
           formatMoney
-        }),
-        index
-      )
-    );
+        });
+      });
 
-    item.addEventListener("blur", () =>
-      drawChart({
-        canvas,
-        ctx,
-        data: getFiltered(),
-        legendEl,
-        getFiltered,
-        formatMoney
-      })
-    );
+      item.addEventListener("click", () => {
+        toggleCategoryFilter(
+          slices[index].category
+        );
 
-    item.addEventListener("keydown", e => {
-      const items = [...legendEl.querySelectorAll(".legend-item")];
-
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-
-        const nextIndex = (index + 1) % items.length;
-
-        setFocusedSliceIndex(nextIndex);
-
-        items[nextIndex].focus();
-      }
-
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-
-        const previousIndex =
-          (index - 1 + items.length) % items.length;
-
-        setFocusedSliceIndex(previousIndex);
-
-        items[previousIndex].focus();
-      }
-
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        toggleCategoryFilter(slices[index].category);
-        chartStatus.textContent =
-          `Filtered by ${slices[index].category}`;
         drawChart({
           canvas,
           ctx,
@@ -328,10 +367,46 @@ export const drawChart = ({
           getFiltered,
           formatMoney
         });
-      }
-    });
+      });
 
-  });
+      item.addEventListener("keydown", e => {
+        const items = [
+          ...legendEl.querySelectorAll(".legend-item")
+        ];
+
+        if (!items.length) return;
+
+        if (
+          e.key === "ArrowRight" ||
+          e.key === "ArrowDown"
+        ) {
+          e.preventDefault();
+
+          const nextIndex =
+            (index + 1) % items.length;
+
+          setFocusedSliceIndex(nextIndex);
+          items[nextIndex].focus();
+
+          return;
+        }
+
+        if (
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowUp"
+        ) {
+          e.preventDefault();
+
+          const previousIndex =
+            (index - 1 + items.length) %
+            items.length;
+
+          setFocusedSliceIndex(previousIndex);
+          items[previousIndex].focus();
+        }
+      });
+    }
+  );
 
   
 };

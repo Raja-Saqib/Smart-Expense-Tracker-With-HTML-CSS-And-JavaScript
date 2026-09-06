@@ -76,6 +76,10 @@ export const toggleCategoryFilter = category => {
   activeCategory = activeCategory === category ? null : category;
 };
 
+export const setActiveCategory = category => {
+  activeCategory = category;
+};
+
 export const addTransaction = async ({
   text,
   category,
