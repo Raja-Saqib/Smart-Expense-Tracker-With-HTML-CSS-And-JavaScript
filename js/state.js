@@ -86,14 +86,18 @@ export const addTransaction = async ({
   amount,
   chartMode,
 }) => {
-  const normalizedText = text.trim();
+  // Normalize description first
+  const normalizedText = String(text ?? "").trim();
+
+  // Validate required fields
   if (!category || !amount) {
     return {
       success: false,
-      error: "All category and amount are required"
+      error: "Category and amount are required"
     };
   }
 
+  // Validate amount
   if (+amount === 0) {
     return {
       success: false,
@@ -103,9 +107,11 @@ export const addTransaction = async ({
 
   const numericAmount = +amount;
 
-  const existing = transactions.find(t => t.id === editId);
+  const existing = transactions.find(
+    t => t.id === editId
+  );
 
-  // Editing: detect no-op before creating a new object
+  // Editing: compare NORMALIZED values
   if (editId && existing) {
     const isUnchanged =
       existing.text === normalizedText &&
@@ -124,6 +130,7 @@ export const addTransaction = async ({
 
   const currentEditId = editId;
 
+  // Create the canonical transaction
   const data = {
     id: currentEditId ?? Date.now(),
     text: normalizedText,
@@ -160,7 +167,7 @@ export const addTransaction = async ({
         }
   });
 
-  // SNAPSHOT AFTER PERSISTENCE
+  // HISTORY — receives already-normalized transaction
   pushUndoState(
     createUndoState({
       transactions,
@@ -172,6 +179,7 @@ export const addTransaction = async ({
     })
   );
 
+  // CROSS-TAB — receives already-normalized transaction
   broadcastState({
     transactions,
     cloudMeta: getCloudMeta(),
