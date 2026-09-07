@@ -11,6 +11,13 @@ export let transactions =
 export let editId = null;
 export let activeCategory = null;
 
+const rollbackTransactions = (
+  previousTransactions
+) => {
+  setTransactions(previousTransactions);
+  editId = null;
+};
+
 export const saveData = async ({
   transactions,
   cloudMeta,
@@ -128,9 +135,7 @@ export const addTransaction = async ({
 
   const currentEditId = editId;
 
-  // --------------------------------------------------
-  // CAPTURE STATE BEFORE MUTATION
-  // --------------------------------------------------
+  // Capture state before mutation
   const previousTransactions =
     structuredClone(transactions);
 
@@ -144,9 +149,7 @@ export const addTransaction = async ({
     updatedBy: deviceId
   };
 
-  // --------------------------------------------------
   // MUTATE
-  // --------------------------------------------------
   setTransactions(
     currentEditId
       ? transactions.map(t =>
@@ -157,9 +160,7 @@ export const addTransaction = async ({
       : [...transactions, data]
   );
 
-  // --------------------------------------------------
-  // PERSIST + FAILURE HANDLING
-  // --------------------------------------------------
+  // PERSIST
   try {
     const result = await saveData({
       transactions,
@@ -177,11 +178,9 @@ export const addTransaction = async ({
           }
     });
 
-    // saveData() completed but reported failure
+    // saveData() returned a failure
     if (!result.success) {
-      setTransactions(previousTransactions);
-
-      editId = null;
+      rollbackTransactions(previousTransactions);
 
       return {
         success: false,
@@ -191,10 +190,7 @@ export const addTransaction = async ({
       };
     }
 
-    // ------------------------------------------------
-    // SUCCESS ONLY
-    // ------------------------------------------------
-
+    // SUCCESS — history
     pushUndoState(
       createUndoState({
         transactions,
@@ -206,6 +202,7 @@ export const addTransaction = async ({
       })
     );
 
+    // SUCCESS — cross-tab sync
     broadcastState({
       transactions,
       cloudMeta: getCloudMeta(),
@@ -220,19 +217,12 @@ export const addTransaction = async ({
     };
 
   } catch (error) {
-
-    // saveData() threw an exception
     console.error(
       "Transaction persistence failed:",
       error
     );
 
-    // ----------------------------------------------
-    // ROLLBACK
-    // ----------------------------------------------
-    setTransactions(previousTransactions);
-
-    editId = null;
+    rollbackTransactions(previousTransactions);
 
     return {
       success: false,
