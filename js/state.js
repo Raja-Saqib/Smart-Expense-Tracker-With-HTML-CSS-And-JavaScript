@@ -12,7 +12,8 @@ export let editId = null;
 export let activeCategory = null;
 
 const rollbackTransactionPersistence = (
-  previousTransactions
+  previousTransactions,
+  error = null
 ) => {
   setTransactions(previousTransactions);
   editId = null;
@@ -21,7 +22,8 @@ const rollbackTransactionPersistence = (
     success: false,
     offline: true,
     rolledBack: true,
-    error: "Transaction was not saved"
+    error: "Transaction was not saved",
+    cause: error
   };
 };
 
@@ -184,14 +186,14 @@ export const addTransaction = async ({
           }
     });
 
-    // saveData() reported failure
     if (!result.success) {
       return rollbackTransactionPersistence(
-        previousTransactions
+        previousTransactions,
+        result.error ?? null
       );
     }
 
-    // SUCCESS — history
+    // SUCCESS
     pushUndoState(
       createUndoState({
         transactions,
@@ -203,7 +205,6 @@ export const addTransaction = async ({
       })
     );
 
-    // SUCCESS — cross-tab sync
     broadcastState({
       transactions,
       cloudMeta: getCloudMeta(),
@@ -223,9 +224,9 @@ export const addTransaction = async ({
       error
     );
 
-    // saveData() threw
     return rollbackTransactionPersistence(
-      previousTransactions
+      previousTransactions,
+      error
     );
   }
 };
