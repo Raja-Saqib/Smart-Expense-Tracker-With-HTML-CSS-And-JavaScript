@@ -86,10 +86,8 @@ export const addTransaction = async ({
   amount,
   chartMode,
 }) => {
-  // Normalize description first
   const normalizedText = String(text ?? "").trim();
 
-  // Validate required fields
   if (!category || !amount) {
     return {
       success: false,
@@ -97,7 +95,6 @@ export const addTransaction = async ({
     };
   }
 
-  // Validate amount
   if (+amount === 0) {
     return {
       success: false,
@@ -111,7 +108,7 @@ export const addTransaction = async ({
     t => t.id === editId
   );
 
-  // Editing: compare NORMALIZED values
+  // Editing: no-op check
   if (editId && existing) {
     const isUnchanged =
       existing.text === normalizedText &&
@@ -130,7 +127,11 @@ export const addTransaction = async ({
 
   const currentEditId = editId;
 
-  // Create the canonical transaction
+  // --------------------------------------------------
+  // CAPTURE PREVIOUS STATE BEFORE MUTATION
+  // --------------------------------------------------
+  const previousTransactions = structuredClone(transactions);
+
   const data = {
     id: currentEditId ?? Date.now(),
     text: normalizedText,
@@ -141,7 +142,9 @@ export const addTransaction = async ({
     updatedBy: deviceId
   };
 
+  // --------------------------------------------------
   // MUTATE
+  // --------------------------------------------------
   setTransactions(
     currentEditId
       ? transactions.map(t =>
@@ -150,7 +153,9 @@ export const addTransaction = async ({
       : [...transactions, data]
   );
 
+  // --------------------------------------------------
   // PERSIST
+  // --------------------------------------------------
   const result = await saveData({
     transactions,
     cloudMeta: getCloudMeta(),
@@ -167,7 +172,25 @@ export const addTransaction = async ({
         }
   });
 
-  // HISTORY — receives already-normalized transaction
+  // --------------------------------------------------
+  // ROLLBACK IF PERSISTENCE FAILED
+  // --------------------------------------------------
+  if (!result.success) {
+    setTransactions(previousTransactions);
+
+    editId = null;
+
+    return {
+      success: false,
+      offline: true,
+      rolledBack: true,
+      error: "Transaction was not saved"
+    };
+  }
+
+  // --------------------------------------------------
+  // HISTORY — ONLY AFTER SUCCESSFUL PERSISTENCE
+  // --------------------------------------------------
   pushUndoState(
     createUndoState({
       transactions,
@@ -179,7 +202,9 @@ export const addTransaction = async ({
     })
   );
 
-  // CROSS-TAB — receives already-normalized transaction
+  // --------------------------------------------------
+  // CROSS-TAB — ONLY AFTER SUCCESSFUL PERSISTENCE
+  // --------------------------------------------------
   broadcastState({
     transactions,
     cloudMeta: getCloudMeta(),
@@ -187,14 +212,6 @@ export const addTransaction = async ({
   });
 
   editId = null;
-
-  if (!result.success) {
-    return {
-      success: false,
-      offline: true,
-      transaction: data
-    };
-  }
 
   return {
     success: true,
