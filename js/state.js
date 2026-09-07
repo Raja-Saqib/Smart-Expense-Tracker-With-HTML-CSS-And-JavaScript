@@ -11,11 +11,18 @@ export let transactions =
 export let editId = null;
 export let activeCategory = null;
 
-const rollbackTransactions = (
+const rollbackTransactionPersistence = (
   previousTransactions
 ) => {
   setTransactions(previousTransactions);
   editId = null;
+
+  return {
+    success: false,
+    offline: true,
+    rolledBack: true,
+    error: "Transaction was not saved"
+  };
 };
 
 export const saveData = async ({
@@ -135,7 +142,6 @@ export const addTransaction = async ({
 
   const currentEditId = editId;
 
-  // Capture state before mutation
   const previousTransactions =
     structuredClone(transactions);
 
@@ -178,16 +184,11 @@ export const addTransaction = async ({
           }
     });
 
-    // saveData() returned a failure
+    // saveData() reported failure
     if (!result.success) {
-      rollbackTransactions(previousTransactions);
-
-      return {
-        success: false,
-        offline: true,
-        rolledBack: true,
-        error: "Transaction was not saved"
-      };
+      return rollbackTransactionPersistence(
+        previousTransactions
+      );
     }
 
     // SUCCESS — history
@@ -222,14 +223,10 @@ export const addTransaction = async ({
       error
     );
 
-    rollbackTransactions(previousTransactions);
-
-    return {
-      success: false,
-      offline: true,
-      rolledBack: true,
-      error: "Transaction was not saved"
-    };
+    // saveData() threw
+    return rollbackTransactionPersistence(
+      previousTransactions
+    );
   }
 };
 
