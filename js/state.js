@@ -86,10 +86,11 @@ export const addTransaction = async ({
   amount,
   chartMode,
 }) => {
-  if (!text || !category || !amount) {
+  const normalizedText = text.trim();
+  if (!category || !amount) {
     return {
       success: false,
-      error: "All fields are required"
+      error: "All category and amount are required"
     };
   }
 
@@ -107,7 +108,7 @@ export const addTransaction = async ({
   // Editing: detect no-op before creating a new object
   if (editId && existing) {
     const isUnchanged =
-      existing.text === text &&
+      existing.text === normalizedText &&
       existing.category === category &&
       existing.amount === numericAmount;
 
@@ -125,7 +126,7 @@ export const addTransaction = async ({
 
   const data = {
     id: currentEditId ?? Date.now(),
-    text,
+    text: normalizedText,
     category,
     amount: numericAmount,
     date: existing?.date ?? new Date().toISOString(),

@@ -4,15 +4,15 @@ import { formatMoney } from "./utils.js";
 export const addTransactionToDOM = t => {
   const li = document.createElement("li");
 
-  li.className = t.amount < 0 ? "minus" : "plus";
+  li.className = t.amount < 0 ? "money minus" : "money plus";
 
   li.innerHTML = `
-    <div>
+    <div class="list-text">
       <strong>${t.text}</strong>
       <small>(${t.category})</small>
     </div>
-    <span>${formatMoney(Math.abs(t.amount))}</span>
-    <div>
+    <span class="list-amount">${formatMoney(Math.abs(t.amount))}</span>
+    <div class="list-button">
       <button data-edit="${t.id}">✏️</button>
       <button data-delete="${t.id}">❌</button>
     </div>
