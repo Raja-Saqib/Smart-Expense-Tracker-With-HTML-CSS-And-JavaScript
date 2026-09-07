@@ -28,25 +28,53 @@ export const pushToCloud = async ({
   });
 
   if (!res.ok) {
-    throw new Error("Cloud push failed");
+    const error = new Error(
+      `Cloud push failed: HTTP ${res.status}`
+    );
+
+    error.status = res.status;
+
+    throw error;
   }
 
   return payload;
 };
 
 export const pullFromCloud = async () => {
-  const res = await fetch(CLOUD_URL);
+  try {
+    const res = await fetch(CLOUD_URL);
 
-  if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(
+        `Cloud pull failed: HTTP ${res.status}`
+      );
 
-  const data = await res.json();
+      return null;
+    }
 
-  if (!data?.transactions || !Array.isArray(data.transactions)) {
-    console.warn("Invalid cloud data shape");
+    const data = await res.json();
+
+    if (
+      !data?.transactions ||
+      !Array.isArray(data.transactions)
+    ) {
+      console.warn(
+        "Invalid cloud data shape"
+      );
+
+      return null;
+    }
+
+    return data;
+
+  } catch (error) {
+    console.warn(
+      "Cloud pull unavailable:",
+      error
+    );
+
     return null;
   }
-
-  return data;
 };
 
 export const detectConflicts = (

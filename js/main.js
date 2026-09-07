@@ -236,14 +236,22 @@ const handleAddTransaction = async e => {
   e.preventDefault();
 
   const result = await addTransaction({
-    text: textEl.value.trim(),
+    text: textEl.value,
     category: categoryEl.value,
     amount: amountEl.value,
     chartMode
   });
 
-  if (!result.success && result.error) {
-    chartStatus.textContent = result.error;
+  if (!result.success) {
+    showError(
+      errorEl,
+      result.error ??
+        "Transaction could not be saved"
+    );
+
+    chartStatus.textContent =
+      "Transaction save failed";
+
     return;
   }
 
@@ -290,8 +298,16 @@ const handleDeleteTransaction = async id => {
     chartMode
   });
 
-  if (!result.success && result.error) {
-    chartStatus.textContent = result.error;
+  if (!result.success) {
+    showError(
+      errorEl,
+      result.error ??
+        "Transaction could not be saved"
+    );
+
+    chartStatus.textContent =
+      "Transaction save failed";
+
     return;
   }
 
@@ -608,7 +624,7 @@ attachChartClick(
         cloudMeta: { 
           version: cloudData.version, 
           updatedAt: cloudData.updatedAt, 
-          deviceId: cloudData.deviceId 
+          deviceId: cloudData.updatedBy ?? null, 
         }, 
         chartMode: cloudData.chartMode 
       } 

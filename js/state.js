@@ -1,7 +1,7 @@
 import { pushToCloud } from "../cloud/cloudSync.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
-import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
+import { getCloudMeta, setCloudMeta, STORAGE_SYNC_KEY } from "../cloud/cloudState.js";
 import { chartMode } from "./chartState.js";
 import { deviceId } from "./deviceIdentity.js";
 
@@ -10,6 +10,29 @@ export let transactions =
 
 export let editId = null;
 export let activeCategory = null;
+
+const getErrorDetails = error => {
+  if (!error) return null;
+
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack ?? null,
+      status:
+        Number.isFinite(error.status)
+          ? error.status
+          : null
+    };
+  }
+
+  return {
+    name: "Error",
+    message: String(error),
+    stack: null,
+    status: null
+  };
+};
 
 const rollbackTransactionPersistence = (
   previousTransactions,
@@ -20,10 +43,9 @@ const rollbackTransactionPersistence = (
 
   return {
     success: false,
-    offline: true,
     rolledBack: true,
     error: "Transaction was not saved",
-    cause: error
+    cause: getErrorDetails(error)
   };
 };
 
@@ -33,57 +55,102 @@ export const saveData = async ({
   chartMode,
   meta = {}
 }) => {
+  // --------------------------------------------------
+  // PRIMARY LOCAL PERSISTENCE
+  //
+  // If this throws, let it escape.
+  // The transaction operation will roll back.
+  // --------------------------------------------------
   localStorage.setItem(
     "transactions",
     JSON.stringify(transactions)
   );
 
+  let cloudState = null;
+  let cloudError = null;
+
+  // --------------------------------------------------
+  // REMOTE SYNCHRONIZATION
+  // --------------------------------------------------
   try {
-    const cloudState = await pushToCloud({
+    cloudState = await pushToCloud({
       transactions,
       cloudMeta,
       chartMode,
       deviceId,
       meta
     });
+  } catch (error) {
+    cloudError = error;
 
-    setCloudMeta({
-      version: cloudState.version,
-      updatedAt: cloudState.updatedAt,
-      deviceId: cloudState.updatedBy
-    });
-
-    const synchronizedState = {
-      transactions: structuredClone(transactions),
-      cloudMeta: structuredClone(getCloudMeta()),
-      chartMode
-    };
-
-    localStorage.setItem(
-      "expenseTrackerSyncState",
-      JSON.stringify(synchronizedState)
+    console.warn(
+      "Cloud sync failed, saved locally",
+      error
     );
-
-    return {
-      success: true,
-      cloudMeta: structuredClone(getCloudMeta())
-    };
-  } catch (e) {
-    console.warn("Cloud sync failed, saved locally");
-
-    const synchronizedState = {
-      transactions: structuredClone(transactions),
-      cloudMeta: structuredClone(getCloudMeta()),
-      chartMode
-    };
-
-    localStorage.setItem(
-      "expenseTrackerSyncState",
-      JSON.stringify(synchronizedState)
-    );
-
-    return { success: false };
   }
+
+  // --------------------------------------------------
+  // CLOUD METADATA
+  // --------------------------------------------------
+  if (cloudState) {
+    try {
+      setCloudMeta({
+        version: cloudState.version,
+        updatedAt: cloudState.updatedAt,
+        deviceId: cloudState.updatedBy
+      });
+    } catch (error) {
+      console.warn(
+        "Cloud metadata could not be persisted:",
+        error
+      );
+    }
+  }
+
+  // --------------------------------------------------
+  // CROSS-TAB/STORAGE-FALLBACK MIRROR
+  // --------------------------------------------------
+  let syncStateError = null;
+
+  try {
+    const synchronizedState = {
+      transactions:
+        structuredClone(transactions),
+
+      cloudMeta:
+        structuredClone(getCloudMeta()),
+
+      chartMode
+    };
+
+    localStorage.setItem(
+      STORAGE_SYNC_KEY,
+      JSON.stringify(synchronizedState)
+    );
+  } catch (error) {
+    syncStateError = error;
+
+    console.warn(
+      "Sync-state mirror could not be persisted:",
+      error
+    );
+  }
+
+  // The transaction itself WAS saved locally.
+  return {
+    success: true,
+
+    offline: Boolean(cloudError),
+
+    cloudMeta:
+      structuredClone(getCloudMeta()),
+
+    cloudError:
+      getErrorDetails(cloudError),
+
+    syncStateError:
+      getErrorDetails(syncStateError)
+  };
 };
 
 export const setEditId = id => (editId = id);
@@ -178,7 +245,8 @@ export const addTransaction = async ({
         ? {
             type: "edit",
             category: data.category,
-            previousCategory: existing?.category
+            previousCategory:
+              existing?.category
           }
         : {
             type: "add",
@@ -186,14 +254,9 @@ export const addTransaction = async ({
           }
     });
 
-    if (!result.success) {
-      return rollbackTransactionPersistence(
-        previousTransactions,
-        result.error ?? null
-      );
-    }
+    // LOCAL PERSISTENCE SUCCEEDED.
+    // Cloud availability does not change that.
 
-    // SUCCESS
     pushUndoState(
       createUndoState({
         transactions,
@@ -215,6 +278,9 @@ export const addTransaction = async ({
 
     return {
       success: true,
+      offline: result.offline,
+      cloudError: result.cloudError,
+      syncStateError: result.syncStateError,
       transaction: data
     };
 
@@ -235,7 +301,9 @@ export const deleteTransaction = async (
   id,
   { chartMode }
 ) => {
-  const t = transactions.find(t => t.id === id);
+  const t = transactions.find(
+    transaction => transaction.id === id
+  );
 
   if (!t) {
     return {
@@ -244,43 +312,61 @@ export const deleteTransaction = async (
     };
   }
 
+  const previousTransactions =
+    structuredClone(transactions);
+
   // MUTATE
   setTransactions(
-    transactions.filter(tx => tx.id !== id)
+    transactions.filter(
+      transaction => transaction.id !== id
+    )
   );
 
-  // PERSIST
-  const result = await saveData({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode,
-    meta: {
-      type: "delete",
-      category: t.category
-    }
-  });
-
-  // SNAPSHOT AFTER PERSISTENCE
-  pushUndoState(
-    createUndoState({
+  try {
+    const result = await saveData({
       transactions,
       cloudMeta: getCloudMeta(),
       chartMode,
-      label: "Undo delete"
-    })
-  );
+      meta: {
+        type: "delete",
+        category: t.category
+      }
+    });
 
-  broadcastState({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode
-  });
+    pushUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        label: "Undo delete"
+      })
+    );
 
-  return {
-    success: result.success,
-    offline: !result.success,
-    transaction: t
-  };
+    broadcastState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode
+    });
+
+    return {
+      success: true,
+      offline: result.offline,
+      cloudError: result.cloudError,
+      syncStateError: result.syncStateError,
+      transaction: t
+    };
+
+  } catch (error) {
+    console.error(
+      "Transaction deletion persistence failed:",
+      error
+    );
+
+    return rollbackTransactionPersistence(
+      previousTransactions,
+      error
+    );
+  }
 };
 
 export const editTransaction = id => {
