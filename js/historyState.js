@@ -103,6 +103,19 @@ export const undo = () => {
   return undoStack[undoStack.length - 1];
 };
 
+export const rollbackUndo = expectedCurrent => {
+  const currentRedoState  = redoStack[redoStack.length - 1];
+
+  if (currentRedoState !== expectedCurrent) return false;
+
+  redoStack.pop();
+  undoStack.push(expectedCurrent);
+
+  publish("history:changed");
+
+  return true;
+};
+
 /**
  * Redo
  */
@@ -115,6 +128,19 @@ export const redo = () => {
   publish("history:changed");
 
   return state;
+};
+
+export const rollbackRedo = expectedCurrent => {
+  const currentUndoState  = undoStack[undoStack.length - 1];
+
+  if (currentUndoState  !== expectedCurrent) return false;
+
+  undoStack.pop();
+  redoStack.push(expectedCurrent);
+
+  publish("history:changed");
+
+  return true;
 };
 
 export const canUndo = () => undoStack.length > 1;
@@ -135,6 +161,35 @@ export const getNextUndoLabel = () => {
 
 export const getUndoStack = () => [...undoStack];
 export const getRedoStack = () => [...redoStack];
+
+export const getHistoryState = index => {
+  if (index < 0 || index >= undoStack.length) {
+    return null;
+  }
+
+  return undoStack[index];
+};
+
+export const commitJumpToState = index => {
+  if (index < 0 || index >= undoStack.length) {
+    return null;
+  }
+
+  const target = undoStack[index];
+
+  const removed = undoStack.slice(index + 1);
+
+  redoStack = [
+    ...removed.reverse(),
+    ...redoStack
+  ];
+
+  undoStack = undoStack.slice(0, index + 1);
+
+  publish("history:changed");
+
+  return target;
+};
 
 export const jumpToState = index => {
   if (index < 0 || index >= undoStack.length) return null;

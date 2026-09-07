@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable, broadcastState } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -61,64 +61,110 @@ const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
 
 const restoreHistoryState = async target => {
-  if (!target?.state) return false;
+  if (!target?.state) {
+    return {
+      success: false,
+      error: "Invalid history state"
+    };
+  }
 
   const {
     transactions: tx,
-    cloudMeta,
     chartMode: mode
   } = target.state;
 
-  const currentCloudMeta = structuredClone(getCloudMeta());
+  const previousTransactions =
+    structuredClone(transactions);
+
+  const previousChartMode = chartMode;
+
+  const currentCloudMeta =
+    structuredClone(getCloudMeta());
 
   setTransactions(structuredClone(tx));
   setChartMode(mode);
 
-  const result = await saveData({
-    transactions,
-    cloudMeta: currentCloudMeta,
-    chartMode,
-    meta: {
-      type: "history-jump"
-    }
-  });
-
-  replaceCurrentUndoState(
-    createUndoState({
+  try {
+    const result = await saveData({
       transactions,
-      cloudMeta: getCloudMeta(),
+      cloudMeta: currentCloudMeta,
       chartMode,
-      label: target.label
-    })
-  );
+      meta: {
+        type: "history-jump"
+      }
+    });
 
-  broadcastState({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode
-  });
+    if (!result.success) {
+      throw new Error(
+        result.error ?? "Transaction was not saved"
+      );
+    }
 
-  init();
+    init();
 
-  return result.success;
+    return result;
+  } catch (error) {
+    setTransactions(previousTransactions);
+    setChartMode(previousChartMode);
+
+    return {
+      success: false,
+      rolledBack: true,
+      error: "History state could not be restored",
+      cause: {
+        name: error?.name,
+        message: error?.message,
+        stack: error?.stack
+      }
+    };
+  }
 };
 
 const jumpToHistoryState = async index => {
   const currentIndex = getCurrentIndex();
 
-  if (index === currentIndex) return false;
+  if (index === currentIndex) {
+    return false;
+  }
 
-  const target = jumpToState(index);
+  const target = getHistoryState(index);
 
-  if (!target) return false;
+  if (!target) {
+    return false;
+  }
 
-  const success = await restoreHistoryState(target);
+  const result = await restoreHistoryState(target);
 
-  chartStatus.textContent = success
-    ? `Restored: ${target.label}`
-    : `Restored locally: ${target.label} (cloud offline)`;
+  if (!result.success) {
+    chartStatus.textContent =
+      result.error ??
+      "History state could not be restored";
 
-  return success;
+    return false;
+  }
+
+  commitJumpToState(index);
+
+    replaceCurrentUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        label: target.label
+      })
+    );
+
+    broadcastState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode
+    });
+
+  chartStatus.textContent = result.offline
+    ? `Restored locally: ${target.label} (cloud offline)`
+    : `Restored: ${target.label}`;
+
+  return true;
 };
 
 const getCurrentFiltered = () =>
