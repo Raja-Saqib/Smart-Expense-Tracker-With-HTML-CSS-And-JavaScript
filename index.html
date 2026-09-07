@@ -8,10 +8,19 @@
 </head>
 
 <body>
+  <div class="app-top">
+    <div>
+      <button id="undoSync">
+        Undo last sync
+      </button>
+      <button id="undoBtn">Undo</button>
+      <button id="redoBtn" disabled>Redo</button>
+    </div>
+    <button id="themeBtn" aria-label="Toggle theme">🌙</button>
+  </div>
   <main class="container">
     <header>
       <h1>Smart Expense Tracker</h1>
-      <button id="themeBtn" aria-label="Toggle theme">🌙</button>
     </header>
 
     <section class="balance">
@@ -28,6 +37,28 @@
         <h3>Expense</h3>
         <p id="expense" class="money minus">$0</p>
       </div>
+    </section>
+
+    <section class="filter">
+      <h3>Add Transaction</h3>
+      <form id="form">
+        <input id="text" type="text" placeholder="Description" />
+        <select id="category">
+          <option value="">Select Category</option>
+          <option>Food</option>
+          <option>Transport</option>
+          <option>Rent</option>
+          <option>Shopping</option>
+          <option>Salary</option>
+        </select>
+        <input id="amount" type="number" placeholder="+income / -expense" />
+        <button type="submit">Add Transaction</button>
+      </form>
+    </section>
+
+    <section>
+      <h3>History</h3>
+      <ul id="list"></ul>
     </section>
 
     <section>
@@ -110,29 +141,7 @@
 
     <button type="button" id="exportCSV">Export CSV</button>
 
-    <section>
-      <h3>History</h3>
-      <ul id="list"></ul>
-    </section>
-
     <p id="error" class="error"></p>
-
-    <section class="filter">
-      <h3>Add Transaction</h3>
-      <form id="form">
-        <input id="text" type="text" placeholder="Description" />
-        <select id="category">
-          <option value="">Select Category</option>
-          <option>Food</option>
-          <option>Transport</option>
-          <option>Rent</option>
-          <option>Shopping</option>
-          <option>Salary</option>
-        </select>
-        <input id="amount" type="number" placeholder="+income / -expense" />
-        <button type="submit">Add Transaction</button>
-      </form>
-    </section>
   </main>
 
   <!-- Conflict Modal -->
@@ -157,14 +166,6 @@
   <div id="historyPanel" hidden>
     <h3>History</h3>
     <ul id="historyList"></ul>
-  </div>
-
-  <div>
-    <button id="undoSync">
-      Undo last sync
-    </button>
-    <button id="undoBtn">Undo</button>
-    <button id="redoBtn" disabled>Redo</button>
   </div>
 
   <!-- <script src="script.js"></script> -->
