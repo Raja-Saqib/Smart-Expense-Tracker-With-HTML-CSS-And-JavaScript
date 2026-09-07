@@ -88,6 +88,7 @@ export const addTransaction = async ({
 }) => {
   const normalizedText = String(text ?? "").trim();
 
+  // VALIDATION
   if (!category || !amount) {
     return {
       success: false,
@@ -108,7 +109,7 @@ export const addTransaction = async ({
     t => t.id === editId
   );
 
-  // Editing: no-op check
+  // NO-OP EDIT CHECK
   if (editId && existing) {
     const isUnchanged =
       existing.text === normalizedText &&
@@ -128,9 +129,10 @@ export const addTransaction = async ({
   const currentEditId = editId;
 
   // --------------------------------------------------
-  // CAPTURE PREVIOUS STATE BEFORE MUTATION
+  // CAPTURE STATE BEFORE MUTATION
   // --------------------------------------------------
-  const previousTransactions = structuredClone(transactions);
+  const previousTransactions =
+    structuredClone(transactions);
 
   const data = {
     id: currentEditId ?? Date.now(),
@@ -148,34 +150,86 @@ export const addTransaction = async ({
   setTransactions(
     currentEditId
       ? transactions.map(t =>
-          t.id === currentEditId ? data : t
+          t.id === currentEditId
+            ? data
+            : t
         )
       : [...transactions, data]
   );
 
   // --------------------------------------------------
-  // PERSIST
+  // PERSIST + FAILURE HANDLING
   // --------------------------------------------------
-  const result = await saveData({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode,
-    meta: currentEditId
-      ? {
-          type: "edit",
-          category: data.category,
-          previousCategory: existing?.category
-        }
-      : {
-          type: "add",
-          category: data.category
-        }
-  });
+  try {
+    const result = await saveData({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode,
+      meta: currentEditId
+        ? {
+            type: "edit",
+            category: data.category,
+            previousCategory: existing?.category
+          }
+        : {
+            type: "add",
+            category: data.category
+          }
+    });
 
-  // --------------------------------------------------
-  // ROLLBACK IF PERSISTENCE FAILED
-  // --------------------------------------------------
-  if (!result.success) {
+    // saveData() completed but reported failure
+    if (!result.success) {
+      setTransactions(previousTransactions);
+
+      editId = null;
+
+      return {
+        success: false,
+        offline: true,
+        rolledBack: true,
+        error: "Transaction was not saved"
+      };
+    }
+
+    // ------------------------------------------------
+    // SUCCESS ONLY
+    // ------------------------------------------------
+
+    pushUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        label: currentEditId
+          ? "Undo edit"
+          : "Undo add"
+      })
+    );
+
+    broadcastState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode
+    });
+
+    editId = null;
+
+    return {
+      success: true,
+      transaction: data
+    };
+
+  } catch (error) {
+
+    // saveData() threw an exception
+    console.error(
+      "Transaction persistence failed:",
+      error
+    );
+
+    // ----------------------------------------------
+    // ROLLBACK
+    // ----------------------------------------------
     setTransactions(previousTransactions);
 
     editId = null;
@@ -187,36 +241,6 @@ export const addTransaction = async ({
       error: "Transaction was not saved"
     };
   }
-
-  // --------------------------------------------------
-  // HISTORY — ONLY AFTER SUCCESSFUL PERSISTENCE
-  // --------------------------------------------------
-  pushUndoState(
-    createUndoState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode,
-      label: currentEditId
-        ? "Undo edit"
-        : "Undo add"
-    })
-  );
-
-  // --------------------------------------------------
-  // CROSS-TAB — ONLY AFTER SUCCESSFUL PERSISTENCE
-  // --------------------------------------------------
-  broadcastState({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode
-  });
-
-  editId = null;
-
-  return {
-    success: true,
-    transaction: data
-  };
 };
 
 export const deleteTransaction = async (
