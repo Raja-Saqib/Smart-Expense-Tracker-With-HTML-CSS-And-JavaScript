@@ -198,6 +198,8 @@ export const isValidCloudPayload = data => {
   return true;
 };
 
+const CLOUD_PULL_TIMEOUT = 10_000;
+
  /**
   * Pulls data from the cloud using a speciic blobId 
   * 
@@ -208,15 +210,31 @@ export const pullFromCloud = async (blobId) => {
     return null;
   }
 
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    CLOUD_PULL_TIMEOUT
+  );
+
   try {
     let res;
   
     // FETCH ERROR HANDLING
     try {
-      res = await fetch(`${CLOUD_URL}/${blobId}`);
+      res = await fetch(`${CLOUD_URL}/${blobId}`, {
+        signal: controller.signal
+      });
     } catch (error) {
-      console.warn("Cloud pull failed:", error);
+      if (error?.name === "AbortError") {
+        console.warn("Cloud pull timed out");
+      } else {
+        console.warn("Cloud pull failed:", error);
+      }
+
       return null;
+    } finally {
+      clearTimeout(timeoutId);
     }
   
     // HTTP ERROR HANDLING
@@ -242,7 +260,7 @@ export const pullFromCloud = async (blobId) => {
       return null;
     }
   
-    // RESPONSE VALIDATION
+    // FULL RESPONSE VALIDATION
     if (!isValidCloudPayload(data)) {
       console.warn("Invalid cloud payload");
       return null;
