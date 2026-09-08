@@ -110,153 +110,246 @@ const isStrictISODateString = value => {
   return new Date(timestamp).toISOString() === value;
 };
 
-export const isValidTransaction = transaction => {
+export const validateTransaction = transaction => {
+  const errors = {};
+
+  // Object validation
   if (
     !transaction ||
     typeof transaction !== "object" ||
     Array.isArray(transaction)
   ) {
-    return false;
+    return {
+      valid: false,
+      errors: {
+        transaction: "Transaction must be an object"
+      }
+    };
   }
 
-  // REJECT UNKNOWN OR MISSING FIELDS
-  const keys = Object.keys(transaction);
-
-  if (keys.length !== TRANSACTION_FIELDS.size) {
-    return false;
+  // Unknown fields
+  for (const key of Object.keys(transaction)) {
+    if (!TRANSACTION_FIELDS.has(key)) {
+      errors[key] = "Unknown transaction field";
+    }
   }
 
-  if (
-    !keys.every(key =>
-      TRANSACTION_FIELDS.has(key)
-    )
-  ) {
-    return false;
+  // Missing fields
+  for (const field of TRANSACTION_FIELDS) {
+    if (!(field in transaction)) {
+      errors[field] = "Required field is missing";
+    }
   }
 
   // id
-  if (
-    !Number.isSafeInteger(transaction.id) ||
-    transaction.id < 0
-  ) {
-    return false;
+  if ("id" in transaction) {
+    if (
+      !Number.isSafeInteger(transaction.id) ||
+      transaction.id < 0
+    ) {
+      errors.id =
+        "ID must be a non-negative safe integer";
+    }
   }
 
-  // text / optional description
-  if (typeof transaction.text !== "string") {
-    return false;
-  }
-
-  // Require already-normalized text.
-  if (transaction.text !== transaction.text.trim()) {
-    return false;
+  // text
+  if ("text" in transaction) {
+    if (typeof transaction.text !== "string") {
+      errors.text = "Description must be a string";
+    } else if (
+      transaction.text !== transaction.text.trim()
+    ) {
+      errors.text =
+        "Description must not contain leading or trailing whitespace";
+    }
   }
 
   // category
-  if (
-    typeof transaction.category !== "string" ||
-    transaction.category.trim() === ""
-  ) {
-    return false;
+  if ("category" in transaction) {
+    if (
+      typeof transaction.category !== "string" ||
+      transaction.category.trim() === ""
+    ) {
+      errors.category =
+        "Category must be a non-empty string";
+    }
   }
 
   // amount
-  if (
-    typeof transaction.amount !== "number" ||
-    !Number.isFinite(transaction.amount) ||
-    transaction.amount === 0
-  ) {
-    return false;
+  if ("amount" in transaction) {
+    if (
+      typeof transaction.amount !== "number" ||
+      !Number.isFinite(transaction.amount)
+    ) {
+      errors.amount =
+        "Amount must be a finite number";
+    } else if (transaction.amount === 0) {
+      errors.amount =
+        "Amount cannot be zero";
+    }
   }
 
-  // original creation date
-  if (!isStrictISODateString(transaction.date)) {
-    return false;
+  // date
+  if ("date" in transaction) {
+    if (!isStrictISODateString(transaction.date)) {
+      errors.date =
+        "Date must be a valid ISO-8601 UTC timestamp";
+    }
   }
 
-  // last-update timestamp
-  if (
-    !Number.isSafeInteger(transaction.updatedAt) ||
-    transaction.updatedAt < 0
-  ) {
-    return false;
+  // updatedAt
+  if ("updatedAt" in transaction) {
+    if (
+      !Number.isSafeInteger(transaction.updatedAt) ||
+      transaction.updatedAt < 0
+    ) {
+      errors.updatedAt =
+        "updatedAt must be a non-negative safe integer";
+    }
   }
 
-  // device identity
-  if (
-    typeof transaction.updatedBy !== "string" ||
-    transaction.updatedBy.trim() === ""
-  ) {
-    return false;
+  // updatedBy
+  if ("updatedBy" in transaction) {
+    if (
+      typeof transaction.updatedBy !== "string" ||
+      transaction.updatedBy.trim() === ""
+    ) {
+      errors.updatedBy =
+        "updatedBy must be a non-empty string";
+    }
   }
 
-  return true;
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors
+  };
 };
 
-export const areValidTransactions = transactions => {
+export const validateTransactions = transactions => {
   if (!Array.isArray(transactions)) {
-    return false;
+    return {
+      valid: false,
+      errors: {
+        transactions: "Transactions must be an array"
+      }
+    };
   }
 
-  const ids = new Set();
+  const errors = {};
+  const ids = new Map();
 
-  for (const transaction of transactions) {
-    if (!isValidTransaction(transaction)) {
-      return false;
+  transactions.forEach((transaction, index) => {
+    const result = validateTransaction(transaction);
+
+    if (!result.valid) {
+      errors[index] = result.errors;
     }
 
-    if (ids.has(transaction.id)) {
-      return false;
+    if (
+      transaction &&
+      typeof transaction === "object" &&
+      Number.isSafeInteger(transaction.id)
+    ) {
+      if (ids.has(transaction.id)) {
+        const firstIndex = ids.get(transaction.id);
+
+        errors[index] ??= {};
+        errors[index].id =
+          `Duplicate transaction ID; first used at index ${firstIndex}`;
+      } else {
+        ids.set(transaction.id, index);
+      }
     }
+  });
 
-    ids.add(transaction.id);
-  }
-
-  return true;
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors
+  };
 };
 
-export const isValidCloudPayload = data => {
+export const validateCloudPayload = data => {
+  const errors = {};
+
+  // Root object
   if (
     !data ||
     typeof data !== "object" ||
     Array.isArray(data)
   ) {
-    return false;
+    return {
+      valid: false,
+      errors: {
+        payload: "Cloud payload must be an object"
+      }
+    };
   }
 
-  if (
-    typeof data.updatedBy !== "string" ||
-    data.updatedBy.trim() === ""
-  ) {
-    return false;
+  // Root fields
+  const allowedFields = new Set([
+    "version",
+    "updatedAt",
+    "updatedBy",
+    "transactions",
+    "chartMode",
+    "meta"
+  ]);
+
+  for (const key of Object.keys(data)) {
+    if (!allowedFields.has(key)) {
+      errors[key] = "Unknown cloud payload field";
+    }
   }
 
+  // version
   if (
-    !Number.isInteger(data.version) ||
+    !Number.isSafeInteger(data.version) ||
     data.version < 0
   ) {
-    return false;
+    errors.version =
+      "Version must be a non-negative safe integer";
   }
 
+  // updatedAt
   if (
     !Number.isSafeInteger(data.updatedAt) ||
     data.updatedAt < 0
   ) {
-    return false;
+    errors.updatedAt =
+      "updatedAt must be a non-negative safe integer";
   }
 
+  // updatedBy
+  if (
+    typeof data.updatedBy !== "string" ||
+    data.updatedBy.trim() === ""
+  ) {
+    errors.updatedBy =
+      "updatedBy must be a non-empty string";
+  }
+
+  // chartMode
   if (
     data.chartMode !== "pie" &&
     data.chartMode !== "donut"
   ) {
-    return false;
+    errors.chartMode =
+      'chartMode must be either "pie" or "donut"';
   }
 
-  if (!areValidTransactions(data.transactions)) {
-    return false;
+  // transactions
+  const transactionResult =
+    validateTransactions(data.transactions);
+
+  if (!transactionResult.valid) {
+    errors.transactions =
+      transactionResult.errors;
   }
 
-  return true;
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors
+  };
 };
 
 const createTimeoutSignal = (
@@ -431,8 +524,15 @@ export const pullFromCloud = async (blobId, {
     }
   
     // FULL RESPONSE VALIDATION
-    if (!isValidCloudPayload(data)) {
-      console.warn("Invalid cloud payload");
+    const validation =
+    validateCloudPayload(data);
+
+    if (!validation.valid) {
+      console.warn(
+        "Invalid cloud payload:",
+        validation.errors
+      );
+
       return null;
     }
   
