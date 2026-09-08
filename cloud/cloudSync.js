@@ -204,6 +204,7 @@ const createTimeoutSignal = timeout => {
   if (typeof AbortSignal?.timeout === "function") {
     return {
       signal: AbortSignal.timeout(timeout),
+      controller: null,
       cleanup: () => {}
     };
   }
@@ -217,6 +218,7 @@ const createTimeoutSignal = timeout => {
 
   return {
     signal: controller.signal,
+    controller,
     cleanup: () => clearTimeout(timeoutId)
   };
 };
@@ -225,35 +227,56 @@ const createTimeoutSignal = timeout => {
   * Pulls data from the cloud using a speciic blobId 
   * 
   */ 
-export const pullFromCloud = async (blobId) => {
+export const pullFromCloud = async (blobId, {
+  signal: callerSignal
+} = {}) => {
   if (!blobId) {
     console.warn("Pull aborted: No blobId provided.");
     return null;
   }
 
-  const {
-    signal,
-    cleanup
-  } = createTimeoutSignal(CLOUD_PULL_TIMEOUT);
+  const timeout = createTimeoutSignal(
+    CLOUD_PULL_TIMEOUT
+  );
 
   try {
     let res;
   
-    // FETCH ERROR HANDLING
+    // FETCH ERROR HANDLING 
     try {
+      // Caller already cancelled
+      if (callerSignal?.aborted) {
+        console.warn("Cloud pull cancelled by caller");
+        return null;
+      }
+
+      const combinedSignal =
+        typeof AbortSignal?.any === "function"
+          ? AbortSignal.any([
+              timeout.signal,
+              callerSignal
+            ].filter(Boolean))
+          : timeout.controller
+            ? timeout.controller.signal
+            : timeout.signal;
+
       res = await fetch(`${CLOUD_URL}/${blobId}`, {
-        signal
+        signal: combinedSignal
       });
     } catch (error) {
-      if (error?.name === "AbortError") {
+      if (callerSignal?.aborted) {
+        console.warn("Cloud pull cancelled by caller");
+      } else if (error?.name === "TimeoutError") {
         console.warn("Cloud pull timed out");
+      } else if (error?.name === "AbortError") {
+        console.warn("Cloud pull aborted");
       } else {
         console.warn("Cloud pull failed:", error);
       }
 
       return null;
     } finally {
-      cleanup();
+      timeout.cleanup();
     }
   
     // HTTP ERROR HANDLING
