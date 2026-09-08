@@ -145,20 +145,20 @@ const jumpToHistoryState = async index => {
 
   commitJumpToState(index);
 
-    replaceCurrentUndoState(
-      createUndoState({
-        transactions,
-        cloudMeta: getCloudMeta(),
-        chartMode,
-        label: target.label
-      })
-    );
-
-    broadcastState({
+  replaceCurrentUndoState(
+    createUndoState({
       transactions,
       cloudMeta: getCloudMeta(),
-      chartMode
-    });
+      chartMode,
+      label: target.label
+    })
+  );
+
+  broadcastState({
+    transactions,
+    cloudMeta: getCloudMeta(),
+    chartMode
+  });
 
   chartStatus.textContent = result.offline
     ? `Restored locally: ${target.label} (cloud offline)`
@@ -528,22 +528,52 @@ const updateViewMode = mode => {
 };
 
 const applySnapshot = snapshot => {
-  if (!snapshot?.state) return;
+  if (!snapshot?.state) {
+    throw new Error("Invalid snapshot");
+  }
 
-  const { transactions: tx, cloudMeta, chartMode: mode } = snapshot.state;
+  const {
+    transactions: tx,
+    cloudMeta,
+    chartMode: mode
+  } = snapshot.state;
 
-  // Apply state
+  if (!Array.isArray(tx)) {
+    throw new Error("Invalid transactions in snapshot");
+  }
+
+  if (!cloudMeta) {
+    throw new Error("Invalid cloud metadata in snapshot");
+  }
+
+  if (mode !== "pie" && mode !== "donut") {
+    throw new Error("Invalid chart mode in snapshot");
+  }
+
   setTransactions(structuredClone(tx));
   setCloudMeta(structuredClone(cloudMeta));
   setChartMode(mode);
 
-  // Persist locally (optional but recommended for consistency)
-  localStorage.setItem("transactions", JSON.stringify(transactions));
+  localStorage.setItem(
+    "transactions",
+    JSON.stringify(transactions)
+  );
 
-  // Re-render UI
+  localStorage.setItem(
+    "chartMode",
+    chartMode
+  );
+
+  localStorage.setItem(
+    "expenseTrackerSyncState",
+    JSON.stringify({
+      transactions: structuredClone(transactions),
+      cloudMeta: structuredClone(getCloudMeta()),
+      chartMode
+    })
+  );
+
   init();
-
-  // Update undo/redo buttons
   refreshUndoUI();
 };
 
@@ -634,70 +664,183 @@ attachChartClick(
 );
 
 (async () => {
-  const cloudData = await pullFromCloud(); 
-  
-  if (!cloudData) { 
-    init(); 
+  let cloudData = null;
+
+  try {
+    cloudData = await pullFromCloud();
+  } catch (error) {
+    console.warn(
+      "Cloud startup restore failed:",
+      error
+    );
+  }
+
+  // Cloud unavailable or invalid.
+  // Continue with the existing local state.
+  if (!cloudData) {
+    init();
+
     initDebugPanel({
-      deviceId, 
-      getCloudMeta, 
-      getChartMode: () => chartMode, 
-      jumpToHistoryState 
-    }); 
-    return; 
-  } 
-  
-  const remoteVersion = cloudData.version ?? 0; 
-  const localVersion = getCloudMeta()?.version ?? 0; 
-  
-  if (remoteVersion > localVersion) { 
- 
-    // Capture local state before it is replaced 
-    const localStateBeforeCloudRestore = createUndoState({ 
-      transactions: structuredClone(transactions), 
-      cloudMeta: structuredClone(getCloudMeta()), 
-      chartMode, 
-      label: "Before cloud restore" 
-    }); 
- 
-    // Record the state being replaced 
-    pushUndoState(localStateBeforeCloudRestore); 
- 
-    // Apply full remote snapshot 
-    applySnapshot({ 
-      state: { 
-        transactions: cloudData.transactions, 
-        cloudMeta: { 
-          version: cloudData.version, 
-          updatedAt: cloudData.updatedAt, 
-          deviceId: cloudData.updatedBy ?? null, 
-        }, 
-        chartMode: cloudData.chartMode 
-      } 
-    }); 
- 
-    // Record the newly restored cloud state 
-    pushUndoState( 
-      createUndoState({ 
-        transactions, 
-        cloudMeta: getCloudMeta(), 
-        chartMode, 
-        label: "Cloud restore" 
-      }) 
-    ); 
- 
-    chartStatus.textContent = "Cloud state restored"; 
-  } else { 
-    // No cloud restore occurred, so perform the normal initial render. 
-    init(); 
-    refreshUndoUI(); 
-  } 
-  
-  initDebugPanel({ 
-    deviceId, 
-    getCloudMeta, 
-    getChartMode: () => chartMode, 
-    jumpToHistoryState 
+      deviceId,
+      getCloudMeta,
+      getChartMode: () => chartMode,
+      jumpToHistoryState
+    });
+
+    return;
+  }
+
+  const remoteVersion =
+    Number.isFinite(cloudData.version)
+      ? cloudData.version
+      : 0;
+
+  const localCloudMeta =
+    structuredClone(getCloudMeta());
+
+  const localVersion =
+    Number.isFinite(localCloudMeta?.version)
+      ? localCloudMeta.version
+      : 0;
+
+  // Local state is already equal to or newer than
+  // the cloud snapshot.
+  if (remoteVersion <= localVersion) {
+    init();
+
+    initDebugPanel({
+      deviceId,
+      getCloudMeta,
+      getChartMode: () => chartMode,
+      jumpToHistoryState
+    });
+
+    return;
+  }
+
+  /*
+   * Cloud is newer.
+   *
+   * Save the current local state BEFORE replacing it.
+   * This gives the user an undo point for the cloud restore.
+   */
+  pushUndoState(
+    createUndoState({
+      transactions: structuredClone(transactions),
+      cloudMeta: localCloudMeta,
+      chartMode,
+      label: "Before cloud restore"
+    })
+  );
+
+  const previousTransactions =
+    structuredClone(transactions);
+
+  const previousChartMode = chartMode;
+
+  try {
+    /*
+     * Build the canonical incoming snapshot.
+     *
+     * pushToCloud() currently uses `updatedBy`, so that
+     * becomes cloudMeta.deviceId locally.
+     */
+    const cloudSnapshot = {
+      state: {
+        transactions:
+          structuredClone(cloudData.transactions),
+
+        cloudMeta: {
+          version: remoteVersion,
+          updatedAt:
+            Number.isFinite(cloudData.updatedAt)
+              ? cloudData.updatedAt
+              : 0,
+          deviceId:
+            cloudData.updatedBy ?? null
+        },
+
+        chartMode:
+          cloudData.chartMode === "pie"
+            ? "pie"
+            : "donut"
+      }
+    };
+
+    /*
+     * Apply and persist the incoming cloud snapshot.
+     */
+    applySnapshot(cloudSnapshot);
+
+    /*
+     * Record the successfully restored cloud state.
+     */
+    pushUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        label: "Cloud restore"
+      })
+    );
+
+    /*
+     * Notify other tabs only AFTER the cloud snapshot
+     * has been successfully applied locally.
+     */
+    broadcastState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode
+    });
+
+    chartStatus.textContent =
+      "Data restored from cloud";
+  } catch (error) {
+    /*
+     * Restore the application state that existed before
+     * attempting the cloud restore.
+     */
+    setTransactions(previousTransactions);
+    setChartMode(previousChartMode);
+
+    /*
+     * Re-persist the previous local state so the failed
+     * cloud restore does not leave LocalStorage inconsistent.
+     */
+    localStorage.setItem(
+      "transactions",
+      JSON.stringify(transactions)
+    );
+
+    localStorage.setItem(
+      "chartMode",
+      chartMode
+    );
+
+    localStorage.setItem(
+      "expenseTrackerSyncState",
+      JSON.stringify({
+        transactions: structuredClone(transactions),
+        cloudMeta: structuredClone(getCloudMeta()),
+        chartMode
+      })
+    );
+
+    chartStatus.textContent =
+      "Cloud restore failed; local data preserved";
+
+    console.error(
+      "Cloud startup restore failed:",
+      error
+    );
+  }
+
+  initDebugPanel({
+    deviceId,
+    getCloudMeta,
+    getChartMode: () => chartMode,
+    jumpToHistoryState
   });
 })();
 

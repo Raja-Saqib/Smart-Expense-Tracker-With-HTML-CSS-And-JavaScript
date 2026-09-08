@@ -1,4 +1,6 @@
-const CHANNEL_NAME = "expense-tracker-app-sync";
+import { CLOUD_CONFIG } from "../config.js";
+
+const CHANNEL_NAME = CLOUD_CONFIG.CHANNEL_NAME;
 
 const channel =
   typeof BroadcastChannel !== "undefined"
