@@ -76,6 +76,40 @@ const VALID_CATEGORIES = new Set([
   "Other"
 ]);
 
+const TRANSACTION_FIELDS = new Set([
+  "id",
+  "text",
+  "category",
+  "amount",
+  "date",
+  "updatedAt",
+  "updatedBy"
+]);
+
+const isStrictISODateString = value => {
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  // Require full ISO-8601 UTC timestamp:
+  // 2026-09-08T06:21:39.123Z
+  const ISO_UTC_PATTERN =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+  if (!ISO_UTC_PATTERN.test(value)) {
+    return false;
+  }
+
+  const timestamp = Date.parse(value);
+
+  if (!Number.isFinite(timestamp)) {
+    return false;
+  }
+
+  // Reject impossible dates that Date.parse() may normalize.
+  return new Date(timestamp).toISOString() === value;
+};
+
 export const isValidTransaction = transaction => {
   if (
     !transaction ||
@@ -85,23 +119,43 @@ export const isValidTransaction = transaction => {
     return false;
   }
 
+  // REJECT UNKNOWN OR MISSING FIELDS
+  const keys = Object.keys(transaction);
+
+  if (keys.length !== TRANSACTION_FIELDS.size) {
+    return false;
+  }
+
+  if (
+    !keys.every(key =>
+      TRANSACTION_FIELDS.has(key)
+    )
+  ) {
+    return false;
+  }
+
   // id
   if (
-    !Number.isInteger(transaction.id) ||
+    !Number.isSafeInteger(transaction.id) ||
     transaction.id < 0
   ) {
     return false;
   }
 
-  // text / description
+  // text / optional description
   if (typeof transaction.text !== "string") {
+    return false;
+  }
+
+  // Require already-normalized text.
+  if (transaction.text !== transaction.text.trim()) {
     return false;
   }
 
   // category
   if (
     typeof transaction.category !== "string" ||
-    !VALID_CATEGORIES.has(transaction.category)
+    transaction.category.trim() === ""
   ) {
     return false;
   }
@@ -115,28 +169,47 @@ export const isValidTransaction = transaction => {
     return false;
   }
 
-  // date
-  if (
-    typeof transaction.date !== "string" ||
-    Number.isNaN(Date.parse(transaction.date))
-  ) {
+  // original creation date
+  if (!isStrictISODateString(transaction.date)) {
     return false;
   }
 
-  // updatedAt
+  // last-update timestamp
   if (
-    !Number.isFinite(transaction.updatedAt) ||
+    !Number.isSafeInteger(transaction.updatedAt) ||
     transaction.updatedAt < 0
   ) {
     return false;
   }
 
-  // updatedBy
+  // device identity
   if (
     typeof transaction.updatedBy !== "string" ||
     transaction.updatedBy.trim() === ""
   ) {
     return false;
+  }
+
+  return true;
+};
+
+export const areValidTransactions = transactions => {
+  if (!Array.isArray(transactions)) {
+    return false;
+  }
+
+  const ids = new Set();
+
+  for (const transaction of transactions) {
+    if (!isValidTransaction(transaction)) {
+      return false;
+    }
+
+    if (ids.has(transaction.id)) {
+      return false;
+    }
+
+    ids.add(transaction.id);
   }
 
   return true;
@@ -151,7 +224,6 @@ export const isValidCloudPayload = data => {
     return false;
   }
 
-  // updatedBy
   if (
     typeof data.updatedBy !== "string" ||
     data.updatedBy.trim() === ""
@@ -159,7 +231,6 @@ export const isValidCloudPayload = data => {
     return false;
   }
 
-  // version
   if (
     !Number.isInteger(data.version) ||
     data.version < 0
@@ -167,15 +238,13 @@ export const isValidCloudPayload = data => {
     return false;
   }
 
-  // updatedAt
   if (
-    !Number.isFinite(data.updatedAt) ||
+    !Number.isSafeInteger(data.updatedAt) ||
     data.updatedAt < 0
   ) {
     return false;
   }
 
-  // chartMode
   if (
     data.chartMode !== "pie" &&
     data.chartMode !== "donut"
@@ -183,15 +252,7 @@ export const isValidCloudPayload = data => {
     return false;
   }
 
-  // transactions container
-  if (!Array.isArray(data.transactions)) {
-    return false;
-  }
-
-  // Every transaction must be valid
-  if (
-    !data.transactions.every(isValidTransaction)
-  ) {
+  if (!areValidTransactions(data.transactions)) {
     return false;
   }
 
