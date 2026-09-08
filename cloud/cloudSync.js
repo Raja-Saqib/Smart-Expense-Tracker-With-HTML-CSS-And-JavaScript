@@ -89,6 +89,22 @@ const TRANSACTION_FIELDS = new Set([
 const MAX_TEXT_LENGTH = 200;
 const MAX_CATEGORY_LENGTH = 50;
 
+const isPlainObject = value => {
+  if (
+    value === null ||
+    typeof value !== "object"
+  ) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+
+  return (
+    prototype === Object.prototype ||
+    prototype === null
+  );
+};
+
 const isStrictISODateString = value => {
   if (typeof value !== "string") {
     return false;
@@ -116,35 +132,48 @@ const isStrictISODateString = value => {
 export const validateTransaction = transaction => {
   const errors = {};
 
-  if (
-    !transaction ||
-    typeof transaction !== "object" ||
-    Array.isArray(transaction)
-  ) {
+  // PLAIN OBJECT
+  if (!isPlainObject(transaction)) {
     return {
       valid: false,
       errors: {
-        transaction: "Transaction must be an object"
+        transaction:
+          "Transaction must be a plain object"
       }
     };
   }
 
+  // OWN PROPERTIES ONLY
+  const keys = Object.keys(transaction);
+
   // UNKNOWN FIELDS
-  for (const key of Object.keys(transaction)) {
+  for (const key of keys) {
     if (!TRANSACTION_FIELDS.has(key)) {
-      errors[key] = "Unknown transaction field";
+      errors[key] =
+        "Unknown transaction field";
     }
   }
 
   // MISSING FIELDS
   for (const field of TRANSACTION_FIELDS) {
-    if (!(field in transaction)) {
-      errors[field] = "Required field is missing";
+    if (
+      !Object.prototype.hasOwnProperty.call(
+        transaction,
+        field
+      )
+    ) {
+      errors[field] =
+        "Required field is missing";
     }
   }
 
   // ID
-  if ("id" in transaction) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "id"
+    )
+  ) {
     if (
       !Number.isSafeInteger(transaction.id) ||
       transaction.id < 0
@@ -154,20 +183,28 @@ export const validateTransaction = transaction => {
     }
   }
 
-  // TEXT / DESCRIPTION
-  if ("text" in transaction) {
+  // TEXT
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "text"
+    )
+  ) {
     if (typeof transaction.text !== "string") {
-      errors.text = "Description must be a string";
+      errors.text =
+        "Description must be a string";
     } else {
       if (
-        transaction.text !== transaction.text.trim()
+        transaction.text !==
+        transaction.text.trim()
       ) {
         errors.text =
           "Description must not contain leading or trailing whitespace";
       }
 
       if (
-        transaction.text.length > MAX_TEXT_LENGTH
+        transaction.text.length >
+        MAX_TEXT_LENGTH
       ) {
         errors.text =
           `Description must not exceed ${MAX_TEXT_LENGTH} characters`;
@@ -176,7 +213,12 @@ export const validateTransaction = transaction => {
   }
 
   // CATEGORY
-  if ("category" in transaction) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "category"
+    )
+  ) {
     if (
       typeof transaction.category !== "string"
     ) {
@@ -199,31 +241,56 @@ export const validateTransaction = transaction => {
   }
 
   // AMOUNT
-  if ("amount" in transaction) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "amount"
+    )
+  ) {
     if (
-      typeof transaction.amount !== "number" ||
+      typeof transaction.amount !== "number"
+    ) {
+      errors.amount =
+        "Amount must be a number";
+    } else if (
       !Number.isFinite(transaction.amount)
     ) {
       errors.amount =
-        "Amount must be a finite number";
-    } else if (transaction.amount === 0) {
+        "Amount must be finite";
+    } else if (
+      transaction.amount === 0
+    ) {
       errors.amount =
         "Amount cannot be zero";
     }
   }
 
   // DATE
-  if ("date" in transaction) {
-    if (!isStrictISODateString(transaction.date)) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "date"
+    )
+  ) {
+    if (
+      !isStrictISODateString(transaction.date)
+    ) {
       errors.date =
         "Date must be a valid ISO-8601 UTC timestamp";
     }
   }
 
   // UPDATED AT
-  if ("updatedAt" in transaction) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "updatedAt"
+    )
+  ) {
     if (
-      !Number.isSafeInteger(transaction.updatedAt) ||
+      !Number.isSafeInteger(
+        transaction.updatedAt
+      ) ||
       transaction.updatedAt < 0
     ) {
       errors.updatedAt =
@@ -231,22 +298,31 @@ export const validateTransaction = transaction => {
     }
   }
 
-  // CROSS-FIELD TIMESTAMP RULE
+  // UPDATED AT >= DATE
   if (
     isStrictISODateString(transaction.date) &&
     Number.isSafeInteger(transaction.updatedAt) &&
     transaction.updatedAt >= 0
   ) {
-    const createdAt = Date.parse(transaction.date);
+    const dateTimestamp =
+      Date.parse(transaction.date);
 
-    if (transaction.updatedAt < createdAt) {
+    if (
+      transaction.updatedAt <
+      dateTimestamp
+    ) {
       errors.updatedAt =
         "updatedAt must not be earlier than date";
     }
   }
 
   // UPDATED BY
-  if ("updatedBy" in transaction) {
+  if (
+    Object.prototype.hasOwnProperty.call(
+      transaction,
+      "updatedBy"
+    )
+  ) {
     if (
       typeof transaction.updatedBy !== "string" ||
       transaction.updatedBy.trim() === ""
