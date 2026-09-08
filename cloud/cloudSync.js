@@ -200,6 +200,27 @@ export const isValidCloudPayload = data => {
 
 const CLOUD_PULL_TIMEOUT = 10_000;
 
+const createTimeoutSignal = timeout => {
+  if (typeof AbortSignal?.timeout === "function") {
+    return {
+      signal: AbortSignal.timeout(timeout),
+      cleanup: () => {}
+    };
+  }
+
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    timeout
+  );
+
+  return {
+    signal: controller.signal,
+    cleanup: () => clearTimeout(timeoutId)
+  };
+};
+
  /**
   * Pulls data from the cloud using a speciic blobId 
   * 
@@ -210,12 +231,10 @@ export const pullFromCloud = async (blobId) => {
     return null;
   }
 
-  const controller = new AbortController();
-
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    CLOUD_PULL_TIMEOUT
-  );
+  const {
+    signal,
+    cleanup
+  } = createTimeoutSignal(CLOUD_PULL_TIMEOUT);
 
   try {
     let res;
@@ -223,7 +242,7 @@ export const pullFromCloud = async (blobId) => {
     // FETCH ERROR HANDLING
     try {
       res = await fetch(`${CLOUD_URL}/${blobId}`, {
-        signal: controller.signal
+        signal
       });
     } catch (error) {
       if (error?.name === "AbortError") {
@@ -234,7 +253,7 @@ export const pullFromCloud = async (blobId) => {
 
       return null;
     } finally {
-      clearTimeout(timeoutId);
+      cleanup();
     }
   
     // HTTP ERROR HANDLING
