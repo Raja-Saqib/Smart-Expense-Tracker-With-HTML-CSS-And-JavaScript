@@ -64,10 +64,56 @@ export const pushToCloud = async ({
     blobId: newBlobId // Return the ID so the main application can save it to localStorage
   };
 };
+
+const isValidCloudPayload = data => {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
+  // updatedBy
+  if (
+    typeof data.updatedBy !== "string" ||
+    data.updatedBy.trim() === ""
+  ) {
+    return false;
+  }
+
+  // transactions
+  if (!Array.isArray(data.transactions)) {
+    return false;
+  }
+
+  // chartMode
+  if (
+    data.chartMode !== "pie" &&
+    data.chartMode !== "donut"
+  ) {
+    return false;
+  }
+
+  // version
+  if (
+    !Number.isInteger(data.version) ||
+    data.version < 0
+  ) {
+    return false;
+  }
+
+  // updatedAt
+  if (
+    !Number.isFinite(data.updatedAt) ||
+    data.updatedAt < 0
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
  /**
-  * Pulls data from the cloud using a speciic blobId
+  * Pulls data from the cloud using a speciic blobId 
   * 
-  */
+  */ 
 export const pullFromCloud = async (blobId) => {
   if (!blobId) {
     console.warn("Pull aborted: No blobId provided.");
@@ -82,7 +128,6 @@ export const pullFromCloud = async (blobId) => {
       res = await fetch(`${CLOUD_URL}/${blobId}`);
     } catch (error) {
       console.warn("Cloud pull failed:", error);
-  
       return null;
     }
   
@@ -101,48 +146,17 @@ export const pullFromCloud = async (blobId) => {
     try {
       data = await res.json();
     } catch (error) {
-      console.warn("Cloud response is not valid JSON:", error);
+      console.warn(
+        "Cloud response is not valid JSON:",
+        error
+      );
   
       return null;
     }
   
     // RESPONSE VALIDATION
-    if (
-      !data ||
-      !Array.isArray(data.transactions)
-    ) {
-      console.warn("Invalid cloud data shape");
-  
-      return null;
-    }
-  
-    // VERSION VALIDATION
-    if (
-      !Number.isInteger(data.version) ||
-      data.version < 0
-    ) {
-      console.warn("Invalid cloud version");
-  
-      return null;
-    }
-  
-    // UPDATED AT VALIDATION
-    if (
-      !Number.isFinite(data.updatedAt) ||
-      data.updatedAt < 0
-    ) {
-      console.warn("Invalid cloud updatedAt");
-  
-      return null;
-    }
-  
-    // CHART MODE VALIDATION
-    if (
-      data.chartMode !== "pie" &&
-      data.chartMode !== "donut"
-    ) {
-      console.warn("Invalid cloud chart mode");
-  
+    if (!isValidCloudPayload(data)) {
+      console.warn("Invalid cloud payload");
       return null;
     }
   
