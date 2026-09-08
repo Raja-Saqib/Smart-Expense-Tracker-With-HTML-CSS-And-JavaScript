@@ -1,6 +1,8 @@
-const CLOUD_META_KEY = "cloudMeta";
+import { CLOUD_CONFIG } from "../config.js";
 
-export const STORAGE_SYNC_KEY = "expenseTrackerSyncState";
+const CLOUD_META_KEY = CLOUD_CONFIG.CLOUD_META_KEY;
+
+export const STORAGE_SYNC_KEY = CLOUD_CONFIG.STORAGE_SYNC_KEY;
 
 const DEFAULT_CLOUD_META = {
   version: 0,

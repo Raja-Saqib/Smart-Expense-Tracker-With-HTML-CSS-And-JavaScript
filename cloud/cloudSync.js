@@ -1,14 +1,22 @@
-const CLOUD_KEY = "expense-tracker-backup";
+import { CLOUD_CONFIG } from "../config.js";
 
-// Example endpoint (replace later)
-const CLOUD_URL = "https://jsonblob.com/api/jsonBlob";
+const CLOUD_KEY = CLOUD_CONFIG.CLOUD_KEY;
 
+const CLOUD_URL = CLOUD_CONFIG.CLOUD_URL;
+
+/**
+ * Pushes data to the cloud.
+ * 
+ * @param {string|null} blobId - The unique ID of the JSON blob (e.g. stored in localStorage). If null, a new blob is created automatically.
+ * @returns 
+ */
 export const pushToCloud = async ({
   transactions,
   cloudMeta,
   chartMode,
   deviceId,
-  meta = {}
+  meta = {},
+  blobId = null,
 }) => {
   const payload = {
     version: (cloudMeta?.version ?? 0) + 1,
@@ -19,10 +27,16 @@ export const pushToCloud = async ({
     meta
   };
 
-  const res = await fetch(CLOUD_URL, {
-    method: "PUT",
+  // Determine if we are creating a new blob (POST) or updating an existing one (PUT)
+  const isNew = !blobId;
+  const url = isNew ? CLOUD_URL : `${CLOUD_URL}/${blobId}`;
+  const method = isNew ? "POST" : "PUT";
+
+  const res = await fetch(url, {
+    method: method,
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "Accept": "application/json",
     },
     body: JSON.stringify(payload)
   });
@@ -37,12 +51,30 @@ export const pushToCloud = async ({
     throw error;
   }
 
-  return payload;
-};
+  // If it's a new creation, JSON Blob returns the new URL in the "Location" response header
+  let newBlobId = blobId;
+  if (isNew) {
+    const locationHeader = res.headers.get("Location");
+    // Example header: https://jsonblob.com
+    newBlobId = locationHeader.split("/").pop();
+  }
 
-export const pullFromCloud = async () => {
+  return { 
+    payload, 
+    blobId: newBlobId // Return the ID so the main application can save it to localStorage
+  };
+};
+ /**
+  * Pulls data from the cloud using a speciic blobId
+  * 
+  */
+export const pullFromCloud = async (blobId) => {
+  if (!blobId) {
+    console.warn("Pull aborted: No blobId provided.");
+    return null;
+  }
   try {
-    const res = await fetch(CLOUD_URL);
+    const res = await fetch(`${CLOUD_URL}/${blobId}`);
 
     if (!res.ok) {
       console.warn(
