@@ -65,8 +65,89 @@ export const pushToCloud = async ({
   };
 };
 
-const isValidCloudPayload = data => {
-  if (!data || typeof data !== "object") {
+const VALID_CATEGORIES = new Set([
+  "Food",
+  "Transport",
+  "Shopping",
+  "Bills",
+  "Entertainment",
+  "Health",
+  "Income",
+  "Other"
+]);
+
+export const isValidTransaction = transaction => {
+  if (
+    !transaction ||
+    typeof transaction !== "object" ||
+    Array.isArray(transaction)
+  ) {
+    return false;
+  }
+
+  // id
+  if (
+    !Number.isInteger(transaction.id) ||
+    transaction.id < 0
+  ) {
+    return false;
+  }
+
+  // text / description
+  if (typeof transaction.text !== "string") {
+    return false;
+  }
+
+  // category
+  if (
+    typeof transaction.category !== "string" ||
+    !VALID_CATEGORIES.has(transaction.category)
+  ) {
+    return false;
+  }
+
+  // amount
+  if (
+    typeof transaction.amount !== "number" ||
+    !Number.isFinite(transaction.amount) ||
+    transaction.amount === 0
+  ) {
+    return false;
+  }
+
+  // date
+  if (
+    typeof transaction.date !== "string" ||
+    Number.isNaN(Date.parse(transaction.date))
+  ) {
+    return false;
+  }
+
+  // updatedAt
+  if (
+    !Number.isFinite(transaction.updatedAt) ||
+    transaction.updatedAt < 0
+  ) {
+    return false;
+  }
+
+  // updatedBy
+  if (
+    typeof transaction.updatedBy !== "string" ||
+    transaction.updatedBy.trim() === ""
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+export const isValidCloudPayload = data => {
+  if (
+    !data ||
+    typeof data !== "object" ||
+    Array.isArray(data)
+  ) {
     return false;
   }
 
@@ -74,19 +155,6 @@ const isValidCloudPayload = data => {
   if (
     typeof data.updatedBy !== "string" ||
     data.updatedBy.trim() === ""
-  ) {
-    return false;
-  }
-
-  // transactions
-  if (!Array.isArray(data.transactions)) {
-    return false;
-  }
-
-  // chartMode
-  if (
-    data.chartMode !== "pie" &&
-    data.chartMode !== "donut"
   ) {
     return false;
   }
@@ -103,6 +171,26 @@ const isValidCloudPayload = data => {
   if (
     !Number.isFinite(data.updatedAt) ||
     data.updatedAt < 0
+  ) {
+    return false;
+  }
+
+  // chartMode
+  if (
+    data.chartMode !== "pie" &&
+    data.chartMode !== "donut"
+  ) {
+    return false;
+  }
+
+  // transactions container
+  if (!Array.isArray(data.transactions)) {
+    return false;
+  }
+
+  // Every transaction must be valid
+  if (
+    !data.transactions.every(isValidTransaction)
   ) {
     return false;
   }
