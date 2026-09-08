@@ -198,28 +198,97 @@ export const isValidCloudPayload = data => {
   return true;
 };
 
-const CLOUD_PULL_TIMEOUT = 10_000;
-
-const createTimeoutSignal = timeout => {
-  if (typeof AbortSignal?.timeout === "function") {
-    return {
-      signal: AbortSignal.timeout(timeout),
-      controller: null,
-      cleanup: () => {}
-    };
-  }
-
+const createTimeoutSignal = (
+  timeout,
+  callerSignal
+) => {
   const controller = new AbortController();
 
-  const timeoutId = setTimeout(
-    () => controller.abort(),
+  let timeoutId = setTimeout(
+    () => controller.abort("timeout"),
     timeout
+  );
+
+  const abortFromCaller = () => {
+    controller.abort("caller");
+  };
+
+  callerSignal?.addEventListener(
+    "abort",
+    abortFromCaller,
+    { once: true }
   );
 
   return {
     signal: controller.signal,
-    controller,
-    cleanup: () => clearTimeout(timeoutId)
+
+    cleanup: () => {
+      clearTimeout(timeoutId);
+
+      callerSignal?.removeEventListener(
+        "abort",
+        abortFromCaller
+      );
+    }
+  };
+};
+
+const CLOUD_PULL_TIMEOUT = 10_000;
+
+const createPullSignal = (
+  timeout,
+  callerSignal
+) => {
+  // Modern browsers
+  if (
+    typeof AbortSignal?.timeout === "function" &&
+    typeof AbortSignal?.any === "function"
+  ) {
+    const timeoutSignal =
+      AbortSignal.timeout(timeout);
+
+    const signal = callerSignal
+      ? AbortSignal.any([
+          timeoutSignal,
+          callerSignal
+        ])
+      : timeoutSignal;
+
+    return {
+      signal,
+      cleanup: () => {}
+    };
+  }
+
+  // Compatibility fallback
+  const controller = new AbortController();
+
+  const timeoutId = setTimeout(
+    () => controller.abort("timeout"),
+    timeout
+  );
+
+  const abortFromCaller = () => {
+    controller.abort("caller");
+  };
+
+  callerSignal?.addEventListener(
+    "abort",
+    abortFromCaller,
+    { once: true }
+  );
+
+  return {
+    signal: controller.signal,
+
+    cleanup: () => {
+      clearTimeout(timeoutId);
+
+      callerSignal?.removeEventListener(
+        "abort",
+        abortFromCaller
+      );
+    }
   };
 };
 
@@ -235,8 +304,12 @@ export const pullFromCloud = async (blobId, {
     return null;
   }
 
-  const timeout = createTimeoutSignal(
-    CLOUD_PULL_TIMEOUT
+  const {
+    signal,
+    cleanup
+  } = createPullSignal(
+    CLOUD_PULL_TIMEOUT,
+    callerSignal
   );
 
   try {
@@ -250,25 +323,19 @@ export const pullFromCloud = async (blobId, {
         return null;
       }
 
-      const combinedSignal =
-        typeof AbortSignal?.any === "function"
-          ? AbortSignal.any([
-              timeout.signal,
-              callerSignal
-            ].filter(Boolean))
-          : timeout.controller
-            ? timeout.controller.signal
-            : timeout.signal;
-
       res = await fetch(`${CLOUD_URL}/${blobId}`, {
-        signal: combinedSignal
+        signal
       });
     } catch (error) {
       if (callerSignal?.aborted) {
         console.warn("Cloud pull cancelled by caller");
-      } else if (error?.name === "TimeoutError") {
+      } else if (
+        error?.name === "TimeoutError"
+      ) {
         console.warn("Cloud pull timed out");
-      } else if (error?.name === "AbortError") {
+      } else if (
+        error?.name === "AbortError"
+      ) {
         console.warn("Cloud pull aborted");
       } else {
         console.warn("Cloud pull failed:", error);
@@ -276,7 +343,7 @@ export const pullFromCloud = async (blobId, {
 
       return null;
     } finally {
-      timeout.cleanup();
+      cleanup();
     }
   
     // HTTP ERROR HANDLING
