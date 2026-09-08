@@ -89,21 +89,8 @@ const TRANSACTION_FIELDS = new Set([
 const MAX_TEXT_LENGTH = 200;
 const MAX_CATEGORY_LENGTH = 50;
 
-const isPlainObject = value => {
-  if (
-    value === null ||
-    typeof value !== "object"
-  ) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-
-  return (
-    prototype === Object.prototype ||
-    prototype === null
-  );
-};
+const hasOwn = (object, property) =>
+  Object.prototype.hasOwnProperty.call(object, property);
 
 const isStrictISODateString = value => {
   if (typeof value !== "string") {
@@ -129,213 +116,330 @@ const isStrictISODateString = value => {
   return new Date(timestamp).toISOString() === value;
 };
 
+const getValidationError = error => ({
+  name: error?.name ?? "Error",
+  message: error?.message ?? String(error)
+});
+
 export const validateTransaction = transaction => {
   const errors = {};
 
-  // PLAIN OBJECT
-  if (!isPlainObject(transaction)) {
+  try {
+    // --------------------------------------------------
+    // 1. Reject null / primitives / arrays
+    // --------------------------------------------------
+
+    if (
+      transaction === null ||
+      typeof transaction !== "object" ||
+      Array.isArray(transaction)
+    ) {
+      return {
+        valid: false,
+        errors: {
+          transaction: "Transaction must be a non-null object"
+        }
+      };
+    }
+
+    // --------------------------------------------------
+    // 2. Safely inspect prototype
+    // --------------------------------------------------
+
+    let prototype;
+
+    try {
+      prototype = Object.getPrototypeOf(transaction);
+    } catch (error) {
+      return {
+        valid: false,
+        errors: {
+          transaction: `Unable to inspect transaction object: ${
+            getValidationError(error).message
+          }`
+        }
+      };
+    }
+
+    if (
+      prototype !== Object.prototype &&
+      prototype !== null
+    ) {
+      errors.transaction =
+        "Transaction must be a plain object";
+    }
+
+    // --------------------------------------------------
+    // 3. Detect inherited enumerable properties
+    // --------------------------------------------------
+
+    try {
+      for (const key in transaction) {
+        if (!hasOwn(transaction, key)) {
+          errors.__prototype__ =
+            "Transaction must not contain inherited enumerable properties";
+
+          break;
+        }
+      }
+    } catch (error) {
+      errors.__prototype__ =
+        `Unable to inspect inherited properties: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    // --------------------------------------------------
+    // 4. Safely read own keys
+    // --------------------------------------------------
+
+    let keys = [];
+
+    try {
+      keys = Object.keys(transaction);
+    } catch (error) {
+      return {
+        valid: false,
+        errors: {
+          transaction:
+            `Unable to inspect transaction fields: ${
+              getValidationError(error).message
+            }`
+        }
+      };
+    }
+
+    // --------------------------------------------------
+    // 5. Reject unknown fields
+    // --------------------------------------------------
+
+    for (const key of keys) {
+      if (!TRANSACTION_FIELDS.has(key)) {
+        errors[key] = "Unknown transaction field";
+      }
+    }
+
+    // --------------------------------------------------
+    // 6. Required fields
+    // --------------------------------------------------
+
+    for (const field of TRANSACTION_FIELDS) {
+      try {
+        if (!hasOwn(transaction, field)) {
+          errors[field] = "Required field is missing";
+        }
+      } catch (error) {
+        errors[field] =
+          `Unable to inspect field: ${
+            getValidationError(error).message
+          }`;
+      }
+    }
+
+    // --------------------------------------------------
+    // 7. Read + validate fields safely
+    // --------------------------------------------------
+
+    let id;
+    let text;
+    let category;
+    let amount;
+    let date;
+    let updatedAt;
+    let updatedBy;
+
+    try {
+      if (hasOwn(transaction, "id")) {
+        id = transaction.id;
+
+        if (
+          !Number.isSafeInteger(id) ||
+          id < 0
+        ) {
+          errors.id =
+            "id must be a non-negative safe integer";
+        }
+      }
+    } catch (error) {
+      errors.id =
+        `Unable to read id: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    try {
+      if (hasOwn(transaction, "text")) {
+        text = transaction.text;
+
+        if (typeof text !== "string") {
+          errors.text = "text must be a string";
+        } else {
+          if (text !== text.trim()) {
+            errors.text =
+              "text must not have leading or trailing whitespace";
+          }
+
+          if (text.length > MAX_TEXT_LENGTH) {
+            errors.text =
+              `text must not exceed ${MAX_TEXT_LENGTH} characters`;
+          }
+        }
+      }
+    } catch (error) {
+      errors.text =
+        `Unable to read text: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    try {
+      if (hasOwn(transaction, "category")) {
+        category = transaction.category;
+
+        if (typeof category !== "string") {
+          errors.category =
+            "category must be a string";
+        } else {
+          if (category.trim() === "") {
+            errors.category =
+              "category must not be empty";
+          }
+
+          if (
+            category.length > MAX_CATEGORY_LENGTH
+          ) {
+            errors.category =
+              `category must not exceed ${MAX_CATEGORY_LENGTH} characters`;
+          }
+        }
+      }
+    } catch (error) {
+      errors.category =
+        `Unable to read category: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    try {
+      if (hasOwn(transaction, "amount")) {
+        amount = transaction.amount;
+
+        if (typeof amount !== "number") {
+          errors.amount =
+            "amount must be a number";
+        } else if (!Number.isFinite(amount)) {
+          errors.amount =
+            "amount must be a finite number";
+        } else if (amount === 0) {
+          errors.amount =
+            "amount must not be zero";
+        }
+      }
+    } catch (error) {
+      errors.amount =
+        `Unable to read amount: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    try {
+      if (hasOwn(transaction, "date")) {
+        date = transaction.date;
+
+        if (!isStrictISODateString(date)) {
+          errors.date =
+            "date must be a valid ISO 8601 UTC timestamp";
+        }
+      }
+    } catch (error) {
+      errors.date =
+        `Unable to read date: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    try {
+      if (hasOwn(transaction, "updatedAt")) {
+        updatedAt = transaction.updatedAt;
+
+        if (
+          !Number.isSafeInteger(updatedAt) ||
+          updatedAt < 0
+        ) {
+          errors.updatedAt =
+            "updatedAt must be a non-negative safe integer";
+        }
+      }
+    } catch (error) {
+      errors.updatedAt =
+        `Unable to read updatedAt: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    try {
+      if (hasOwn(transaction, "updatedBy")) {
+        updatedBy = transaction.updatedBy;
+
+        if (
+          typeof updatedBy !== "string" ||
+          updatedBy.trim() === ""
+        ) {
+          errors.updatedBy =
+            "updatedBy must be a non-empty string";
+        }
+      }
+    } catch (error) {
+      errors.updatedBy =
+        `Unable to read updatedBy: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    // --------------------------------------------------
+    // 8. Cross-field validation
+    // --------------------------------------------------
+
+    try {
+      if (
+        isStrictISODateString(date) &&
+        Number.isSafeInteger(updatedAt) &&
+        updatedAt >= 0
+      ) {
+        const dateTimestamp = Date.parse(date);
+
+        if (updatedAt < dateTimestamp) {
+          errors.updatedAt =
+            "updatedAt must not be earlier than date";
+        }
+      }
+    } catch (error) {
+      errors.updatedAt =
+        `Unable to validate updatedAt against date: ${
+          getValidationError(error).message
+        }`;
+    }
+
+    return {
+      valid: Object.keys(errors).length === 0,
+      errors
+    };
+
+  } catch (error) {
+    // --------------------------------------------------
+    // Final safety net
+    // --------------------------------------------------
+
     return {
       valid: false,
       errors: {
         transaction:
-          "Transaction must be a plain object"
+          `Transaction validation failed safely: ${
+            getValidationError(error).message
+          }`
       }
     };
   }
-
-  // OWN PROPERTIES ONLY
-  const keys = Object.keys(transaction);
-
-  // UNKNOWN FIELDS
-  for (const key of keys) {
-    if (!TRANSACTION_FIELDS.has(key)) {
-      errors[key] =
-        "Unknown transaction field";
-    }
-  }
-
-  // MISSING FIELDS
-  for (const field of TRANSACTION_FIELDS) {
-    if (
-      !Object.prototype.hasOwnProperty.call(
-        transaction,
-        field
-      )
-    ) {
-      errors[field] =
-        "Required field is missing";
-    }
-  }
-
-  // ID
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "id"
-    )
-  ) {
-    if (
-      !Number.isSafeInteger(transaction.id) ||
-      transaction.id < 0
-    ) {
-      errors.id =
-        "ID must be a non-negative safe integer";
-    }
-  }
-
-  // TEXT
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "text"
-    )
-  ) {
-    if (typeof transaction.text !== "string") {
-      errors.text =
-        "Description must be a string";
-    } else {
-      if (
-        transaction.text !==
-        transaction.text.trim()
-      ) {
-        errors.text =
-          "Description must not contain leading or trailing whitespace";
-      }
-
-      if (
-        transaction.text.length >
-        MAX_TEXT_LENGTH
-      ) {
-        errors.text =
-          `Description must not exceed ${MAX_TEXT_LENGTH} characters`;
-      }
-    }
-  }
-
-  // CATEGORY
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "category"
-    )
-  ) {
-    if (
-      typeof transaction.category !== "string"
-    ) {
-      errors.category =
-        "Category must be a string";
-    } else {
-      if (transaction.category.trim() === "") {
-        errors.category =
-          "Category must not be empty";
-      }
-
-      if (
-        transaction.category.length >
-        MAX_CATEGORY_LENGTH
-      ) {
-        errors.category =
-          `Category must not exceed ${MAX_CATEGORY_LENGTH} characters`;
-      }
-    }
-  }
-
-  // AMOUNT
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "amount"
-    )
-  ) {
-    if (
-      typeof transaction.amount !== "number"
-    ) {
-      errors.amount =
-        "Amount must be a number";
-    } else if (
-      !Number.isFinite(transaction.amount)
-    ) {
-      errors.amount =
-        "Amount must be finite";
-    } else if (
-      transaction.amount === 0
-    ) {
-      errors.amount =
-        "Amount cannot be zero";
-    }
-  }
-
-  // DATE
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "date"
-    )
-  ) {
-    if (
-      !isStrictISODateString(transaction.date)
-    ) {
-      errors.date =
-        "Date must be a valid ISO-8601 UTC timestamp";
-    }
-  }
-
-  // UPDATED AT
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "updatedAt"
-    )
-  ) {
-    if (
-      !Number.isSafeInteger(
-        transaction.updatedAt
-      ) ||
-      transaction.updatedAt < 0
-    ) {
-      errors.updatedAt =
-        "updatedAt must be a non-negative safe integer";
-    }
-  }
-
-  // UPDATED AT >= DATE
-  if (
-    isStrictISODateString(transaction.date) &&
-    Number.isSafeInteger(transaction.updatedAt) &&
-    transaction.updatedAt >= 0
-  ) {
-    const dateTimestamp =
-      Date.parse(transaction.date);
-
-    if (
-      transaction.updatedAt <
-      dateTimestamp
-    ) {
-      errors.updatedAt =
-        "updatedAt must not be earlier than date";
-    }
-  }
-
-  // UPDATED BY
-  if (
-    Object.prototype.hasOwnProperty.call(
-      transaction,
-      "updatedBy"
-    )
-  ) {
-    if (
-      typeof transaction.updatedBy !== "string" ||
-      transaction.updatedBy.trim() === ""
-    ) {
-      errors.updatedBy =
-        "updatedBy must be a non-empty string";
-    }
-  }
-
-  return {
-    valid: Object.keys(errors).length === 0,
-    errors
-  };
 };
 
 export const validateTransactions = transactions => {
