@@ -86,6 +86,9 @@ const TRANSACTION_FIELDS = new Set([
   "updatedBy"
 ]);
 
+const MAX_TEXT_LENGTH = 200;
+const MAX_CATEGORY_LENGTH = 50;
+
 const isStrictISODateString = value => {
   if (typeof value !== "string") {
     return false;
@@ -113,7 +116,6 @@ const isStrictISODateString = value => {
 export const validateTransaction = transaction => {
   const errors = {};
 
-  // Object validation
   if (
     !transaction ||
     typeof transaction !== "object" ||
@@ -127,21 +129,21 @@ export const validateTransaction = transaction => {
     };
   }
 
-  // Unknown fields
+  // UNKNOWN FIELDS
   for (const key of Object.keys(transaction)) {
     if (!TRANSACTION_FIELDS.has(key)) {
       errors[key] = "Unknown transaction field";
     }
   }
 
-  // Missing fields
+  // MISSING FIELDS
   for (const field of TRANSACTION_FIELDS) {
     if (!(field in transaction)) {
       errors[field] = "Required field is missing";
     }
   }
 
-  // id
+  // ID
   if ("id" in transaction) {
     if (
       !Number.isSafeInteger(transaction.id) ||
@@ -152,30 +154,51 @@ export const validateTransaction = transaction => {
     }
   }
 
-  // text
+  // TEXT / DESCRIPTION
   if ("text" in transaction) {
     if (typeof transaction.text !== "string") {
       errors.text = "Description must be a string";
-    } else if (
-      transaction.text !== transaction.text.trim()
-    ) {
-      errors.text =
-        "Description must not contain leading or trailing whitespace";
+    } else {
+      if (
+        transaction.text !== transaction.text.trim()
+      ) {
+        errors.text =
+          "Description must not contain leading or trailing whitespace";
+      }
+
+      if (
+        transaction.text.length > MAX_TEXT_LENGTH
+      ) {
+        errors.text =
+          `Description must not exceed ${MAX_TEXT_LENGTH} characters`;
+      }
     }
   }
 
-  // category
+  // CATEGORY
   if ("category" in transaction) {
     if (
-      typeof transaction.category !== "string" ||
-      transaction.category.trim() === ""
+      typeof transaction.category !== "string"
     ) {
       errors.category =
-        "Category must be a non-empty string";
+        "Category must be a string";
+    } else {
+      if (transaction.category.trim() === "") {
+        errors.category =
+          "Category must not be empty";
+      }
+
+      if (
+        transaction.category.length >
+        MAX_CATEGORY_LENGTH
+      ) {
+        errors.category =
+          `Category must not exceed ${MAX_CATEGORY_LENGTH} characters`;
+      }
     }
   }
 
-  // amount
+  // AMOUNT
   if ("amount" in transaction) {
     if (
       typeof transaction.amount !== "number" ||
@@ -189,7 +212,7 @@ export const validateTransaction = transaction => {
     }
   }
 
-  // date
+  // DATE
   if ("date" in transaction) {
     if (!isStrictISODateString(transaction.date)) {
       errors.date =
@@ -197,7 +220,7 @@ export const validateTransaction = transaction => {
     }
   }
 
-  // updatedAt
+  // UPDATED AT
   if ("updatedAt" in transaction) {
     if (
       !Number.isSafeInteger(transaction.updatedAt) ||
@@ -208,7 +231,21 @@ export const validateTransaction = transaction => {
     }
   }
 
-  // updatedBy
+  // CROSS-FIELD TIMESTAMP RULE
+  if (
+    isStrictISODateString(transaction.date) &&
+    Number.isSafeInteger(transaction.updatedAt) &&
+    transaction.updatedAt >= 0
+  ) {
+    const createdAt = Date.parse(transaction.date);
+
+    if (transaction.updatedAt < createdAt) {
+      errors.updatedAt =
+        "updatedAt must not be earlier than date";
+    }
+  }
+
+  // UPDATED BY
   if ("updatedBy" in transaction) {
     if (
       typeof transaction.updatedBy !== "string" ||
