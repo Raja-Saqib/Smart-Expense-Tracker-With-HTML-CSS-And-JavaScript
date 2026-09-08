@@ -73,32 +73,80 @@ export const pullFromCloud = async (blobId) => {
     console.warn("Pull aborted: No blobId provided.");
     return null;
   }
-  try {
-    const res = await fetch(`${CLOUD_URL}/${blobId}`);
 
+  try {
+    let res;
+  
+    // FETCH ERROR HANDLING
+    try {
+      res = await fetch(`${CLOUD_URL}/${blobId}`);
+    } catch (error) {
+      console.warn("Cloud pull failed:", error);
+  
+      return null;
+    }
+  
+    // HTTP ERROR HANDLING
     if (!res.ok) {
       console.warn(
-        `Cloud pull failed: HTTP ${res.status}`
+        `Cloud pull failed: HTTP ${res.status} ${res.statusText}`
       );
-
+  
       return null;
     }
-
-    const data = await res.json();
-
+  
+    let data;
+  
+    // JSON ERROR HANDLING
+    try {
+      data = await res.json();
+    } catch (error) {
+      console.warn("Cloud response is not valid JSON:", error);
+  
+      return null;
+    }
+  
+    // RESPONSE VALIDATION
     if (
-      !data?.transactions ||
+      !data ||
       !Array.isArray(data.transactions)
     ) {
-      console.warn(
-        "Invalid cloud data shape"
-      );
-
+      console.warn("Invalid cloud data shape");
+  
       return null;
     }
-
+  
+    // VERSION VALIDATION
+    if (
+      !Number.isInteger(data.version) ||
+      data.version < 0
+    ) {
+      console.warn("Invalid cloud version");
+  
+      return null;
+    }
+  
+    // UPDATED AT VALIDATION
+    if (
+      !Number.isFinite(data.updatedAt) ||
+      data.updatedAt < 0
+    ) {
+      console.warn("Invalid cloud updatedAt");
+  
+      return null;
+    }
+  
+    // CHART MODE VALIDATION
+    if (
+      data.chartMode !== "pie" &&
+      data.chartMode !== "donut"
+    ) {
+      console.warn("Invalid cloud chart mode");
+  
+      return null;
+    }
+  
     return data;
-
   } catch (error) {
     console.warn(
       "Cloud pull unavailable:",
@@ -107,6 +155,7 @@ export const pullFromCloud = async (blobId) => {
 
     return null;
   }
+
 };
 
 export const detectConflicts = (
