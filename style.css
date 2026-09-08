@@ -294,7 +294,7 @@ select {
   border-radius: 5px;
 }
 
-input[type="month"] {
+.dark input[type="month"] {
   color-scheme: dark;
 }
 
