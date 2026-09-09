@@ -666,13 +666,42 @@ attachChartClick(
 (async () => {
   let cloudData = null;
 
+  // --------------------------------------------------
+  // LOAD PERSISTED CLOUD METADATA
+  // --------------------------------------------------
   const cloudMeta = getCloudMeta();
-  const currentBlobId = cloudMeta?.blobId ?? null;
 
+  /*
+   * The blobId persisted during the previous successful
+   * cloud save identifies the cloud snapshot to restore.
+   *
+   * First run:
+   *   blobId = null
+   *
+   * Later runs:
+   *   blobId = previously created cloud blob
+   */
+  const currentBlobId =
+    cloudMeta?.blobId ?? null;
+
+  // --------------------------------------------------
+  // PULL CLOUD SNAPSHOT
+  // --------------------------------------------------
   try {
-    cloudData = await pullFromCloud(
-      cloudMeta?.blobId
-    );
+    /*
+     * Only attempt a cloud restore when a persisted
+     * blobId exists.
+     *
+     * The blobId is passed directly to pullFromCloud(),
+     * which performs:
+     *
+     *   GET /{blobId}
+     */
+    if (currentBlobId) {
+      cloudData = await pullFromCloud(
+        currentBlobId
+      );
+    }
   } catch (error) {
     console.warn(
       "Cloud startup restore failed:",
@@ -680,8 +709,16 @@ attachChartClick(
     );
   }
 
-  // Cloud unavailable or invalid.
-  // Continue with the existing local state.
+  // --------------------------------------------------
+  // CLOUD UNAVAILABLE OR NO BLOB
+  // --------------------------------------------------
+  /*
+   * If there is no persisted blobId, this is the first
+   * cloud startup and there is nothing to restore.
+   *
+   * If the cloud request failed or returned no valid
+   * snapshot, continue with the existing local state.
+   */
   if (!cloudData) {
     init();
 
@@ -695,7 +732,11 @@ attachChartClick(
     return;
   }
 
-  const remoteVersion = cloudData.version;
+  // --------------------------------------------------
+  // COMPARE CLOUD VERSION WITH LOCAL VERSION
+  // --------------------------------------------------
+  const remoteVersion =
+    cloudData.version;
 
   const localCloudMeta =
     structuredClone(getCloudMeta());
@@ -705,8 +746,12 @@ attachChartClick(
       ? localCloudMeta.version
       : 0;
 
-  // Local state is already equal to or newer than
-  // the cloud snapshot.
+  /*
+   * The local state is already equal to or newer than
+   * the cloud snapshot.
+   *
+   * Do not replace local state in this case.
+   */
   if (remoteVersion <= localVersion) {
     init();
 
@@ -720,99 +765,161 @@ attachChartClick(
     return;
   }
 
+  // --------------------------------------------------
+  // SAVE LOCAL STATE BEFORE CLOUD RESTORE
+  // --------------------------------------------------
   /*
    * Cloud is newer.
    *
    * Save the current local state BEFORE replacing it.
-   * This gives the user an undo point for the cloud restore.
+   * This gives the user an undo point for the cloud
+   * restore.
    */
   pushUndoState(
     createUndoState({
-      transactions: structuredClone(transactions),
-      cloudMeta: localCloudMeta,
+      transactions:
+        structuredClone(transactions),
+
+      cloudMeta:
+        localCloudMeta,
+
       chartMode,
-      label: "Before cloud restore"
+
+      label:
+        "Before cloud restore"
     })
   );
 
   const previousTransactions =
     structuredClone(transactions);
 
-  const previousChartMode = chartMode;
+  const previousChartMode =
+    chartMode;
 
+  // --------------------------------------------------
+  // APPLY CLOUD SNAPSHOT
+  // --------------------------------------------------
   try {
     /*
      * Build the canonical incoming local snapshot.
      *
      * The cloud payload uses `updatedBy`.
      * Local cloud metadata uses `deviceId`.
+     *
      * The current blobId is retained because it identifies
      * the cloud blob being restored.
      */
     const cloudSnapshot = {
       state: {
         transactions:
-          structuredClone(cloudData.transactions),
+          structuredClone(
+            cloudData.transactions
+          ),
 
         cloudMeta: {
-          version: remoteVersion,
+          version:
+            remoteVersion,
+
           updatedAt:
-            Number.isFinite(cloudData.updatedAt)
+            Number.isFinite(
+              cloudData.updatedAt
+            )
               ? cloudData.updatedAt
               : 0,
+
           deviceId:
             cloudData.updatedBy ?? null,
-          blobId: currentBlobId,
+
+          /*
+           * Keep the persisted blobId.
+           *
+           * blobId identifies the cloud resource and is
+           * not part of the cloud payload itself.
+           */
+          blobId:
+            currentBlobId
         },
 
-        chartMode: cloudData.chartMode
+        chartMode:
+          cloudData.chartMode
       }
     };
 
     /*
      * Apply and persist the incoming cloud snapshot.
      */
-    applySnapshot(cloudSnapshot);
+    applySnapshot(
+      cloudSnapshot
+    );
 
+    // --------------------------------------------------
+    // RECORD SUCCESSFUL CLOUD RESTORE
+    // --------------------------------------------------
     /*
-     * Record the successfully restored cloud state.
+     * The cloud snapshot has now been successfully
+     * applied locally.
      */
     pushUndoState(
       createUndoState({
         transactions,
-        cloudMeta: getCloudMeta(),
+        cloudMeta:
+          getCloudMeta(),
         chartMode,
-        label: "Cloud restore"
+        label:
+          "Cloud restore"
       })
     );
 
+    // --------------------------------------------------
+    // BROADCAST RESTORED STATE
+    // --------------------------------------------------
     /*
      * Notify other tabs only AFTER the cloud snapshot
      * has been successfully applied locally.
      */
     broadcastState({
       transactions,
-      cloudMeta: getCloudMeta(),
+      cloudMeta:
+        getCloudMeta(),
       chartMode
     });
 
     chartStatus.textContent =
       "Data restored from cloud";
+
   } catch (error) {
+
+    // --------------------------------------------------
+    // ROLLBACK FAILED CLOUD RESTORE
+    // --------------------------------------------------
     /*
      * Restore the application state that existed before
      * attempting the cloud restore.
      */
-    setTransactions(previousTransactions);
-    setChartMode(previousChartMode);
+    setTransactions(
+      previousTransactions
+    );
+
+    setChartMode(
+      previousChartMode
+    );
 
     /*
      * Re-persist the previous local state so the failed
-     * cloud restore does not leave LocalStorage inconsistent.
+     * cloud restore does not leave LocalStorage
+     * inconsistent.
+     *
+     * IMPORTANT:
+     * Do not modify cloudMeta here.
+     *
+     * The existing cloudMeta still contains the persisted
+     * blobId that identifies the user's cloud resource.
      */
     localStorage.setItem(
       "transactions",
-      JSON.stringify(transactions)
+      JSON.stringify(
+        transactions
+      )
     );
 
     localStorage.setItem(
@@ -823,8 +930,16 @@ attachChartClick(
     localStorage.setItem(
       "expenseTrackerSyncState",
       JSON.stringify({
-        transactions: structuredClone(transactions),
-        cloudMeta: structuredClone(getCloudMeta()),
+        transactions:
+          structuredClone(
+            transactions
+          ),
+
+        cloudMeta:
+          structuredClone(
+            getCloudMeta()
+          ),
+
         chartMode
       })
     );
@@ -838,6 +953,9 @@ attachChartClick(
     );
   }
 
+  // --------------------------------------------------
+  // INITIALIZE DEBUG PANEL
+  // --------------------------------------------------
   initDebugPanel({
     deviceId,
     getCloudMeta,
