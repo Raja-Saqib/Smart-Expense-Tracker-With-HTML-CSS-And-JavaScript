@@ -55,13 +55,30 @@ export const pushToCloud = async ({
   let newBlobId = blobId;
   if (isNew) {
     const locationHeader = res.headers.get("Location");
-    // Example header: https://jsonblob.com
-    newBlobId = locationHeader.split("/").pop();
+
+    if (!locationHeader) {
+      throw new Error(
+        "Cloud blob was created but no Location header was returned"
+      );
+    }
+
+    const parsedBlobId = locationHeader
+      .split("/")
+      .filter(Boolean)
+      .pop();
+
+    if (!parsedBlobId) {
+      throw new Error(
+        "Cloud blob was created but blobId could not be determined"
+      );
+    }
+
+    newBlobId = parsedBlobId;
   }
 
-  return { 
-    payload, 
-    blobId: newBlobId // Return the ID so the main application can save it to localStorage
+  return {
+    ...payload,
+    blobId: newBlobId
   };
 };
 
@@ -559,7 +576,7 @@ const createPullSignal = (
 };
 
  /**
-  * Pulls data from the cloud using a speciic blobId 
+  * Pulls data from the cloud using a specific blobId 
   * 
   */ 
 export const pullFromCloud = async (blobId, {

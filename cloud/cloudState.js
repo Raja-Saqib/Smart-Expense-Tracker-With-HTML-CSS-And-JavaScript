@@ -7,12 +7,49 @@ export const STORAGE_SYNC_KEY = CLOUD_CONFIG.STORAGE_SYNC_KEY;
 const DEFAULT_CLOUD_META = {
   version: 0,
   updatedAt: 0,
-  deviceId: null
+  deviceId: null,
+  blobId: null
 };
+
+// --------------------------------------------------
+// Validation helpers
+// --------------------------------------------------
+
+const isValidBlobId = value =>
+  typeof value === "string" &&
+  value.trim() !== "";
+
+const normalizeBlobId = value =>
+  isValidBlobId(value)
+    ? value.trim()
+    : DEFAULT_CLOUD_META.blobId;
+
+const normalizeCloudMeta = meta => ({
+  version: Number.isFinite(meta?.version)
+    ? meta.version
+    : DEFAULT_CLOUD_META.version,
+
+  updatedAt: Number.isFinite(meta?.updatedAt)
+    ? meta.updatedAt
+    : DEFAULT_CLOUD_META.updatedAt,
+
+  deviceId:
+    typeof meta?.deviceId === "string" &&
+    meta.deviceId.trim() !== ""
+      ? meta.deviceId
+      : DEFAULT_CLOUD_META.deviceId,
+
+  blobId: normalizeBlobId(meta?.blobId)
+});
+
+// --------------------------------------------------
+// Load persisted cloud metadata
+// --------------------------------------------------
 
 let cloudMeta = (() => {
   try {
-    const stored = localStorage.getItem(CLOUD_META_KEY);
+    const stored =
+      localStorage.getItem(CLOUD_META_KEY);
 
     if (!stored) {
       return { ...DEFAULT_CLOUD_META };
@@ -20,39 +57,52 @@ let cloudMeta = (() => {
 
     const parsed = JSON.parse(stored);
 
-    return {
-      version: Number.isFinite(parsed?.version)
-        ? parsed.version
-        : DEFAULT_CLOUD_META.version,
+    return normalizeCloudMeta(parsed);
 
-      updatedAt: Number.isFinite(parsed?.updatedAt)
-        ? parsed.updatedAt
-        : DEFAULT_CLOUD_META.updatedAt,
-
-      deviceId: parsed?.deviceId ?? DEFAULT_CLOUD_META.deviceId
-    };
   } catch {
     return { ...DEFAULT_CLOUD_META };
   }
 })();
 
-export const getCloudMeta = () => cloudMeta;
+// --------------------------------------------------
+// Read cloud metadata
+// --------------------------------------------------
+
+export const getCloudMeta = () =>
+  structuredClone(cloudMeta);
+
+// --------------------------------------------------
+// Write cloud metadata
+// --------------------------------------------------
 
 export const setCloudMeta = meta => {
+  cloudMeta = normalizeCloudMeta(meta);
+
+  localStorage.setItem(
+    CLOUD_META_KEY,
+    JSON.stringify(cloudMeta)
+  );
+
+  return getCloudMeta();
+};
+
+// --------------------------------------------------
+// Blob ID helpers
+// --------------------------------------------------
+
+export const getBlobId = () =>
+  cloudMeta.blobId;
+
+export const setBlobId = blobId => {
   cloudMeta = {
-    version: Number.isFinite(meta?.version)
-      ? meta.version
-      : DEFAULT_CLOUD_META.version,
-
-    updatedAt: Number.isFinite(meta?.updatedAt)
-      ? meta.updatedAt
-      : DEFAULT_CLOUD_META.updatedAt,
-
-    deviceId: meta?.deviceId ?? DEFAULT_CLOUD_META.deviceId
+    ...cloudMeta,
+    blobId: normalizeBlobId(blobId)
   };
 
   localStorage.setItem(
     CLOUD_META_KEY,
     JSON.stringify(cloudMeta)
   );
+
+  return cloudMeta.blobId;
 };

@@ -68,17 +68,23 @@ export const saveData = async ({
 
   let cloudState = null;
   let cloudError = null;
-
+  
   // --------------------------------------------------
   // REMOTE SYNCHRONIZATION
   // --------------------------------------------------
   try {
+    const currentBlobId =
+      cloudMeta?.blobId ?? 
+      getCloudMeta()?.blobId ?? 
+      null;
+
     cloudState = await pushToCloud({
       transactions,
       cloudMeta,
       chartMode,
       deviceId,
-      meta
+      meta,
+      blobId: currentBlobId,
     });
   } catch (error) {
     cloudError = error;
@@ -97,7 +103,8 @@ export const saveData = async ({
       setCloudMeta({
         version: cloudState.version,
         updatedAt: cloudState.updatedAt,
-        deviceId: cloudState.updatedBy
+        deviceId: cloudState.updatedBy,
+        blobId: cloudState.blobId,
       });
     } catch (error) {
       console.warn(

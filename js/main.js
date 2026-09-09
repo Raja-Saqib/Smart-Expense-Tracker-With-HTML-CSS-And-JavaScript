@@ -490,13 +490,13 @@ donutToggle.addEventListener("change", async () => {
   });
 
   chartStatus.textContent =
-    result.success
+    result.offline
       ? mode === "donut"
-        ? "Donut chart enabled"
-        : "Pie chart enabled"
-      : mode === "donut"
         ? "Donut chart enabled (cloud offline)"
-        : "Pie chart enabled (cloud offline)";
+        : "Pie chart enabled (cloud offline)"
+      : mode === "donut"
+        ? "Donut chart enabled"
+        : "Pie chart enabled";
 
   init(); // redraw chart
 });
@@ -666,8 +666,13 @@ attachChartClick(
 (async () => {
   let cloudData = null;
 
+  const cloudMeta = getCloudMeta();
+  const currentBlobId = cloudMeta?.blobId ?? null;
+
   try {
-    cloudData = await pullFromCloud();
+    cloudData = await pullFromCloud(
+      cloudMeta?.blobId
+    );
   } catch (error) {
     console.warn(
       "Cloud startup restore failed:",
@@ -690,10 +695,7 @@ attachChartClick(
     return;
   }
 
-  const remoteVersion =
-    Number.isFinite(cloudData.version)
-      ? cloudData.version
-      : 0;
+  const remoteVersion = cloudData.version;
 
   const localCloudMeta =
     structuredClone(getCloudMeta());
@@ -740,10 +742,12 @@ attachChartClick(
 
   try {
     /*
-     * Build the canonical incoming snapshot.
+     * Build the canonical incoming local snapshot.
      *
-     * pushToCloud() currently uses `updatedBy`, so that
-     * becomes cloudMeta.deviceId locally.
+     * The cloud payload uses `updatedBy`.
+     * Local cloud metadata uses `deviceId`.
+     * The current blobId is retained because it identifies
+     * the cloud blob being restored.
      */
     const cloudSnapshot = {
       state: {
@@ -757,13 +761,11 @@ attachChartClick(
               ? cloudData.updatedAt
               : 0,
           deviceId:
-            cloudData.updatedBy ?? null
+            cloudData.updatedBy ?? null,
+          blobId: currentBlobId,
         },
 
-        chartMode:
-          cloudData.chartMode === "pie"
-            ? "pie"
-            : "donut"
+        chartMode: cloudData.chartMode
       }
     };
 
@@ -857,8 +859,17 @@ listenToBroadcast(payload => {
   setChartMode(payload.chartMode);
 
   localStorage.setItem(
-    "transactions",
-    JSON.stringify(transactions)
+    "chartMode",
+    chartMode
+  );
+
+  localStorage.setItem(
+    "expenseTrackerSyncState",
+    JSON.stringify({
+      transactions: structuredClone(transactions),
+      cloudMeta: structuredClone(getCloudMeta()),
+      chartMode
+    })
   );
 
   replaceCurrentUndoStateAndClearRedo(
@@ -911,6 +922,17 @@ window.addEventListener("storage", e => {
     !persistedState ||
     !Array.isArray(persistedState.transactions)
   ) {
+    return;
+  }
+
+  if (
+    persistedState.chartMode !== "pie" &&
+    persistedState.chartMode !== "donut"
+  ) {
+    return;
+  }
+
+  if (!persistedState.cloudMeta) {
     return;
   }
 
