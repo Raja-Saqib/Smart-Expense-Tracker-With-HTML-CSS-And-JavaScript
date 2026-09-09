@@ -460,45 +460,87 @@ initEvents({
 // });
 
 donutToggle.addEventListener("change", async () => {
-  const mode = donutToggle.checked ? "donut" : "pie";
+  const mode =
+    donutToggle.checked
+      ? "donut"
+      : "pie";
 
-  setChartMode(mode);
-  localStorage.setItem("chartMode", mode);
+  const previousChartMode =
+    chartMode;
 
-  const result = await saveData({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode,
-    meta: {
-      type: "chart-mode"
-    }
-  });
+  try {
+    setChartMode(mode);
 
-  pushUndoState(
-    createUndoState({
+    localStorage.setItem(
+      "chartMode",
+      mode
+    );
+
+    const result = await saveData({
       transactions,
       cloudMeta: getCloudMeta(),
-      chartMode,
-      label: "Undo chart mode"
-    })
-  );
+      chartMode: mode,
+      meta: {
+        type: "chart-mode"
+      }
+    });
 
-  broadcastState({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode
-  });
+    if (!result.success) {
+      throw new Error(
+        result.error ??
+        "Chart mode was not saved"
+      );
+    }
 
-  chartStatus.textContent =
-    result.offline
-      ? mode === "donut"
-        ? "Donut chart enabled (cloud offline)"
-        : "Pie chart enabled (cloud offline)"
-      : mode === "donut"
-        ? "Donut chart enabled"
-        : "Pie chart enabled";
+    pushUndoState(
+      createUndoState({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode: mode,
+        label: "Undo chart mode"
+      })
+    );
 
-  init(); // redraw chart
+    broadcastState({
+      transactions,
+      cloudMeta: getCloudMeta(),
+      chartMode: mode
+    });
+
+    chartStatus.textContent =
+      result.offline
+        ? mode === "donut"
+          ? "Donut chart enabled (cloud offline)"
+          : "Pie chart enabled (cloud offline)"
+        : mode === "donut"
+          ? "Donut chart enabled"
+          : "Pie chart enabled";
+
+    init();
+
+  } catch (error) {
+    setChartMode(
+      previousChartMode
+    );
+
+    localStorage.setItem(
+      "chartMode",
+      previousChartMode
+    );
+
+    donutToggle.checked =
+      previousChartMode === "donut";
+
+    chartStatus.textContent =
+      "Chart mode change failed";
+
+    console.error(
+      "Chart mode persistence failed:",
+      error
+    );
+
+    init();
+  }
 });
 
 patternToggle.addEventListener("change", () => {
@@ -796,6 +838,9 @@ attachChartClick(
   const previousChartMode =
     chartMode;
 
+  const previousCloudMeta =
+    structuredClone(getCloudMeta());
+
   // --------------------------------------------------
   // APPLY CLOUD SNAPSHOT
   // --------------------------------------------------
@@ -893,8 +938,12 @@ attachChartClick(
     // ROLLBACK FAILED CLOUD RESTORE
     // --------------------------------------------------
     /*
-     * Restore the application state that existed before
-     * attempting the cloud restore.
+     * Restore the complete application state that existed
+     * before attempting the cloud restore.
+     *
+     * This includes transactions, chart mode, and cloud
+     * metadata so the local snapshot remains internally
+     * consistent if persistence fails midway.
      */
     setTransactions(
       previousTransactions
@@ -902,6 +951,10 @@ attachChartClick(
 
     setChartMode(
       previousChartMode
+    );
+
+    setCloudMeta(
+      previousCloudMeta
     );
 
     /*
@@ -964,17 +1017,68 @@ attachChartClick(
   });
 })();
 
+const isValidBroadcastPayload = payload => {
+  if (
+    !payload ||
+    typeof payload !== "object"
+  ) {
+    return false;
+  }
+
+  if (!Array.isArray(payload.transactions)) {
+    return false;
+  }
+
+  if (
+    !payload.cloudMeta ||
+    typeof payload.cloudMeta !== "object"
+  ) {
+    return false;
+  }
+
+  if (
+    payload.chartMode !== "pie" &&
+    payload.chartMode !== "donut"
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
 listenToBroadcast(payload => {
-  if (!payload) return;
+  if (!isValidBroadcastPayload(payload)) {
+    console.warn(
+      "Ignored invalid cross-tab state payload"
+    );
 
-  const previousSlices = slices.map(slice => ({
-    category: slice.category,
-    value: slice.value
-  }));
+    return;
+  }
 
-  setTransactions(structuredClone(payload.transactions));
-  setCloudMeta(structuredClone(payload.cloudMeta));
-  setChartMode(payload.chartMode);
+  const previousSlices =
+    slices.map(slice => ({
+      category: slice.category,
+      value: slice.value
+    }));
+
+  setTransactions(
+    structuredClone(payload.transactions)
+  );
+
+  setCloudMeta(
+    structuredClone(payload.cloudMeta)
+  );
+
+  const accepted =
+    setChartMode(payload.chartMode);
+
+  if (!accepted) {
+    console.warn(
+      "Ignored cross-tab state with invalid chartMode"
+    );
+
+    return;
+  }
 
   localStorage.setItem(
     "chartMode",

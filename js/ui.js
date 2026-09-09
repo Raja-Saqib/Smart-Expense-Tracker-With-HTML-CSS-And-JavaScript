@@ -4,19 +4,59 @@ import { formatMoney } from "./utils.js";
 export const addTransactionToDOM = t => {
   const li = document.createElement("li");
 
-  li.className = t.amount < 0 ? "money minus" : "money plus";
+  li.className =
+    t.amount < 0
+      ? "money minus"
+      : "money plus";
 
-  li.innerHTML = `
-    <div class="list-text">
-      <strong>${t.text}</strong>
-      <small>(${t.category})</small>
-    </div>
-    <span class="list-amount">${formatMoney(Math.abs(t.amount))}</span>
-    <div class="list-button">
-      <button data-edit="${t.id}">✏️</button>
-      <button data-delete="${t.id}">❌</button>
-    </div>
-  `;
+  const textContainer =
+    document.createElement("div");
+
+  textContainer.className = "list-text";
+
+  const strong =
+    document.createElement("strong");
+
+  strong.textContent = t.text;
+
+  const category =
+    document.createElement("small");
+
+  category.textContent = `(${t.category})`;
+
+  textContainer.appendChild(strong);
+  textContainer.appendChild(category);
+
+  const amount =
+    document.createElement("span");
+
+  amount.className = "list-amount";
+  amount.textContent =
+    formatMoney(Math.abs(t.amount));
+
+  const buttons =
+    document.createElement("div");
+
+  buttons.className = "list-button";
+
+  const editButton =
+    document.createElement("button");
+
+  editButton.dataset.edit = t.id;
+  editButton.textContent = "✏️";
+
+  const deleteButton =
+    document.createElement("button");
+
+  deleteButton.dataset.delete = t.id;
+  deleteButton.textContent = "❌";
+
+  buttons.appendChild(editButton);
+  buttons.appendChild(deleteButton);
+
+  li.appendChild(textContainer);
+  li.appendChild(amount);
+  li.appendChild(buttons);
 
   return li;
 };
@@ -47,36 +87,95 @@ export const updateSummary = (balanceEl, incomeEl, expenseEl, data) => {
 
 export const renderCategories = (tableBody, data) => {
   tableBody.innerHTML = "";
+
   const totals = {};
 
-  data.filter(t => t.amount < 0).forEach(t => {
-    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-  });
+  data
+    .filter(t => t.amount < 0)
+    .forEach(t => {
+      totals[t.category] =
+        (totals[t.category] || 0) +
+        Math.abs(t.amount);
+    });
 
   Object.entries(totals).forEach(([cat, val]) => {
-    const row = document.createElement("tr");
-    row.innerHTML = `<td>${cat}</td><td>${formatMoney(val)}</td>`;
+    const row =
+      document.createElement("tr");
+
+    const categoryCell =
+      document.createElement("td");
+
+    categoryCell.textContent = cat;
+
+    const amountCell =
+      document.createElement("td");
+
+    amountCell.textContent =
+      formatMoney(val);
+
+    row.appendChild(categoryCell);
+    row.appendChild(amountCell);
+
     tableBody.appendChild(row);
   });
 };
 
-const renderConflict = conflict => `
-  <div class="conflict-card">
-    <h4>${conflict.local.text}</h4>
+const renderConflict = conflict => {
+  const card =
+    document.createElement("div");
 
-    <label>
-      <input type="radio" name="${conflict.id}" value="local" checked />
-      Keep this device
-      (${formatMoney(conflict.local.amount)})
-    </label>
+  card.className = "conflict-card";
 
-    <label>
-      <input type="radio" name="${conflict.id}" value="remote" />
-      Use cloud version
-      (${formatMoney(conflict.remote.amount)})
-    </label>
-  </div>
-`;
+  const heading =
+    document.createElement("h4");
+
+  heading.textContent =
+    conflict.local.text;
+
+  card.appendChild(heading);
+
+  const localLabel =
+    document.createElement("label");
+
+  const localInput =
+    document.createElement("input");
+
+  localInput.type = "radio";
+  localInput.name = conflict.id;
+  localInput.value = "local";
+  localInput.checked = true;
+
+  localLabel.appendChild(localInput);
+
+  localLabel.append(
+    ` Keep this device (${formatMoney(
+      conflict.local.amount
+    )})`
+  );
+
+  const remoteLabel =
+    document.createElement("label");
+
+  const remoteInput =
+    document.createElement("input");
+
+  remoteInput.type = "radio";
+  remoteInput.name = conflict.id;
+  remoteInput.value = "remote";
+
+  remoteLabel.appendChild(remoteInput);
+
+  remoteLabel.append(
+    ` Use cloud version (${formatMoney(
+      conflict.remote.amount
+    )})`
+  );
+
+  card.appendChild(localLabel);
+  card.appendChild(remoteLabel);
+
+  return card;
+};
 
 export const showConflictModal = conflicts => {
   const modal = document.getElementById("conflictModal");
@@ -85,10 +184,7 @@ export const showConflictModal = conflicts => {
   list.innerHTML = "";
 
   conflicts.forEach(c => {
-    list.insertAdjacentHTML(
-      "beforeend",
-      renderConflict(c)
-    );
+    list.appendChild(renderConflict(c));
   });
 
   modal.hidden = false;

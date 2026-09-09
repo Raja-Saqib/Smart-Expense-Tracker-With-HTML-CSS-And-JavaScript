@@ -5,8 +5,29 @@ import { getCloudMeta, setCloudMeta, STORAGE_SYNC_KEY } from "../cloud/cloudStat
 import { chartMode } from "./chartState.js";
 import { deviceId } from "./deviceIdentity.js";
 
-export let transactions =
-  JSON.parse(localStorage.getItem("transactions")) || [];
+const loadTransactions = () => {
+  try {
+    const stored =
+      localStorage.getItem("transactions");
+
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+
+    return Array.isArray(parsed)
+      ? parsed
+      : [];
+  } catch (error) {
+    console.warn(
+      "Invalid local transactions; using empty state:",
+      error
+    );
+
+    return [];
+  }
+};
+
+export let transactions = loadTransactions();
 
 export let editId = null;
 export let activeCategory = null;
