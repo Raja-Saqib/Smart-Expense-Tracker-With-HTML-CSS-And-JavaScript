@@ -179,6 +179,8 @@ export const addTransaction = async ({
   const normalizedText = String(text ?? "").trim();
 
   // VALIDATION
+  const numericAmount = Number(amount);
+
   if (!category || !amount) {
     return {
       success: false,
@@ -186,14 +188,19 @@ export const addTransaction = async ({
     };
   }
 
-  if (+amount === 0) {
+  if (!Number.isFinite(numericAmount)) {
+    return {
+      success: false,
+      error: "Amount must be a valid number"
+    };
+  }
+
+  if (numericAmount === 0) {
     return {
       success: false,
       error: "Amount cannot be zero"
     };
   }
-
-  const numericAmount = +amount;
 
   const existing = transactions.find(
     t => t.id === editId
@@ -386,3 +393,15 @@ export const editTransaction = id => {
   return structuredClone(t);
 };
 
+/*
+ * 
+ * FOR FUTURE
+ *
+ * category validation
+ * transaction ID generation
+ * whether rollback should clear editId
+ * richer sync-state validation
+ * retry/outbox behavior for cloud failures
+ * more event-driven synchronization
+ * 
+ */ 

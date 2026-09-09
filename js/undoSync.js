@@ -74,7 +74,7 @@ export const performUndo = async ({
         }
       });
 
-      if (!result.success) {
+      if (result.offline) {
         throw new Error(
           result.error ?? "Transaction was not saved"
         );
@@ -181,7 +181,7 @@ export const performRedo = async ({
         }
       });
 
-      if (!result.success) {
+      if (result.offline) {
         throw new Error(
           result.error ?? "Transaction was not saved"
         );
