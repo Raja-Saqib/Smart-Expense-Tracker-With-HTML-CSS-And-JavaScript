@@ -64,9 +64,13 @@ body {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 80px;
+  gap: 10px;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+
+.app-top div {
+  width: 140px;
 }
 
 .app-top button {
@@ -182,7 +186,7 @@ canvas {
   width: 24px;
   cursor: pointer;
   display: inline;
-  padding: 10px;
+  padding: 0;
 }
 
 #clearFilter {
@@ -233,7 +237,11 @@ li.minus { border-color: var(--red); }
 
 .list-button {
   flex: 0 0 40px;
-  margin-left: clamp(10px, 10vw, 200px);
+  margin-left: clamp(
+    10px,
+    calc(10px + (100vw - 400px) * 0.14),
+    150px
+  );
 }
 
 .list-button button {
