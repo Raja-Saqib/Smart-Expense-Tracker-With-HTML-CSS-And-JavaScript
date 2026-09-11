@@ -713,37 +713,18 @@ attachChartClick(
   // --------------------------------------------------
   const cloudMeta = getCloudMeta();
 
-  /*
-   * The blobId persisted during the previous successful
-   * cloud save identifies the cloud snapshot to restore.
-   *
-   * First run:
-   *   blobId = null
-   *
-   * Later runs:
-   *   blobId = previously created cloud blob
-   */
-  const currentBlobId =
-    cloudMeta?.blobId ?? null;
-
   // --------------------------------------------------
   // PULL CLOUD SNAPSHOT
   // --------------------------------------------------
   try {
     /*
-     * Only attempt a cloud restore when a persisted
-     * blobId exists.
-     *
-     * The blobId is passed directly to pullFromCloud(),
-     * which performs:
-     *
-     *   GET /{blobId}
-     */
-    if (currentBlobId) {
-      cloudData = await pullFromCloud(
-        currentBlobId
-      );
-    }
+    * Supabase identifies the cloud state through
+    * the authenticated user's user_id.
+    *
+    * No blobId is required.
+    */
+    cloudData = await pullFromCloud();
+
   } catch (error) {
     console.warn(
       "Cloud startup restore failed:",
@@ -752,15 +733,13 @@ attachChartClick(
   }
 
   // --------------------------------------------------
-  // CLOUD UNAVAILABLE OR NO BLOB
+  // CLOUD UNAVAILABLE OR NO CLOUD STATE
   // --------------------------------------------------
   /*
-   * If there is no persisted blobId, this is the first
-   * cloud startup and there is nothing to restore.
-   *
-   * If the cloud request failed or returned no valid
-   * snapshot, continue with the existing local state.
-   */
+  * If Supabase is unavailable or no cloud state exists
+  * for the current anonymous user, continue with the
+  * existing local state.
+  */
   if (!cloudData) {
     init();
 
@@ -873,16 +852,7 @@ attachChartClick(
               : 0,
 
           deviceId:
-            cloudData.updatedBy ?? null,
-
-          /*
-           * Keep the persisted blobId.
-           *
-           * blobId identifies the cloud resource and is
-           * not part of the cloud payload itself.
-           */
-          blobId:
-            currentBlobId
+            cloudData.updatedBy ?? null
         },
 
         chartMode:

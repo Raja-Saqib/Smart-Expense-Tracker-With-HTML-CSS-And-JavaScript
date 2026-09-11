@@ -681,7 +681,7 @@ export const pullFromCloud = async ({
           })
         );
 
-      // Persist the migrated transactions.
+      // Persist the migrated state.
       const currentVersion =
         Number(data.version);
 
@@ -699,10 +699,19 @@ export const pullFromCloud = async ({
         .update({
           transactions:
             cloudPayload.transactions,
+
+          chart_mode:
+            cloudPayload.chartMode,
+
+          meta:
+            cloudPayload.meta,
+
           version:
             migratedVersion,
+
           updated_at:
             migratedAt,
+
           updated_by:
             deviceId
         })
