@@ -1,5 +1,5 @@
 import { ensureAnonymousUser, supabase } from "./supabaseClient.js";
-
+import { deviceId } from "../js/deviceIdentity.js";
 
 /**
  * Pushes the current application state to Supabase.
@@ -658,19 +658,84 @@ export const pullFromCloud = async ({
       meta: data.meta
     };
 
-    // Migrate legacy transactions that do not have updatedBy.
-    if (
+    // Migrate legacy transactions that are missing updatedBy.
+    const hasLegacyTransactions =
       Array.isArray(cloudPayload.transactions) &&
+      cloudPayload.transactions.some(
+        transaction =>
+          !transaction.updatedBy
+      );
+
+    if (
+      hasLegacyTransactions &&
       typeof cloudPayload.updatedBy === "string" &&
       cloudPayload.updatedBy.trim()
     ) {
       cloudPayload.transactions =
-        cloudPayload.transactions.map(transaction => ({
-          ...transaction,
-          updatedBy:
-            transaction.updatedBy ??
-            cloudPayload.updatedBy
-        }));
+        cloudPayload.transactions.map(
+          transaction => ({
+            ...transaction,
+            updatedBy:
+              transaction.updatedBy ??
+              cloudPayload.updatedBy
+          })
+        );
+
+      // Persist the migrated transactions.
+      const currentVersion =
+        Number(data.version);
+
+      const migratedVersion =
+        currentVersion + 1;
+
+      const migratedAt =
+        new Date().toISOString();
+
+      const {
+        data: migratedData,
+        error: migrationError
+      } = await supabase
+        .from("expense_tracker_state")
+        .update({
+          transactions:
+            cloudPayload.transactions,
+          version:
+            migratedVersion,
+          updated_at:
+            migratedAt,
+          updated_by:
+            deviceId
+        })
+        .eq("user_id", user.id)
+        .eq("version", currentVersion)
+        .select()
+        .maybeSingle();
+
+      if (migrationError) {
+        console.warn(
+          "Legacy transaction migration could not be persisted:",
+          migrationError
+        );
+      } else if (migratedData) {
+        cloudPayload.version =
+          Number(migratedData.version);
+
+        cloudPayload.updatedAt =
+          Date.parse(
+            migratedData.updated_at
+          );
+
+        cloudPayload.updatedBy =
+          migratedData.updated_by;
+
+        console.info(
+          "Legacy transactions migrated and persisted to Supabase."
+        );
+      } else {
+        console.warn(
+          "Legacy transaction migration was not persisted because the cloud version changed."
+        );
+      }
     }
 
     const validation =
