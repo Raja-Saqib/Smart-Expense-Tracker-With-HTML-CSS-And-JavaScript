@@ -1,14 +1,18 @@
-import { CLOUD_CONFIG } from "../config.js";
+import { ensureAnonymousUser, supabase } from "./supabaseClient.js";
 
-const CLOUD_KEY = CLOUD_CONFIG.CLOUD_KEY;
-
-const CLOUD_URL = CLOUD_CONFIG.CLOUD_URL;
 
 /**
- * Pushes data to the cloud.
- * 
- * @param {string|null} blobId - The unique ID of the JSON blob (e.g. stored in localStorage). If null, a new blob is created automatically.
- * @returns 
+ * Pushes the current application state to Supabase.
+ *
+ * One row is stored for each authenticated Supabase user.
+ *
+ * @param {Object} params
+ * @param {Array} params.transactions
+ * @param {Object} params.cloudMeta
+ * @param {string} params.chartMode
+ * @param {string} params.deviceId
+ * @param {Object} params.meta
+ * @returns {Promise<Object>} Cloud state using the application's existing format.
  */
 export const pushToCloud = async ({
   transactions,
@@ -16,69 +20,63 @@ export const pushToCloud = async ({
   chartMode,
   deviceId,
   meta = {},
-  blobId = null,
 }) => {
+  const user = await ensureAnonymousUser();
+
+  const nextVersion =
+    (cloudMeta?.version ?? 0) + 1;
+
+  const updatedAt = Date.now();
+
   const payload = {
-    version: (cloudMeta?.version ?? 0) + 1,
-    updatedAt: Date.now(),
-    updatedBy: deviceId,
+    user_id: user.id,
+    version: nextVersion,
+    updated_at: new Date(updatedAt).toISOString(),
+    updated_by: deviceId,
     transactions,
-    chartMode,
-    meta
+    chart_mode: chartMode,
+    meta,
   };
 
-  // Determine if we are creating a new blob (POST) or updating an existing one (PUT)
-  const isNew = !blobId;
-  const url = isNew ? CLOUD_URL : `${CLOUD_URL}/${blobId}`;
-  const method = isNew ? "POST" : "PUT";
+  const {
+    data,
+    error,
+  } = await supabase
+    .from("expense_tracker_state")
+    .upsert(
+      payload,
+      {
+        onConflict: "user_id",
+      }
+    )
+    .select()
+    .single();
 
-  const res = await fetch(url, {
-    method: method,
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!res.ok) {
-    const error = new Error(
-      `Cloud push failed: HTTP ${res.status}`
+  if (error) {
+    const cloudError = new Error(
+      `Supabase push failed: ${error.message}`
     );
 
-    error.status = res.status;
+    cloudError.status = error.status;
+    cloudError.code = error.code;
 
-    throw error;
+    throw cloudError;
   }
 
-  // If it's a new creation, JSON Blob returns the new URL in the "Location" response header
-  let newBlobId = blobId;
-  if (isNew) {
-    const locationHeader = res.headers.get("Location");
-
-    if (!locationHeader) {
-      throw new Error(
-        "Cloud blob was created but no Location header was returned"
-      );
-    }
-
-    const parsedBlobId = locationHeader
-      .split("/")
-      .filter(Boolean)
-      .pop();
-
-    if (!parsedBlobId) {
-      throw new Error(
-        "Cloud blob was created but blobId could not be determined"
-      );
-    }
-
-    newBlobId = parsedBlobId;
+  if (!data) {
+    throw new Error(
+      "Supabase push succeeded but no state was returned"
+    );
   }
 
   return {
-    ...payload,
-    blobId: newBlobId
+    version: Number(data.version),
+    updatedAt: Date.parse(data.updated_at),
+    updatedBy: data.updated_by,
+    transactions: data.transactions,
+    chartMode: data.chart_mode,
+    meta: data.meta,
+    userId: data.user_id,
   };
 };
 
@@ -575,18 +573,18 @@ const createPullSignal = (
   };
 };
 
- /**
-  * Pulls data from the cloud using a specific blobId 
-  * 
-  */ 
-export const pullFromCloud = async (blobId, {
+/**
+ * Pulls the current user's state from Supabase.
+ *
+ * The Supabase user identity replaces the old JSONBlob blobId.
+ *
+ * @param {Object} options
+ * @param {AbortSignal} options.signal
+ * @returns {Promise<Object|null>}
+ */
+export const pullFromCloud = async ({
   signal: callerSignal
 } = {}) => {
-  if (!blobId) {
-    console.warn("Pull aborted: No blobId provided.");
-    return null;
-  }
-
   const {
     signal,
     cleanup
@@ -596,85 +594,107 @@ export const pullFromCloud = async (blobId, {
   );
 
   try {
-    let res;
-  
-    // FETCH ERROR HANDLING 
-    try {
-      // Caller already cancelled
-      if (callerSignal?.aborted) {
-        console.warn("Cloud pull cancelled by caller");
-        return null;
-      }
-
-      res = await fetch(`${CLOUD_URL}/${blobId}`, {
-        signal
-      });
-    } catch (error) {
-      if (callerSignal?.aborted) {
-        console.warn("Cloud pull cancelled by caller");
-      } else if (
-        error?.name === "TimeoutError"
-      ) {
-        console.warn("Cloud pull timed out");
-      } else if (
-        error?.name === "AbortError"
-      ) {
-        console.warn("Cloud pull aborted");
-      } else {
-        console.warn("Cloud pull failed:", error);
-      }
-
-      return null;
-    } finally {
-      cleanup();
-    }
-  
-    // HTTP ERROR HANDLING
-    if (!res.ok) {
+    if (callerSignal?.aborted) {
       console.warn(
-        `Cloud pull failed: HTTP ${res.status} ${res.statusText}`
+        "Cloud pull cancelled by caller"
       );
-  
+
       return null;
     }
-  
-    let data;
-  
-    // JSON ERROR HANDLING
-    try {
-      data = await res.json();
-    } catch (error) {
+
+    const user =
+      await ensureAnonymousUser();
+
+    if (callerSignal?.aborted) {
       console.warn(
-        "Cloud response is not valid JSON:",
+        "Cloud pull cancelled by caller"
+      );
+
+      return null;
+    }
+
+    const {
+      data,
+      error
+    } = await supabase
+      .from("expense_tracker_state")
+      .select(
+        "version, updated_at, updated_by, transactions, chart_mode, meta"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (signal.aborted) {
+      console.warn(
+        "Cloud pull cancelled or timed out"
+      );
+
+      return null;
+    }
+
+    if (error) {
+      console.warn(
+        "Supabase pull failed:",
         error
       );
-  
+
       return null;
     }
-  
-    // FULL RESPONSE VALIDATION
+
+    if (!data) {
+      console.info(
+        "No cloud state exists for this Supabase user yet."
+      );
+
+      return null;
+    }
+
+    const cloudPayload = {
+      version: Number(data.version),
+      updatedAt: Date.parse(data.updated_at),
+      updatedBy: data.updated_by,
+      transactions: data.transactions,
+      chartMode: data.chart_mode,
+      meta: data.meta
+    };
+
     const validation =
-    validateCloudPayload(data);
+      validateCloudPayload(cloudPayload);
 
     if (!validation.valid) {
       console.warn(
-        "Invalid cloud payload:",
+        "Invalid Supabase cloud payload:",
         validation.errors
       );
 
       return null;
     }
-  
-    return data;
+
+    return cloudPayload;
+
   } catch (error) {
-    console.warn(
-      "Cloud pull unavailable:",
-      error
-    );
+    if (callerSignal?.aborted) {
+      console.warn(
+        "Cloud pull cancelled by caller"
+      );
+    } else if (
+      error?.name === "TimeoutError"
+    ) {
+      console.warn(
+        "Cloud pull timed out"
+      );
+    } else {
+      console.warn(
+        "Cloud pull unavailable:",
+        error
+      );
+    }
 
     return null;
-  }
 
+  } finally {
+    cleanup();
+  }
 };
 
 export const detectConflicts = (
