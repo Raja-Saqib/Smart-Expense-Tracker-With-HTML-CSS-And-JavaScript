@@ -658,6 +658,21 @@ export const pullFromCloud = async ({
       meta: data.meta
     };
 
+    // Migrate legacy transactions that do not have updatedBy.
+    if (
+      Array.isArray(cloudPayload.transactions) &&
+      typeof cloudPayload.updatedBy === "string" &&
+      cloudPayload.updatedBy.trim()
+    ) {
+      cloudPayload.transactions =
+        cloudPayload.transactions.map(transaction => ({
+          ...transaction,
+          updatedBy:
+            transaction.updatedBy ??
+            cloudPayload.updatedBy
+        }));
+    }
+
     const validation =
       validateCloudPayload(cloudPayload);
 
