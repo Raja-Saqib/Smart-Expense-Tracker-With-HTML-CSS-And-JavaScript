@@ -207,6 +207,10 @@ ul {
 li {
   background: var(--soft);
   display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  gap: 8px;
   justify-content: space-between;
   padding: 8px;
   margin: 6px 0;
@@ -217,15 +221,24 @@ li.plus { border-color: var(--green); }
 li.minus { border-color: var(--red); }
 
 .list-text {
-  width: 30%;
+  flex: 1;
+  min-width: 0;
 }
 
 .list-amount {
-  width: 20%;
+  flex: 0 0 80px;
   text-align: right;
+  white-space: nowrap;
+}
+
+.list-button {
+  flex: 0 0 40px;
+  margin-left: clamp(10px, 10vw, 200px);
 }
 
 .list-button button {
+  width: 100%;
+  padding: 8px;
   background: none;
 }
 
