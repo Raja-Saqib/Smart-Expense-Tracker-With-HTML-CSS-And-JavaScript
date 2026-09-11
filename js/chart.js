@@ -86,6 +86,15 @@ const drawSlices = ({
   });
 };
 
+let animationFrameId = null;
+
+const cancelChartAnimation = () => {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+};
+
 const animateSlices = ({
   ctx,
   cx,
@@ -96,6 +105,7 @@ const animateSlices = ({
   duration = 600,
   onComplete
 }) => {
+  cancelChartAnimation();
   const start = performance.now();
 
   const frame = now => {
@@ -124,9 +134,13 @@ const animateSlices = ({
     });
 
     if (progress < 1) {
-      requestAnimationFrame(frame);
-    } else if (onComplete) {
-      onComplete();
+      animationFrameId = requestAnimationFrame(frame);
+    } else {
+      animationFrameId = null;
+
+      if (onComplete) {
+        onComplete();
+      }
     }
   };
 
@@ -217,7 +231,10 @@ export const drawChart = ({
   });
 
   const entries = Object.entries(totals);
-  if (!entries.length) return;
+  if (!entries.length) {
+    setChartTotal(0);
+    return;
+  }
 
   const totalAmount = entries.reduce((a, [, v]) => a + v, 0);
   setChartTotal(totalAmount);

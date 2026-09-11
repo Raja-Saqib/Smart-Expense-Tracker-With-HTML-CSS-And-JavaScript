@@ -22,7 +22,7 @@ export const addTransactionToDOM = t => {
   const category =
     document.createElement("small");
 
-  category.textContent = `(${t.category})`;
+  category.textContent = ` (${t.category})`;
 
   textContainer.appendChild(strong);
   textContainer.appendChild(category);
