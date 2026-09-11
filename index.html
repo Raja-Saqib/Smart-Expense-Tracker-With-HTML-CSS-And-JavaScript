@@ -16,7 +16,13 @@
       <button id="undoBtn">Undo</button>
       <button id="redoBtn" disabled>Redo</button>
     </div>
-    <button id="themeBtn" aria-label="Toggle theme">🌙</button>
+    <!-- <button id="themeBtn" aria-label="Toggle theme">🌙</button> -->
+    <button id="themeBtn" aria-label="Toggle theme">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.7 6.7 0 0 0 9.8 9.8z"/>
+      </svg>
+    </button>
+
   </div>
   <main class="container">
     <header>
@@ -42,7 +48,6 @@
     <section class="filter">
       <h3>Add Transaction</h3>
       <form id="form">
-        <input id="text" type="text" placeholder="Description" />
         <select id="category">
           <option value="">Select Category</option>
           <option>Food</option>
@@ -52,6 +57,7 @@
           <option>Salary</option>
         </select>
         <input id="amount" type="number" placeholder="+income / -expense" />
+        <input id="text" type="text" placeholder="Description" />
         <button type="submit">Add Transaction</button>
       </form>
     </section>
