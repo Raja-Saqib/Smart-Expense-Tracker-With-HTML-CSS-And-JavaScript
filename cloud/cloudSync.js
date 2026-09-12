@@ -695,16 +695,25 @@ const fetchLatestCloudState = async userId => {
     .maybeSingle();
 
   if (error) {
-    throw error;
+    return {
+      data: null,
+      error
+    };
   }
 
   if (!data) {
-    throw new Error(
-      "Could not retrieve latest cloud state for migration retry"
-    );
+    return {
+      data: null,
+      error: new Error(
+        "Could not retrieve latest cloud state for migration retry"
+      )
+    };
   }
 
-  return data;
+  return {
+    data,
+    error: null
+  };
 };
 
 
@@ -878,26 +887,24 @@ const migrateLegacyCloudState = async ({
     }
 
 
-    let latestData;
+    const latestResult =
+      await fetchLatestCloudState(user.id);
 
-    try {
-      latestData =
-        await fetchLatestCloudState(
-          user.id
-        );
-    } catch (error) {
+    if (
+      latestResult.error ||
+      !latestResult.data
+    ) {
       console.warn(
         "Could not retrieve the latest cloud state for legacy migration retry:",
-        error
+        latestResult.error
       );
 
       return cloudPayload;
     }
 
-
     const latestPayload =
       createCloudPayload(
-        latestData
+        latestResult.data
       );
 
 
