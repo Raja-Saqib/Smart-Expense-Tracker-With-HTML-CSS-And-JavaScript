@@ -1,6 +1,8 @@
 import { ensureAnonymousUser, supabase } from "./supabaseClient.js";
 import { deviceId } from "../js/deviceIdentity.js";
 
+const LEGACY_MIGRATION_MAX_RETRIES = 3;
+
 /**
  * Pushes the current application state to Supabase.
  *
@@ -681,44 +683,115 @@ export const pullFromCloud = async ({
           })
         );
 
-      // Persist the migrated state.
-      const currentVersion =
-        Number(data.version);
+      // Persist the migrated state with bounded retry attempts.
+      let migratedData = null;
+      let migrationError = null;
 
-      const migratedVersion =
-        currentVersion + 1;
+      for (
+        let attempt = 1;
+        attempt <= LEGACY_MIGRATION_MAX_RETRIES;
+        attempt++
+      ) {
+        const currentVersion =
+          Number(cloudPayload.version);
 
-      const migratedAt =
-        new Date().toISOString();
+        const migratedVersion =
+          currentVersion + 1;
 
-      const {
-        data: migratedData,
-        error: migrationError
-      } = await supabase
-        .from("expense_tracker_state")
-        .update({
-          transactions:
-            cloudPayload.transactions,
+        const migratedAt =
+          new Date().toISOString();
 
-          chart_mode:
-            cloudPayload.chartMode,
+        const result = await supabase
+          .from("expense_tracker_state")
+          .update({
+            transactions:
+              cloudPayload.transactions,
 
-          meta:
-            cloudPayload.meta,
+            chart_mode:
+              cloudPayload.chartMode,
 
-          version:
-            migratedVersion,
+            meta:
+              cloudPayload.meta,
 
-          updated_at:
-            migratedAt,
+            version:
+              migratedVersion,
 
-          updated_by:
-            deviceId
-        })
-        .eq("user_id", user.id)
-        .eq("version", currentVersion)
-        .select()
-        .maybeSingle();
+            updated_at:
+              migratedAt,
+
+            updated_by:
+              deviceId
+          })
+          .eq("user_id", user.id)
+          .eq("version", currentVersion)
+          .select()
+          .maybeSingle();
+
+        migratedData = result.data;
+        migrationError = result.error;
+
+        if (migrationError) {
+          break;
+        }
+
+        if (migratedData) {
+          break;
+        }
+
+        // Version conflict: fetch the latest cloud state
+        // before trying the migration again.
+        if (
+          attempt < LEGACY_MIGRATION_MAX_RETRIES
+        ) {
+          const {
+            data: latestData,
+            error: latestError
+          } = await supabase
+            .from("expense_tracker_state")
+            .select(
+              "version, updated_at, updated_by, transactions, chart_mode, meta"
+            )
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (latestError || !latestData) {
+            migrationError =
+              latestError ??
+              new Error(
+                "Could not retrieve latest cloud state for migration retry"
+              );
+
+            break;
+          }
+
+          cloudPayload.version =
+            Number(latestData.version);
+
+          cloudPayload.updatedAt =
+            Date.parse(latestData.updated_at);
+
+          cloudPayload.updatedBy =
+            latestData.updated_by;
+
+          cloudPayload.transactions =
+            Array.isArray(latestData.transactions)
+              ? latestData.transactions.map(
+                  transaction => ({
+                    ...transaction,
+                    updatedBy:
+                      transaction.updatedBy ??
+                      latestData.updated_by
+                  })
+                )
+              : latestData.transactions;
+
+          cloudPayload.chartMode =
+            latestData.chart_mode;
+
+          cloudPayload.meta =
+            latestData.meta;
+        }
+      }
 
       if (migrationError) {
         console.warn(
