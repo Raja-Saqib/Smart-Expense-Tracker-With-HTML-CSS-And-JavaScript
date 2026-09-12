@@ -159,6 +159,12 @@ export const getNextUndoLabel = () => {
   return undoStack[undoStack.length - 1]?.label || null;
 };
 
+export const getNextRedoLabel = () => {
+  if (!redoStack.length) return null;
+
+  return redoStack[redoStack.length - 1]?.label || null;
+};
+
 export const getUndoStack = () => [...undoStack];
 export const getRedoStack = () => [...redoStack];
 

@@ -232,7 +232,7 @@ export const getConflictResolutions = conflicts => {
 export const updateUndoUI = (
   undoBtn,
   redoBtn,
-  { undoLabel, canRedo }
+  { undoLabel, redoLabel, canRedo }
 ) => {
   if (!undoLabel) {
     undoBtn.disabled = true;
@@ -242,6 +242,12 @@ export const updateUndoUI = (
     undoBtn.textContent = undoLabel;
   }
 
-  redoBtn.disabled = !canRedo;
+  if (!redoLabel) {
+    redoBtn.disabled = true;
+    redoBtn.textContent = "Redo";
+  } else {
+    redoBtn.disabled = !canRedo;
+    redoBtn.textContent = redoLabel;
+  }
 };
 
