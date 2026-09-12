@@ -651,6 +651,7 @@ export const pullFromCloud = async ({
       return null;
     }
 
+    // Build the cloud payload from the Supabase row.
     const cloudPayload = {
       version: Number(data.version),
       updatedAt: Date.parse(data.updated_at),
@@ -660,89 +661,182 @@ export const pullFromCloud = async ({
       meta: data.meta
     };
 
-    // Migrate legacy transactions that are missing updatedBy.
-    const hasLegacyTransactions =
-      Array.isArray(cloudPayload.transactions) &&
-      cloudPayload.transactions.some(
+
+    // ------------------------------------------------------------
+    // Legacy transaction migration helpers
+    // ------------------------------------------------------------
+
+    const isMissingUpdatedBy = value => {
+      if (value === null || value === undefined) {
+        return true;
+      }
+
+      if (typeof value === "string") {
+        return value.trim() === "";
+      }
+
+      return false;
+    };
+
+
+    const hasLegacyTransactions = transactions =>
+      Array.isArray(transactions) &&
+      transactions.some(
         transaction =>
-          !transaction.updatedBy
+          isMissingUpdatedBy(transaction.updatedBy)
       );
 
+
+    const migrateLegacyTransactions = (
+      transactions,
+      fallbackUpdatedBy
+    ) => {
+      return transactions.map(transaction => ({
+        ...transaction,
+        updatedBy: isMissingUpdatedBy(
+          transaction.updatedBy
+        )
+          ? fallbackUpdatedBy
+          : transaction.updatedBy
+      }));
+    };
+
+
+    // ------------------------------------------------------------
+    // Legacy transaction migration
+    // ------------------------------------------------------------
+
     if (
-      hasLegacyTransactions &&
-      typeof cloudPayload.updatedBy === "string" &&
-      cloudPayload.updatedBy.trim()
+      hasLegacyTransactions(
+        cloudPayload.transactions
+      )
     ) {
-      cloudPayload.transactions =
-        cloudPayload.transactions.map(
-          transaction => ({
-            ...transaction,
-            updatedBy:
-              transaction.updatedBy ??
-              cloudPayload.updatedBy
-          })
-        );
+      // The cloud-level updated_by value is the only
+      // legitimate fallback for old transactions.
+      const fallbackUpdatedBy =
+        cloudPayload.updatedBy;
 
-      // Persist the migrated state with bounded retry attempts.
-      let migratedData = null;
-      let migrationError = null;
-
-      for (
-        let attempt = 1;
-        attempt <= LEGACY_MIGRATION_MAX_RETRIES;
-        attempt++
+      if (
+        typeof fallbackUpdatedBy !== "string" ||
+        !fallbackUpdatedBy.trim()
       ) {
-        const currentVersion =
-          Number(cloudPayload.version);
+        console.warn(
+          "Legacy transactions require updatedBy, but the cloud updated_by value is invalid."
+        );
+      } else {
+        cloudPayload.transactions =
+          migrateLegacyTransactions(
+            cloudPayload.transactions,
+            fallbackUpdatedBy
+          );
 
-        const migratedVersion =
-          currentVersion + 1;
+        const LEGACY_MIGRATION_MAX_RETRIES = 3;
 
-        const migratedAt =
-          new Date().toISOString();
+        let migrationCompleted = false;
 
-        const result = await supabase
-          .from("expense_tracker_state")
-          .update({
-            transactions:
-              cloudPayload.transactions,
-
-            chart_mode:
-              cloudPayload.chartMode,
-
-            meta:
-              cloudPayload.meta,
-
-            version:
-              migratedVersion,
-
-            updated_at:
-              migratedAt,
-
-            updated_by:
-              deviceId
-          })
-          .eq("user_id", user.id)
-          .eq("version", currentVersion)
-          .select()
-          .maybeSingle();
-
-        migratedData = result.data;
-        migrationError = result.error;
-
-        if (migrationError) {
-          break;
-        }
-
-        if (migratedData) {
-          break;
-        }
-
-        // Version conflict: fetch the latest cloud state
-        // before trying the migration again.
-        if (
-          attempt < LEGACY_MIGRATION_MAX_RETRIES
+        for (
+          let attempt = 1;
+          attempt <= LEGACY_MIGRATION_MAX_RETRIES;
+          attempt++
         ) {
+          const currentVersion =
+            Number(cloudPayload.version);
+
+          const migratedVersion =
+            currentVersion + 1;
+
+          const migratedAt =
+            new Date().toISOString();
+
+          const {
+            data: migratedData,
+            error: migrationError
+          } = await supabase
+            .from("expense_tracker_state")
+            .update({
+              transactions:
+                cloudPayload.transactions,
+
+              chart_mode:
+                cloudPayload.chartMode,
+
+              meta:
+                cloudPayload.meta,
+
+              version:
+                migratedVersion,
+
+              updated_at:
+                migratedAt,
+
+              updated_by:
+                deviceId
+            })
+            .eq("user_id", user.id)
+            .eq("version", currentVersion)
+            .select()
+            .maybeSingle();
+
+          // A real Supabase error is not an optimistic
+          // concurrency conflict, so stop immediately.
+          if (migrationError) {
+            console.warn(
+              "Legacy transaction migration could not be persisted:",
+              migrationError
+            );
+
+            break;
+          }
+
+          // The version-guarded update succeeded.
+          if (migratedData) {
+            cloudPayload.version =
+              Number(migratedData.version);
+
+            cloudPayload.updatedAt =
+              Date.parse(
+                migratedData.updated_at
+              );
+
+            cloudPayload.updatedBy =
+              migratedData.updated_by;
+
+            cloudPayload.transactions =
+              migratedData.transactions;
+
+            cloudPayload.chartMode =
+              migratedData.chart_mode;
+
+            cloudPayload.meta =
+              migratedData.meta;
+
+            migrationCompleted = true;
+
+            console.info(
+              "Legacy transactions migrated and persisted to Supabase."
+            );
+
+            break;
+          }
+
+          // No row was updated. This means the cloud version
+          // changed before our migration write succeeded.
+          if (
+            attempt >=
+            LEGACY_MIGRATION_MAX_RETRIES
+          ) {
+            console.warn(
+              "Legacy transaction migration stopped after the maximum number of retries."
+            );
+
+            break;
+          }
+
+          // --------------------------------------------------------
+          // Optimistic concurrency conflict:
+          // fetch the newest cloud state before retrying.
+          // --------------------------------------------------------
+
           const {
             data: latestData,
             error: latestError
@@ -755,70 +849,96 @@ export const pullFromCloud = async ({
             .maybeSingle();
 
           if (latestError || !latestData) {
-            migrationError =
-              latestError ??
-              new Error(
-                "Could not retrieve latest cloud state for migration retry"
-              );
+            console.warn(
+              "Could not retrieve the latest cloud state for legacy migration retry:",
+              latestError
+            );
 
             break;
           }
 
+          // Replace the local migration payload with the
+          // newest cloud state.
           cloudPayload.version =
             Number(latestData.version);
 
           cloudPayload.updatedAt =
-            Date.parse(latestData.updated_at);
+            Date.parse(
+              latestData.updated_at
+            );
 
           cloudPayload.updatedBy =
             latestData.updated_by;
 
           cloudPayload.transactions =
-            Array.isArray(latestData.transactions)
-              ? latestData.transactions.map(
-                  transaction => ({
-                    ...transaction,
-                    updatedBy:
-                      transaction.updatedBy ??
-                      latestData.updated_by
-                  })
-                )
-              : latestData.transactions;
+            latestData.transactions;
 
           cloudPayload.chartMode =
             latestData.chart_mode;
 
           cloudPayload.meta =
             latestData.meta;
+
+
+          // --------------------------------------------------------
+          // IMPORTANT:
+          // Re-check whether legacy records still exist.
+          //
+          // If another device already migrated them, do NOT
+          // increment the version again or rewrite the state.
+          // --------------------------------------------------------
+
+          if (
+            !hasLegacyTransactions(
+              cloudPayload.transactions
+            )
+          ) {
+            migrationCompleted = true;
+
+            console.info(
+              "Legacy transactions were already migrated by another device. No additional rewrite was performed."
+            );
+
+            break;
+          }
+
+
+          // Legacy records still remain, so validate the
+          // cloud-level fallback before another attempt.
+          if (
+            typeof cloudPayload.updatedBy !== "string" ||
+            !cloudPayload.updatedBy.trim()
+          ) {
+            console.warn(
+              "Legacy transactions still remain, but the latest cloud updated_by value is invalid. Migration stopped."
+            );
+
+            break;
+          }
+
+
+          // Normalize only missing transaction-level values.
+          // Existing non-blank updatedBy values remain untouched.
+          cloudPayload.transactions =
+            migrateLegacyTransactions(
+              cloudPayload.transactions,
+              cloudPayload.updatedBy
+            );
+        }
+
+
+        if (!migrationCompleted) {
+          console.warn(
+            "Legacy transaction migration did not complete."
+          );
         }
       }
-
-      if (migrationError) {
-        console.warn(
-          "Legacy transaction migration could not be persisted:",
-          migrationError
-        );
-      } else if (migratedData) {
-        cloudPayload.version =
-          Number(migratedData.version);
-
-        cloudPayload.updatedAt =
-          Date.parse(
-            migratedData.updated_at
-          );
-
-        cloudPayload.updatedBy =
-          migratedData.updated_by;
-
-        console.info(
-          "Legacy transactions migrated and persisted to Supabase."
-        );
-      } else {
-        console.warn(
-          "Legacy transaction migration was not persisted because the cloud version changed."
-        );
-      }
     }
+
+
+    // ------------------------------------------------------------
+    // Existing validation remains unchanged.
+    // ------------------------------------------------------------
 
     const validation =
       validateCloudPayload(cloudPayload);
