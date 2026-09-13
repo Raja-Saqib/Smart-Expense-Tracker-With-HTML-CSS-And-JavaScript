@@ -792,194 +792,181 @@ const migrateLegacyCloudState = async ({
   cloudPayload,
   user
 }) => {
-  if (
-    !hasLegacyTransactions(
-      cloudPayload.transactions
-    )
-  ) {
-    return cloudPayload;
-  }
+  const states = {
+    CHECK_LEGACY: "CHECK_LEGACY",
+    CHECK_FALLBACK: "CHECK_FALLBACK",
+    NORMALIZE: "NORMALIZE",
+    PERSIST: "PERSIST",
+    RETRY_FETCH: "RETRY_FETCH",
+    RECHECK_LATEST: "RECHECK_LATEST",
+    DONE: "DONE"
+  };
 
-
-  // The cloud-level updatedBy value is the only
-  // legitimate fallback for legacy transactions.
-  if (
-    !hasValidMigrationFallback(
-      cloudPayload.updatedBy
-    )
-  ) {
-    console.warn(
-      "Legacy transactions require updatedBy, but the cloud updated_by value is invalid."
-    );
-
-    return cloudPayload;
-  }
-
-
-  // Normalize the initially fetched cloud state.
-  cloudPayload.transactions =
-    migrateLegacyTransactions(
-      cloudPayload.transactions,
-      cloudPayload.updatedBy
-    );
-
+  let state = states.CHECK_LEGACY;
+  let currentPayload = cloudPayload;
 
   for (
     let attempt = 1;
     attempt <= LEGACY_MIGRATION_MAX_RETRIES;
     attempt++
   ) {
-    const currentVersion =
-      Number(cloudPayload.version);
+    if (state === states.CHECK_LEGACY) {
+      if (
+        !hasLegacyTransactions(
+          currentPayload.transactions
+        )
+      ) {
+        state = states.DONE;
+        continue;
+      }
 
+      state = states.CHECK_FALLBACK;
+      continue;
+    }
 
-    const migratedData =
-      await persistLegacyMigration({
-        userId: user.id,
-
-        currentVersion,
-
-        transactions:
-          cloudPayload.transactions,
-
-        chartMode:
-          cloudPayload.chartMode,
-
-        meta:
-          cloudPayload.meta
-      });
-
-
-    // ----------------------------------------------------------
-    // Migration succeeded.
-    // ----------------------------------------------------------
-
-    if (migratedData) {
-      const migratedPayload =
-        createCloudPayload(
-          migratedData
+    if (state === states.CHECK_FALLBACK) {
+      if (
+        !hasValidMigrationFallback(
+          currentPayload.updatedBy
+        )
+      ) {
+        console.warn(
+          "Legacy transactions require updatedBy, but the cloud updated_by value is invalid."
         );
 
-      console.info(
-        "Legacy transactions migrated and persisted to Supabase."
-      );
+        state = states.DONE;
+        continue;
+      }
 
-      return migratedPayload;
+      state = states.NORMALIZE;
+      continue;
     }
 
+    if (state === states.NORMALIZE) {
+      currentPayload.transactions =
+        migrateLegacyTransactions(
+          currentPayload.transactions,
+          currentPayload.updatedBy
+        );
 
-    // ----------------------------------------------------------
-    // Optimistic version conflict.
-    //
-    // The cloud changed after we initially fetched it.
-    // Fetch the newest state before considering another retry.
-    // ----------------------------------------------------------
-
-    if (
-      attempt >=
-      LEGACY_MIGRATION_MAX_RETRIES
-    ) {
-      console.warn(
-        "Legacy transaction migration stopped after the maximum number of retries."
-      );
-
-      return cloudPayload;
+      state = states.PERSIST;
+      continue;
     }
 
+    if (state === states.PERSIST) {
+      const currentVersion =
+        Number(currentPayload.version);
 
-    const latestResult =
-      await fetchLatestCloudState(user.id);
+      const migratedData =
+        await persistLegacyMigration({
+          userId: user.id,
 
-    if (
-      latestResult.error ||
-      !latestResult.data
-    ) {
-      console.warn(
-        "Could not retrieve the latest cloud state for legacy migration retry:",
-        latestResult.error
-      );
+          currentVersion,
 
-      return cloudPayload;
+          transactions:
+            currentPayload.transactions,
+
+          chartMode:
+            currentPayload.chartMode,
+
+          meta:
+            currentPayload.meta
+        });
+
+      if (migratedData) {
+        currentPayload =
+          createCloudPayload(
+            migratedData
+          );
+
+        console.info(
+          "Legacy transactions migrated and persisted to Supabase."
+        );
+
+        state = states.DONE;
+        continue;
+      }
+
+      if (
+        attempt >=
+        LEGACY_MIGRATION_MAX_RETRIES
+      ) {
+        console.warn(
+          "Legacy transaction migration stopped after the maximum number of retries."
+        );
+
+        state = states.DONE;
+        continue;
+      }
+
+      state = states.RETRY_FETCH;
+      continue;
     }
 
-    const latestPayload =
-      createCloudPayload(
-        latestResult.data
-      );
+    if (state === states.RETRY_FETCH) {
+      let latestData;
 
+      try {
+        latestData =
+          await fetchLatestCloudState(
+            user.id
+          );
+      } catch (error) {
+        console.warn(
+          "Could not retrieve the latest cloud state for legacy migration retry:",
+          error
+        );
 
-    // ----------------------------------------------------------
-    // IMPORTANT:
-    //
-    // Another device may already have migrated the records.
-    // If no legacy records remain, stop immediately.
-    // Do NOT increment the version again.
-    // ----------------------------------------------------------
+        state = states.DONE;
+        continue;
+      }
 
-    if (
-      !hasLegacyTransactions(
-        latestPayload.transactions
-      )
-    ) {
-      console.info(
-        "Legacy transactions were already migrated by another device. No additional rewrite was performed."
-      );
+      currentPayload =
+        createCloudPayload(
+          latestData
+        );
 
-      return latestPayload;
+      state = states.RECHECK_LATEST;
+      continue;
     }
 
+    if (state === states.RECHECK_LATEST) {
+      if (
+        !hasLegacyTransactions(
+          currentPayload.transactions
+        )
+      ) {
+        console.info(
+          "Legacy transactions were already migrated by another device. No additional rewrite was performed."
+        );
 
-    // ----------------------------------------------------------
-    // Legacy records still remain.
-    //
-    // We need a valid cloud-level fallback before retrying.
-    // ----------------------------------------------------------
+        state = states.DONE;
+        continue;
+      }
 
-    if (
-      !hasValidMigrationFallback(
-        latestPayload.updatedBy
-      )
-    ) {
-      console.warn(
-        "Legacy transactions still remain, but the latest cloud updated_by value is invalid. Migration stopped."
-      );
+      if (
+        !hasValidMigrationFallback(
+          currentPayload.updatedBy
+        )
+      ) {
+        console.warn(
+          "Legacy transactions still remain, but the latest cloud updated_by value is invalid. Migration stopped."
+        );
 
-      return latestPayload;
+        state = states.DONE;
+        continue;
+      }
+
+      state = states.NORMALIZE;
+      continue;
     }
 
-
-    // ----------------------------------------------------------
-    // Prepare the newest state for the next optimistic write.
-    // ----------------------------------------------------------
-
-    latestPayload.transactions =
-      migrateLegacyTransactions(
-        latestPayload.transactions,
-        latestPayload.updatedBy
-      );
-
-
-    cloudPayload.version =
-      latestPayload.version;
-
-    cloudPayload.updatedAt =
-      latestPayload.updatedAt;
-
-    cloudPayload.updatedBy =
-      latestPayload.updatedBy;
-
-    cloudPayload.transactions =
-      latestPayload.transactions;
-
-    cloudPayload.chartMode =
-      latestPayload.chartMode;
-
-    cloudPayload.meta =
-      latestPayload.meta;
+    if (state === states.DONE) {
+      return currentPayload;
+    }
   }
 
-
-  return cloudPayload;
+  return currentPayload;
 };
 
 /**
