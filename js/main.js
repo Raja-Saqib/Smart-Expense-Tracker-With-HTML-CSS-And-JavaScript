@@ -20,6 +20,7 @@ import { deviceId } from "./deviceIdentity.js";
 import { initDebugPanel } from "./debugPanel.js";
 import { renderHistoryInspector } from "./historyInspector.js";
 import { exportToCSV } from "./csvExport.js";
+import { importFromCSV } from "./csvImport.js";
 import {
   getNextUndoLabel,
   canRedo
@@ -54,6 +55,8 @@ const viewTableRadio = document.getElementById("viewTable");
 const errorEl = document.getElementById("error");
 const legendEl = document.getElementById("chartLegend");
 const exportBtn = document.getElementById("exportCSV");
+const importBtn = document.getElementById("importCSV");
+const importFileInput = document.getElementById("importCSVFile");
 const clearFilterBtn = document.getElementById("clearFilter");
 const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
@@ -290,6 +293,163 @@ const handleExportCSV = () => {
   );
 };
 
+const handleImportCSV = async e => {
+  const file =
+    e.target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  const previousTransactions =
+    structuredClone(transactions);
+
+  try {
+    chartStatus.textContent =
+      "Importing CSV...";
+
+    const result =
+      await importFromCSV(
+        file,
+        previousTransactions
+      );
+
+    if (!result.transactions.length) {
+      if (result.errors.length) {
+        chartStatus.textContent =
+          `Import failed: ${result.errors.length} invalid row(s)`;
+      } else if (result.duplicateCount > 0) {
+        chartStatus.textContent =
+          `No new transactions imported. ${result.duplicateCount} duplicate(s) skipped.`;
+      } else {
+        chartStatus.textContent =
+          "No transactions found in CSV";
+      }
+
+      return;
+    }
+
+    const mergedTransactions = [
+      ...previousTransactions,
+      ...result.transactions
+    ];
+
+    setTransactions(
+      structuredClone(
+        mergedTransactions
+      )
+    );
+
+    const saveResult =
+      await saveData({
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        meta: {
+          type: "csv-import",
+          importedCount:
+            result.transactions.length,
+          duplicateCount:
+            result.duplicateCount,
+          invalidCount:
+            result.errors.length
+        }
+      });
+
+    if (!saveResult.success) {
+      setTransactions(
+        previousTransactions
+      );
+
+      chartStatus.textContent =
+        saveResult.error ??
+        "CSV import could not be saved";
+
+      return;
+    }
+
+    pushUndoState(
+      createUndoState({
+        transactions:
+          structuredClone(transactions),
+
+        cloudMeta:
+          structuredClone(
+            getCloudMeta()
+          ),
+
+        chartMode,
+
+        label:
+          `Import ${result.transactions.length} transaction${
+            result.transactions.length === 1
+              ? ""
+              : "s"
+          }`
+      })
+    );
+
+    broadcastState({
+      transactions:
+        structuredClone(transactions),
+
+      cloudMeta:
+        structuredClone(
+          getCloudMeta()
+        ),
+
+      chartMode
+    });
+
+    init();
+
+    const parts = [
+      `${result.transactions.length} imported`
+    ];
+
+    if (result.duplicateCount) {
+      parts.push(
+        `${result.duplicateCount} duplicate${
+          result.duplicateCount === 1
+            ? ""
+            : "s"
+        } skipped`
+      );
+    }
+
+    if (result.errors.length) {
+      parts.push(
+        `${result.errors.length} invalid row${
+          result.errors.length === 1
+            ? ""
+            : "s"
+        } skipped`
+      );
+    }
+
+    chartStatus.textContent =
+      saveResult.offline
+        ? `${parts.join(", ")} — saved locally`
+        : `${parts.join(", ")} — data synced to cloud`;
+
+    /*
+     * Allow the same file to be selected again.
+     */
+    importFileInput.value = "";
+
+  } catch (error) {
+    setTransactions(
+      previousTransactions
+    );
+
+    chartStatus.textContent =
+      error?.message ??
+      "CSV import failed";
+
+    importFileInput.value = "";
+  }
+};
+
 const init = () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
@@ -476,6 +636,8 @@ initEvents({
   monthEl,
   clearFilterBtn,
   exportBtn,
+  importBtn,
+  importFileInput,
   listEl,
   themeBtn,
   undoBtn,
@@ -485,6 +647,7 @@ initEvents({
     init,
     clearFilter,
     exportCSV: handleExportCSV,
+    importCSV: handleImportCSV,
     editTransaction: handleEditTransaction,
     deleteTransaction: handleDeleteTransaction,
     toggleTheme,

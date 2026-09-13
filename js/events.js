@@ -3,6 +3,8 @@ export const initEvents = ({
   monthEl,
   clearFilterBtn,
   exportBtn,
+  importBtn,
+  importFileInput,
   listEl,
   themeBtn,
   undoBtn,
@@ -16,6 +18,10 @@ export const initEvents = ({
   clearFilterBtn.addEventListener("click", handlers.clearFilter);
 
   exportBtn.addEventListener("click", handlers.exportCSV);
+
+  importBtn.addEventListener("click", () => importFileInput.click());
+
+  importFileInput.addEventListener("change", handlers.importCSV);
 
   listEl.addEventListener("click", e => {
     const editButton = e.target.closest("[data-edit]");
