@@ -251,3 +251,116 @@ export const updateUndoUI = (
   }
 };
 
+export const showImportModeModal = () =>
+  new Promise(resolve => {
+    const overlay = document.createElement("div");
+
+    overlay.className = "import-mode-overlay";
+
+    overlay.innerHTML = `
+      <div
+        class="import-mode-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="importModeTitle"
+      >
+        <h2 id="importModeTitle">Import CSV</h2>
+
+        <p>
+          How would you like to import the CSV data?
+        </p>
+
+        <div class="import-mode-options">
+          <label>
+            <input
+              type="radio"
+              name="importMode"
+              value="merge"
+              checked
+            />
+            <span>
+              <strong>Merge</strong>
+              <small>
+                Add imported transactions to your existing data.
+              </small>
+            </span>
+          </label>
+
+          <label>
+            <input
+              type="radio"
+              name="importMode"
+              value="replace"
+            />
+            <span>
+              <strong>Replace All</strong>
+              <small>
+                Remove existing transactions and use only the imported data.
+              </small>
+            </span>
+          </label>
+        </div>
+
+        <div class="import-mode-actions">
+          <button
+            type="button"
+            class="import-cancel-btn"
+            data-import-mode="cancel"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="button"
+            class="import-confirm-btn"
+            data-import-mode="confirm"
+          >
+            Import
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    const cleanup = result => {
+      overlay.remove();
+      document.removeEventListener("keydown", handleKeydown);
+      resolve(result);
+    };
+
+    const handleKeydown = event => {
+      if (event.key === "Escape") {
+        cleanup(null);
+      }
+    };
+
+    overlay.addEventListener("click", event => {
+      if (event.target === overlay) {
+        cleanup(null);
+      }
+    });
+
+    overlay
+      .querySelector('[data-import-mode="cancel"]')
+      .addEventListener("click", () => {
+        cleanup(null);
+      });
+
+    overlay
+      .querySelector('[data-import-mode="confirm"]')
+      .addEventListener("click", () => {
+        const selectedMode = overlay.querySelector(
+          'input[name="importMode"]:checked'
+        )?.value;
+
+        cleanup(selectedMode ?? "merge");
+      });
+
+    document.addEventListener("keydown", handleKeydown);
+
+    overlay
+      .querySelector('input[value="merge"]')
+      .focus();
+  });
+

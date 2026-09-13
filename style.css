@@ -342,6 +342,104 @@ select {
   margin-top: 5px;
 }
 
+.import-mode-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.import-mode-modal {
+  width: min(420px, 100%);
+
+  padding: 24px;
+
+  border-radius: 12px;
+
+  background: var(--card-bg, #ffffff);
+  color: var(--text-color, #222222);
+
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.import-mode-modal h2 {
+  margin: 0 0 8px;
+}
+
+.import-mode-modal p {
+  margin: 0 0 20px;
+}
+
+.import-mode-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.import-mode-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  padding: 12px;
+
+  border: 1px solid #ccc;
+  border-radius: 8px;
+
+  cursor: pointer;
+}
+
+.import-mode-options label:has(input:checked) {
+  border-color: currentColor;
+}
+
+.import-mode-options input {
+  margin-top: 3px;
+}
+
+.import-mode-options span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.import-mode-options small {
+  opacity: 0.75;
+}
+
+.import-mode-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  margin-top: 24px;
+}
+
+.import-mode-actions button {
+  padding: 8px 16px;
+
+  border: none;
+  border-radius: 6px;
+
+  cursor: pointer;
+}
+
+.import-cancel-btn {
+  background: transparent;
+}
+
+.import-confirm-btn {
+  background: #333;
+  color: white;
+}
+
 /* Tablet breakpoint (≥600px) */
 @media (min-width: 600px) {
   .container {

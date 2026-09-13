@@ -304,6 +304,13 @@ const handleImportCSV = async e => {
   const previousTransactions =
     structuredClone(transactions);
 
+  /*
+   * Keep the import file input reference so focus
+   * can be restored after the modal closes.
+   */
+  const previousActiveElement =
+    document.activeElement;
+
   try {
     chartStatus.textContent =
       "Importing CSV...";
@@ -311,23 +318,297 @@ const handleImportCSV = async e => {
     /*
      * Ask the user which import mode to use.
      *
-     * Merge remains the safe/default behavior.
+     * Merge is selected by default because it is the
+     * safer, non-destructive option.
      */
-    const replaceAll =
-      window.confirm(
-        "Replace all existing transactions with the CSV data?\n\n" +
-        "OK = Replace All\n" +
-        "Cancel = Merge imported transactions"
+    const mode = await new Promise(resolve => {
+      const overlay =
+        document.createElement("div");
+
+      overlay.className =
+        "import-mode-overlay";
+
+      overlay.innerHTML = `
+        <div
+          class="import-mode-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="importModeTitle"
+          aria-describedby="importModeDescription"
+        >
+          <h2 id="importModeTitle">
+            Import CSV
+          </h2>
+
+          <p id="importModeDescription">
+            Choose how to import the transactions from
+            this CSV file.
+          </p>
+
+          <div class="import-mode-options">
+
+            <label class="import-mode-option">
+              <input
+                type="radio"
+                name="importMode"
+                value="merge"
+                checked
+              />
+
+              <span>
+                <strong>Merge</strong>
+                <small>
+                  Add the imported transactions to
+                  your existing data.
+                </small>
+              </span>
+            </label>
+
+            <label class="import-mode-option">
+              <input
+                type="radio"
+                name="importMode"
+                value="replace"
+              />
+
+              <span>
+                <strong>Replace All</strong>
+                <small>
+                  Remove all existing transactions and
+                  use only the imported CSV data.
+                </small>
+              </span>
+            </label>
+
+          </div>
+
+          <div class="import-mode-actions">
+
+            <button
+              type="button"
+              class="import-cancel-btn"
+              data-import-action="cancel"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="button"
+              class="import-confirm-btn"
+              data-import-action="confirm"
+            >
+              Import
+            </button>
+
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+
+      const modal =
+        overlay.querySelector(
+          ".import-mode-modal"
+        );
+
+      const mergeRadio =
+        overlay.querySelector(
+          'input[value="merge"]'
+        );
+
+      const replaceRadio =
+        overlay.querySelector(
+          'input[value="replace"]'
+        );
+
+      const cancelButton =
+        overlay.querySelector(
+          '[data-import-action="cancel"]'
+        );
+
+      const confirmButton =
+        overlay.querySelector(
+          '[data-import-action="confirm"]'
+        );
+
+      const focusableElements = [
+        mergeRadio,
+        replaceRadio,
+        cancelButton,
+        confirmButton
+      ];
+
+      const cleanup = result => {
+        document.removeEventListener(
+          "keydown",
+          handleKeydown
+        );
+
+        overlay.remove();
+
+        /*
+         * Restore focus to the element that opened
+         * the import flow when possible.
+         */
+        if (
+          previousActiveElement &&
+          typeof previousActiveElement.focus ===
+            "function"
+        ) {
+          previousActiveElement.focus();
+        }
+
+        resolve(result);
+      };
+
+      const handleKeydown = event => {
+        /*
+         * Escape = Cancel
+         */
+        if (event.key === "Escape") {
+          event.preventDefault();
+          cleanup(null);
+          return;
+        }
+
+        /*
+         * Enter = Confirm
+         *
+         * Do not trigger when focus is currently on
+         * a radio button because the radio itself may
+         * handle keyboard interaction.
+         */
+        if (
+          event.key === "Enter" &&
+          document.activeElement !==
+            mergeRadio &&
+          document.activeElement !==
+            replaceRadio
+        ) {
+          event.preventDefault();
+
+          cleanup(
+            mergeRadio.checked
+              ? "merge"
+              : "replace"
+          );
+
+          return;
+        }
+
+        /*
+         * Keep keyboard focus inside the modal.
+         */
+        if (event.key !== "Tab") {
+          return;
+        }
+
+        const visibleFocusable =
+          focusableElements.filter(
+            element =>
+              element &&
+              !element.disabled &&
+              element.offsetParent !== null
+          );
+
+        if (!visibleFocusable.length) {
+          return;
+        }
+
+        const first =
+          visibleFocusable[0];
+
+        const last =
+          visibleFocusable[
+            visibleFocusable.length - 1
+          ];
+
+        if (
+          event.shiftKey &&
+          document.activeElement === first
+        ) {
+          event.preventDefault();
+          last.focus();
+
+          return;
+        }
+
+        if (
+          !event.shiftKey &&
+          document.activeElement === last
+        ) {
+          event.preventDefault();
+          first.focus();
+        }
+      };
+
+      /*
+       * Cancel button
+       */
+      cancelButton.addEventListener(
+        "click",
+        () => {
+          cleanup(null);
+        }
       );
 
-    const mode =
-      replaceAll
-        ? "replace"
-        : "merge";
+      /*
+       * Confirm button
+       */
+      confirmButton.addEventListener(
+        "click",
+        () => {
+          const selectedMode =
+            replaceRadio.checked
+              ? "replace"
+              : "merge";
+
+          cleanup(selectedMode);
+        }
+      );
+
+      /*
+       * Clicking the dark backdrop cancels.
+       *
+       * Clicking inside the modal does not.
+       */
+      overlay.addEventListener(
+        "click",
+        event => {
+          if (event.target === overlay) {
+            cleanup(null);
+          }
+        }
+      );
+
+      document.addEventListener(
+        "keydown",
+        handleKeydown
+      );
+
+      /*
+       * Merge is the default selection.
+       * Focus the Merge option immediately.
+       */
+      mergeRadio.focus();
+    });
+
+    /*
+     * User cancelled the import.
+     *
+     * Nothing has been changed yet.
+     */
+    if (!mode) {
+      importFileInput.value = "";
+      chartStatus.textContent =
+        "CSV import cancelled";
+
+      return;
+    }
 
     /*
      * For Replace All, duplicate checking against
-     * existing transactions is not necessary because
+     * existing transactions is unnecessary because
      * those transactions will be removed.
      *
      * For Merge, existing transactions are supplied
