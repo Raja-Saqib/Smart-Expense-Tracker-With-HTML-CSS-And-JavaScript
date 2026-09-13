@@ -253,9 +253,11 @@ export const updateUndoUI = (
 
 export const showImportModeModal = () =>
   new Promise(resolve => {
-    const overlay = document.createElement("div");
+    const overlay =
+      document.createElement("div");
 
-    overlay.className = "import-mode-overlay";
+    overlay.className =
+      "import-mode-overlay";
 
     overlay.innerHTML = `
       <div
@@ -263,14 +265,18 @@ export const showImportModeModal = () =>
         role="dialog"
         aria-modal="true"
         aria-labelledby="importModeTitle"
+        aria-describedby="importModeDescription"
       >
-        <h2 id="importModeTitle">Import CSV</h2>
+        <h2 id="importModeTitle">
+          Import CSV
+        </h2>
 
-        <p>
+        <p id="importModeDescription">
           How would you like to import the CSV data?
         </p>
 
         <div class="import-mode-options">
+
           <label>
             <input
               type="radio"
@@ -278,8 +284,10 @@ export const showImportModeModal = () =>
               value="merge"
               checked
             />
+
             <span>
               <strong>Merge</strong>
+
               <small>
                 Add imported transactions to your existing data.
               </small>
@@ -292,16 +300,20 @@ export const showImportModeModal = () =>
               name="importMode"
               value="replace"
             />
+
             <span>
               <strong>Replace All</strong>
+
               <small>
                 Remove existing transactions and use only the imported data.
               </small>
             </span>
           </label>
+
         </div>
 
         <div class="import-mode-actions">
+
           <button
             type="button"
             class="import-cancel-btn"
@@ -317,50 +329,180 @@ export const showImportModeModal = () =>
           >
             Import
           </button>
+
         </div>
       </div>
     `;
 
     document.body.appendChild(overlay);
 
+    const modal =
+      overlay.querySelector(
+        ".import-mode-modal"
+      );
+
+    const mergeRadio =
+      overlay.querySelector(
+        'input[value="merge"]'
+      );
+
+    const replaceRadio =
+      overlay.querySelector(
+        'input[value="replace"]'
+      );
+
+    const cancelButton =
+      overlay.querySelector(
+        '[data-import-mode="cancel"]'
+      );
+
+    const confirmButton =
+      overlay.querySelector(
+        '[data-import-mode="confirm"]'
+      );
+
+    const focusableElements = [
+      mergeRadio,
+      replaceRadio,
+      cancelButton,
+      confirmButton
+    ];
+
     const cleanup = result => {
+      document.removeEventListener(
+        "keydown",
+        handleKeydown
+      );
+
       overlay.remove();
-      document.removeEventListener("keydown", handleKeydown);
+
       resolve(result);
     };
 
     const handleKeydown = event => {
+      /*
+       * Escape = Cancel
+       */
       if (event.key === "Escape") {
+        event.preventDefault();
+
         cleanup(null);
+
+        return;
+      }
+
+      /*
+       * Keep keyboard focus inside the modal.
+       */
+      if (event.key === "Tab") {
+        const visibleFocusable =
+          focusableElements.filter(
+            element =>
+              element &&
+              !element.disabled &&
+              element.offsetParent !== null
+          );
+
+        if (!visibleFocusable.length) {
+          return;
+        }
+
+        const first =
+          visibleFocusable[0];
+
+        const last =
+          visibleFocusable[
+            visibleFocusable.length - 1
+          ];
+
+        if (
+          event.shiftKey &&
+          document.activeElement === first
+        ) {
+          event.preventDefault();
+
+          last.focus();
+
+          return;
+        }
+
+        if (
+          !event.shiftKey &&
+          document.activeElement === last
+        ) {
+          event.preventDefault();
+
+          first.focus();
+
+          return;
+        }
+      }
+
+      /*
+       * Enter = Import
+       *
+       * Allow normal radio-button keyboard
+       * behavior when a radio has focus.
+       */
+      if (
+        event.key === "Enter" &&
+        document.activeElement !== mergeRadio &&
+        document.activeElement !== replaceRadio
+      ) {
+        event.preventDefault();
+
+        cleanup(
+          replaceRadio.checked
+            ? "replace"
+            : "merge"
+        );
       }
     };
 
-    overlay.addEventListener("click", event => {
-      if (event.target === overlay) {
+    /*
+     * Cancel button
+     */
+    cancelButton.addEventListener(
+      "click",
+      () => {
         cleanup(null);
       }
-    });
+    );
 
-    overlay
-      .querySelector('[data-import-mode="cancel"]')
-      .addEventListener("click", () => {
-        cleanup(null);
-      });
+    /*
+     * Import button
+     */
+    confirmButton.addEventListener(
+      "click",
+      () => {
+        cleanup(
+          replaceRadio.checked
+            ? "replace"
+            : "merge"
+        );
+      }
+    );
 
-    overlay
-      .querySelector('[data-import-mode="confirm"]')
-      .addEventListener("click", () => {
-        const selectedMode = overlay.querySelector(
-          'input[name="importMode"]:checked'
-        )?.value;
+    /*
+     * Clicking the backdrop cancels.
+     */
+    overlay.addEventListener(
+      "click",
+      event => {
+        if (event.target === overlay) {
+          cleanup(null);
+        }
+      }
+    );
 
-        cleanup(selectedMode ?? "merge");
-      });
+    document.addEventListener(
+      "keydown",
+      handleKeydown
+    );
 
-    document.addEventListener("keydown", handleKeydown);
-
-    overlay
-      .querySelector('input[value="merge"]')
-      .focus();
+    /*
+     * Merge is selected by default.
+     */
+    mergeRadio.focus();
   });
 

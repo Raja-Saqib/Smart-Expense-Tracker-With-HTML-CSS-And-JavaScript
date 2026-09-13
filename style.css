@@ -362,19 +362,18 @@ select {
 
   border-radius: 12px;
 
-  background: var(--card-bg, #fff);
-  color: var(--text-color, #222);
+  background: var(--card-bg, #ffffff);
+  color: var(--text-color, #222222);
 
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 .import-mode-modal h2 {
-  margin-top: 0;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
 }
 
 .import-mode-modal p {
-  margin-bottom: 20px;
+  margin: 0 0 20px;
 }
 
 .import-mode-options {
@@ -383,7 +382,7 @@ select {
   gap: 12px;
 }
 
-.import-mode-option {
+.import-mode-options label {
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -394,15 +393,27 @@ select {
   border-radius: 8px;
 
   cursor: pointer;
+
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
-.import-mode-option span {
+.import-mode-options label:has(input:checked) {
+  border-color: currentColor;
+}
+
+.import-mode-options input {
+  margin-top: 3px;
+}
+
+.import-mode-options span {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.import-mode-option small {
+.import-mode-options small {
   opacity: 0.75;
 }
 
@@ -421,6 +432,18 @@ select {
   border-radius: 6px;
 
   cursor: pointer;
+
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.import-mode-actions button:hover {
+  opacity: 0.85;
+}
+
+.import-mode-actions button:active {
+  transform: translateY(1px);
 }
 
 .import-cancel-btn {
