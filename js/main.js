@@ -308,17 +308,52 @@ const handleImportCSV = async e => {
     chartStatus.textContent =
       "Importing CSV...";
 
+    /*
+     * Ask the user which import mode to use.
+     *
+     * Merge remains the safe/default behavior.
+     */
+    const replaceAll =
+      window.confirm(
+        "Replace all existing transactions with the CSV data?\n\n" +
+        "OK = Replace All\n" +
+        "Cancel = Merge imported transactions"
+      );
+
+    const mode =
+      replaceAll
+        ? "replace"
+        : "merge";
+
+    /*
+     * For Replace All, duplicate checking against
+     * existing transactions is not necessary because
+     * those transactions will be removed.
+     *
+     * For Merge, existing transactions are supplied
+     * so duplicate rows can be skipped.
+     */
     const result =
       await importFromCSV(
         file,
-        previousTransactions
+        mode === "merge"
+          ? previousTransactions
+          : [],
+        {
+          mode
+        }
       );
 
+    /*
+     * Nothing valid was imported.
+     */
     if (!result.transactions.length) {
       if (result.errors.length) {
         chartStatus.textContent =
           `Import failed: ${result.errors.length} invalid row(s)`;
-      } else if (result.duplicateCount > 0) {
+      } else if (
+        result.duplicateCount > 0
+      ) {
         chartStatus.textContent =
           `No new transactions imported. ${result.duplicateCount} duplicate(s) skipped.`;
       } else {
@@ -326,20 +361,32 @@ const handleImportCSV = async e => {
           "No transactions found in CSV";
       }
 
+      importFileInput.value = "";
+
       return;
     }
 
-    const mergedTransactions = [
-      ...previousTransactions,
-      ...result.transactions
-    ];
+    /*
+     * Decide the final transaction collection.
+     */
+    const nextTransactions =
+      mode === "replace"
+        ? result.transactions
+        : [
+            ...previousTransactions,
+            ...result.transactions
+          ];
 
+    /*
+     * Update application state.
+     */
     setTransactions(
-      structuredClone(
-        mergedTransactions
-      )
+      structuredClone(nextTransactions)
     );
 
+    /*
+     * Persist the complete resulting state.
+     */
     const saveResult =
       await saveData({
         transactions,
@@ -347,8 +394,13 @@ const handleImportCSV = async e => {
         chartMode,
         meta: {
           type: "csv-import",
+          mode,
           importedCount:
             result.transactions.length,
+          replacedCount:
+            mode === "replace"
+              ? previousTransactions.length
+              : 0,
           duplicateCount:
             result.duplicateCount,
           invalidCount:
@@ -356,6 +408,10 @@ const handleImportCSV = async e => {
         }
       });
 
+    /*
+     * If saving fails, restore the state that existed
+     * before the import.
+     */
     if (!saveResult.success) {
       setTransactions(
         previousTransactions
@@ -365,9 +421,14 @@ const handleImportCSV = async e => {
         saveResult.error ??
         "CSV import could not be saved";
 
+      importFileInput.value = "";
+
       return;
     }
 
+    /*
+     * Import is ONE undoable operation.
+     */
     pushUndoState(
       createUndoState({
         transactions:
@@ -381,14 +442,23 @@ const handleImportCSV = async e => {
         chartMode,
 
         label:
-          `Import ${result.transactions.length} transaction${
-            result.transactions.length === 1
-              ? ""
-              : "s"
-          }`
+          mode === "replace"
+            ? `Replace all with ${result.transactions.length} transaction${
+                result.transactions.length === 1
+                  ? ""
+                  : "s"
+              }`
+            : `Import ${result.transactions.length} transaction${
+                result.transactions.length === 1
+                  ? ""
+                  : "s"
+              }`
       })
     );
 
+    /*
+     * Synchronize other browser tabs.
+     */
     broadcastState({
       transactions:
         structuredClone(transactions),
@@ -401,20 +471,39 @@ const handleImportCSV = async e => {
       chartMode
     });
 
+    /*
+     * Re-render the complete application.
+     */
     init();
 
-    const parts = [
-      `${result.transactions.length} imported`
-    ];
+    const parts = [];
 
-    if (result.duplicateCount) {
+    if (mode === "replace") {
       parts.push(
-        `${result.duplicateCount} duplicate${
-          result.duplicateCount === 1
+        `${result.transactions.length} imported`
+      );
+
+      parts.push(
+        `${previousTransactions.length} existing transaction${
+          previousTransactions.length === 1
             ? ""
             : "s"
-        } skipped`
+        } replaced`
       );
+    } else {
+      parts.push(
+        `${result.transactions.length} imported`
+      );
+
+      if (result.duplicateCount) {
+        parts.push(
+          `${result.duplicateCount} duplicate${
+            result.duplicateCount === 1
+              ? ""
+              : "s"
+          } skipped`
+        );
+      }
     }
 
     if (result.errors.length) {
@@ -427,17 +516,24 @@ const handleImportCSV = async e => {
       );
     }
 
-    chartStatus.textContent =
+    const saveMessage =
       saveResult.offline
-        ? `${parts.join(", ")} — saved locally`
-        : `${parts.join(", ")} — data synced to cloud`;
+        ? "saved locally"
+        : "data synced to cloud";
+
+    chartStatus.textContent =
+      `${parts.join(", ")} — ${saveMessage}`;
 
     /*
-     * Allow the same file to be selected again.
+     * Allow the same CSV file to be selected again.
      */
     importFileInput.value = "";
 
   } catch (error) {
+    /*
+     * Always restore the previous state if anything
+     * unexpected happens after state modification.
+     */
     setTransactions(
       previousTransactions
     );
