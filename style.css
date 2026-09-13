@@ -357,24 +357,24 @@ select {
 }
 
 .import-mode-modal {
-  width: min(420px, 100%);
-
+  width: min(440px, 100%);
   padding: 24px;
 
   border-radius: 12px;
 
-  background: var(--card-bg, #ffffff);
-  color: var(--text-color, #222222);
+  background: var(--card-bg, #fff);
+  color: var(--text-color, #222);
 
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
 .import-mode-modal h2 {
-  margin: 0 0 8px;
+  margin-top: 0;
+  margin-bottom: 8px;
 }
 
 .import-mode-modal p {
-  margin: 0 0 20px;
+  margin-bottom: 20px;
 }
 
 .import-mode-options {
@@ -383,34 +383,26 @@ select {
   gap: 12px;
 }
 
-.import-mode-options label {
+.import-mode-option {
   display: flex;
   align-items: flex-start;
   gap: 10px;
 
   padding: 12px;
 
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color, #ccc);
   border-radius: 8px;
 
   cursor: pointer;
 }
 
-.import-mode-options label:has(input:checked) {
-  border-color: currentColor;
-}
-
-.import-mode-options input {
-  margin-top: 3px;
-}
-
-.import-mode-options span {
+.import-mode-option span {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.import-mode-options small {
+.import-mode-option small {
   opacity: 0.75;
 }
 
@@ -433,11 +425,12 @@ select {
 
 .import-cancel-btn {
   background: transparent;
+  color: inherit;
 }
 
 .import-confirm-btn {
-  background: #333;
-  color: white;
+  background: var(--button-bg, #333);
+  color: var(--button-text, #fff);
 }
 
 /* Tablet breakpoint (≥600px) */
