@@ -198,6 +198,10 @@ canvas {
   cursor: pointer;
 }
 
+#themeBtn svg {
+  fill: var(--text);
+}
+
 #clearFilter {
   margin-top: 8px;
   padding: 6px;
