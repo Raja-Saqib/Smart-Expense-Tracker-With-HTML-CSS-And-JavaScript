@@ -8,6 +8,81 @@
 </head>
 
 <body>
+    <!-- Authentication -->
+    <section id="authSection" class="auth-section">
+      <h2>Account</h2>
+
+      <div id="authLoggedOut">
+        <form id="loginForm">
+          <h3>Login</h3>
+
+          <label for="loginEmail">Email</label>
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="email"
+            required
+          />
+
+          <label for="loginPassword">Password</label>
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+
+          <button type="submit">
+            Login
+          </button>
+        </form>
+
+        <form id="signupForm">
+          <h3>Create Account</h3>
+
+          <label for="signupEmail">Email</label>
+          <input
+            id="signupEmail"
+            type="email"
+            autocomplete="email"
+            required
+          />
+
+          <label for="signupPassword">Password</label>
+          <input
+            id="signupPassword"
+            type="password"
+            autocomplete="new-password"
+            minlength="6"
+            required
+          />
+
+          <button type="submit">
+            Sign Up
+          </button>
+        </form>
+      </div>
+
+      <div id="authLoggedIn" hidden>
+        <p>
+          Logged in as
+          <strong id="authUserEmail"></strong>
+        </p>
+
+        <button
+          id="logoutBtn"
+          type="button"
+        >
+          Logout
+        </button>
+      </div>
+
+      <p
+        id="authStatus"
+        class="auth-status"
+        aria-live="polite"
+      ></p>
+    </section>
   <div class="app-top">
     <div>
       <button id="undoSync">

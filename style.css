@@ -456,6 +456,56 @@ select {
   color: var(--button-text, #fff);
 }
 
+/* =========================
+   AUTHENTICATION
+   ========================= */
+
+.auth-section {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  color: var(--text);
+  padding: 16px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+}
+
+.auth-section h2,
+.auth-section h3 {
+  margin-top: 0;
+}
+
+.auth-section form {
+  margin-bottom: 16px;
+}
+
+.auth-section label {
+  display: block;
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.auth-section input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.auth-section button {
+  margin-top: 6px;
+}
+
+.auth-status {
+  min-height: 20px;
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
 /* Tablet breakpoint (≥600px) */
 @media (min-width: 600px) {
   .container {

@@ -60,5 +60,6 @@ export const getCurrentUser = async () => {
     throw error;
   }
 
-  return user;
+  return user ?? null;
 };
+

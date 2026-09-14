@@ -9,6 +9,9 @@ export const initEvents = ({
   themeBtn,
   undoBtn,
   redoBtn,
+  loginForm,
+  signupForm,
+  logoutBtn,
   handlers
 }) => {
   form.addEventListener("submit", handlers.addTransaction);
@@ -48,4 +51,19 @@ export const initEvents = ({
       redoBtn
     });
   });
+
+    loginForm?.addEventListener(
+      "submit",
+      handlers.login
+    );
+
+    signupForm?.addEventListener(
+      "submit",
+      handlers.signup
+    );
+
+    logoutBtn?.addEventListener(
+      "click",
+      handlers.logout
+    );
 };

@@ -30,6 +30,14 @@ import {
   performUndo,
   performRedo
 } from "./undoSync.js";
+import {
+  getAuthenticatedUser,
+  signIn,
+  signUp,
+  signOut,
+  onAuthStateChange
+} from "./auth.js";
+
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -62,6 +70,13 @@ const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
+const loginForm = document.getElementById("loginForm");
+const signupForm = document.getElementById("signupForm");
+const logoutBtn = document.getElementById("logoutBtn");
+const authLoggedOut = document.getElementById("authLoggedOut");
+const authLoggedIn = document.getElementById("authLoggedIn");
+const authUserEmail = document.getElementById("authUserEmail");
+const authStatus = document.getElementById("authStatus");
 
 const restoreHistoryState = async target => {
   if (!target?.state) {
@@ -702,6 +717,142 @@ const handleKeydown = (e, { undoBtn, redoBtn }) => {
   }
 };
 
+const handleLogin = async e => {
+  e.preventDefault();
+
+  const email =
+    document.getElementById("loginEmail").value.trim();
+
+  const password =
+    document.getElementById("loginPassword").value;
+
+  authStatus.textContent =
+    "Logging in...";
+
+  try {
+    await signIn(email, password);
+
+    loginForm.reset();
+
+    authStatus.textContent =
+      "Login successful";
+  } catch (error) {
+    console.error(
+      "Login failed:",
+      error
+    );
+
+    authStatus.textContent =
+      error?.message ??
+      "Login failed";
+  }
+};
+
+const handleSignup = async e => {
+  e.preventDefault();
+
+  const email =
+    document.getElementById("signupEmail").value.trim();
+
+  const password =
+    document.getElementById("signupPassword").value;
+
+  authStatus.textContent =
+    "Creating account...";
+
+  try {
+    const data =
+      await signUp(email, password);
+
+    signupForm.reset();
+
+    if (data.session) {
+      authStatus.textContent =
+        "Account created and logged in";
+    } else {
+      authStatus.textContent =
+        "Account created. Check your email if confirmation is required.";
+    }
+  } catch (error) {
+    console.error(
+      "Sign up failed:",
+      error
+    );
+
+    authStatus.textContent =
+      error?.message ??
+      "Sign up failed";
+  }
+};
+
+const handleLogout = async () => {
+  authStatus.textContent =
+    "Logging out...";
+
+  try {
+    await signOut();
+
+    authStatus.textContent =
+      "Logged out";
+  } catch (error) {
+    console.error(
+      "Logout failed:",
+      error
+    );
+
+    authStatus.textContent =
+      error?.message ??
+      "Logout failed";
+  }
+};
+
+const updateAuthUI = user => {
+  const isLoggedIn = Boolean(user);
+
+  authLoggedOut.hidden = isLoggedIn;
+  authLoggedIn.hidden = !isLoggedIn;
+
+  if (user) {
+    authUserEmail.textContent =
+      user.email || "Authenticated user";
+  } else {
+    authUserEmail.textContent = "";
+  }
+};
+
+onAuthStateChange(
+  (event, session) => {
+    const user =
+      session?.user ?? null;
+
+    console.log(
+      "Auth state changed:",
+      event,
+      user
+    );
+
+    updateAuthUI(user);
+  }
+);
+
+const initializeAuthUI = async () => {
+  try {
+    const user =
+      await getAuthenticatedUser();
+
+    updateAuthUI(user);
+  } catch (error) {
+    console.error(
+      "Authentication UI initialization failed:",
+      error
+    );
+
+    updateAuthUI(null);
+  }
+};
+
+await initializeAuthUI();
+
 // INITIAL HISTORY STATE
 if (!hasHistory()) {
   pushUndoState(
@@ -743,6 +894,9 @@ initEvents({
   themeBtn,
   undoBtn,
   redoBtn,
+  loginForm,
+  signupForm,
+  logoutBtn,
   handlers: {
     addTransaction: handleAddTransaction,
     init,
@@ -754,7 +908,10 @@ initEvents({
     toggleTheme,
     undo: handleUndo,
     redo: handleRedo,
-    keydown: handleKeydown
+    keydown: handleKeydown,
+    login: handleLogin,
+    signup: handleSignup,
+    logout: handleLogout,
   }
 });
 
