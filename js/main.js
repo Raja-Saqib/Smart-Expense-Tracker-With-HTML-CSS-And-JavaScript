@@ -38,6 +38,32 @@ import {
   onAuthStateChange
 } from "./auth.js";
 
+import {
+  // getAuthenticatedUser,
+  getCurrentSession,
+  inspectCurrentUser
+} from "./auth.js";
+
+const authTestUser =
+  await getAuthenticatedUser();
+
+const authTestSession =
+  await getCurrentSession();
+
+console.log(
+  "Authentication test:",
+  {
+    user: authTestUser,
+    session: authTestSession
+  }
+);
+
+const currentUser = await inspectCurrentUser();
+
+console.log(
+  "Existing cloud identity that we are preserving:",
+  currentUser?.id
+);
 
 // DOM
 const balanceEl = document.getElementById("balance");

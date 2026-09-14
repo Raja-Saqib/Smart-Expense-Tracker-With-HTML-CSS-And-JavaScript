@@ -108,3 +108,82 @@ export const onAuthStateChange = callback => {
 
   return subscription;
 };
+
+export const inspectCurrentUser = async () => {
+  const {
+    data: { session },
+    error
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    throw error;
+  }
+
+  console.log("Current Supabase user:", session?.user);
+  console.log("User ID:", session?.user?.id);
+  console.log(
+    "Is anonymous:",
+    session?.user?.is_anonymous
+  );
+
+  return session?.user ?? null;
+};
+
+export const convertAnonymousUser = async email => {
+  const {
+    data: { session },
+    error: sessionError
+  } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw sessionError;
+  }
+
+  const user = session?.user;
+
+  if (!user) {
+    throw new Error(
+      "No authenticated Supabase user is available."
+    );
+  }
+
+  if (!user.is_anonymous) {
+    throw new Error(
+      "The current Supabase user is already a permanent account."
+    );
+  }
+
+  const {
+    data,
+    error
+  } = await supabase.auth.updateUser({
+    email
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data?.user) {
+    throw new Error(
+      "Supabase did not return the converted user."
+    );
+  }
+
+  return data.user;
+};
+
+export const setAccountPassword = async password => {
+  const {
+    data,
+    error
+  } = await supabase.auth.updateUser({
+    password
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data.user;
+};

@@ -50,6 +50,19 @@ export const ensureAnonymousUser = async () => {
   return data.user;
 };
 
+// export const getCurrentUser = async () => {
+//   const {
+//     data: { user },
+//     error
+//   } = await supabase.auth.getUser();
+
+//   if (error) {
+//     throw error;
+//   }
+
+//   return user ?? null;
+// };
+
 export const getCurrentUser = async () => {
   const {
     data: { user },
@@ -57,9 +70,19 @@ export const getCurrentUser = async () => {
   } = await supabase.auth.getUser();
 
   if (error) {
+    if (error.name === "AuthSessionMissingError") {
+      return null;
+    }
+
     throw error;
   }
 
   return user ?? null;
 };
 
+const user = await getCurrentUser();
+
+console.log(
+  "Current Supabase user:",
+  user?.id
+);
