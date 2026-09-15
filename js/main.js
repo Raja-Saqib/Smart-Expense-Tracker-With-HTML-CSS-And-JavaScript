@@ -31,39 +31,13 @@ import {
   performRedo
 } from "./undoSync.js";
 import {
-  getAuthenticatedUser,
+  initializeAuth,
+  getCachedAuthenticatedUser,
   signIn,
   signUp,
   signOut,
   onAuthStateChange
 } from "./auth.js";
-
-import {
-  // getAuthenticatedUser,
-  getCurrentSession,
-  inspectCurrentUser
-} from "./auth.js";
-
-const authTestUser =
-  await getAuthenticatedUser();
-
-const authTestSession =
-  await getCurrentSession();
-
-console.log(
-  "Authentication test:",
-  {
-    user: authTestUser,
-    session: authTestSession
-  }
-);
-
-const currentUser = await inspectCurrentUser();
-
-console.log(
-  "Existing cloud identity that we are preserving:",
-  currentUser?.id
-);
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -1195,6 +1169,11 @@ attachChartClick(
 (async () => {
   let cloudData = null;
 
+  await initializeAuth();
+
+  const authenticatedUser =
+    getCachedAuthenticatedUser();
+
   // --------------------------------------------------
   // LOAD PERSISTED CLOUD METADATA
   // --------------------------------------------------
@@ -1208,9 +1187,13 @@ attachChartClick(
     * Supabase identifies the cloud state through
     * the authenticated user's user_id.
     *
-    * No blobId is required.
+    * 
     */
-    cloudData = await pullFromCloud();
+    if (authenticatedUser) {
+      cloudData = await pullFromCloud({
+        userId: authenticatedUser.id
+      });
+    }
 
   } catch (error) {
     console.warn(
@@ -1223,10 +1206,12 @@ attachChartClick(
   // CLOUD UNAVAILABLE OR NO CLOUD STATE
   // --------------------------------------------------
   /*
-  * If Supabase is unavailable or no cloud state exists
-  * for the current anonymous user, continue with the
-  * existing local state.
-  */
+   * If the user is not authenticated, the application
+   * remains completely local.
+   *
+   * If the user is authenticated but no cloud state
+   * exists yet, continue with the existing local state.
+   */
   if (!cloudData) {
     init();
 
@@ -1312,13 +1297,11 @@ attachChartClick(
   // --------------------------------------------------
   try {
     /*
-     * Build the canonical incoming local snapshot.
-     *
      * The cloud payload uses `updatedBy`.
      * Local cloud metadata uses `deviceId`.
      *
-     * The current blobId is retained because it identifies
-     * the cloud blob being restored.
+     * Legacy blobId metadata is intentionally retained
+     * for compatibility and will be cleaned up separately.
      */
     const cloudSnapshot = {
       state: {

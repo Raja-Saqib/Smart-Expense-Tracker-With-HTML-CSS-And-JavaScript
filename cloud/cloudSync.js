@@ -1,4 +1,4 @@
-import { ensureAnonymousUser, supabase } from "./supabaseClient.js";
+import { supabase } from "./supabaseClient.js";
 import { deviceId } from "../js/deviceIdentity.js";
 
 /**
@@ -7,6 +7,7 @@ import { deviceId } from "../js/deviceIdentity.js";
  * One row is stored for each authenticated Supabase user.
  *
  * @param {Object} params
+ * @param {string} params.userId
  * @param {Array} params.transactions
  * @param {Object} params.cloudMeta
  * @param {string} params.chartMode
@@ -15,13 +16,18 @@ import { deviceId } from "../js/deviceIdentity.js";
  * @returns {Promise<Object>} Cloud state using the application's existing format.
  */
 export const pushToCloud = async ({
+  userId,
   transactions,
   cloudMeta,
   chartMode,
   deviceId,
   meta = {},
 }) => {
-  const user = await ensureAnonymousUser();
+  if (!userId) {
+    throw new Error(
+      "Cloud synchronization requires an authenticated user."
+    );
+  }
 
   const nextVersion =
     (cloudMeta?.version ?? 0) + 1;
@@ -29,7 +35,7 @@ export const pushToCloud = async ({
   const updatedAt = Date.now();
 
   const payload = {
-    user_id: user.id,
+    user_id: userId,
     version: nextVersion,
     updated_at: new Date(updatedAt).toISOString(),
     updated_by: deviceId,
@@ -790,7 +796,7 @@ const persistLegacyMigration = async ({
  */
 const migrateLegacyCloudState = async ({
   cloudPayload,
-  user
+  userId
 }) => {
   const states = {
     CHECK_LEGACY: "CHECK_LEGACY",
@@ -859,7 +865,7 @@ const migrateLegacyCloudState = async ({
 
       const migratedData =
         await persistLegacyMigration({
-          userId: user.id,
+          userId,
 
           currentVersion,
 
@@ -909,7 +915,7 @@ const migrateLegacyCloudState = async ({
       try {
         latestData =
           await fetchLatestCloudState(
-            user.id
+            userId
           );
       } catch (error) {
         console.warn(
@@ -975,10 +981,12 @@ const migrateLegacyCloudState = async ({
  * The Supabase user identity replaces the old JSONBlob blobId.
  *
  * @param {Object} options
+ * @param {string} options.userId
  * @param {AbortSignal} options.signal
  * @returns {Promise<Object|null>}
  */
 export const pullFromCloud = async ({
+  userId,
   signal: callerSignal
 } = {}) => {
   const {
@@ -999,18 +1007,9 @@ export const pullFromCloud = async ({
     }
 
 
-    const user =
-      await ensureAnonymousUser();
-
-
-    if (callerSignal?.aborted) {
-      console.warn(
-        "Cloud pull cancelled by caller"
-      );
-
+    if (!userId) {
       return null;
     }
-
 
     const {
       data,
@@ -1020,7 +1019,7 @@ export const pullFromCloud = async ({
       .select(
         "version, updated_at, updated_by, transactions, chart_mode, meta"
       )
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
 
 
@@ -1067,7 +1066,7 @@ export const pullFromCloud = async ({
     cloudPayload =
       await migrateLegacyCloudState({
         cloudPayload,
-        user
+        userId,
       });
 
 

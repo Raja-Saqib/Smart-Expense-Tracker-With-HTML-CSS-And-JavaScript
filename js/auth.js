@@ -1,12 +1,19 @@
 import { supabase } from "../cloud/supabaseClient.js";
 
-/**
- * Get the currently authenticated Supabase user.
- *
- * Returns:
- *   user object → logged-in user
- *   null        → no authenticated user
+/*
+ * --------------------------------------------------
+ * CURRENT AUTHENTICATION STATE
+ * --------------------------------------------------
  */
+
+let currentUser = null;
+
+/*
+ * --------------------------------------------------
+ * GET CURRENT USER
+ * --------------------------------------------------
+ */
+
 export const getAuthenticatedUser = async () => {
   const {
     data: { user },
@@ -14,19 +21,25 @@ export const getAuthenticatedUser = async () => {
   } = await supabase.auth.getUser();
 
   if (error) {
+    if (error.name === "AuthSessionMissingError") {
+      currentUser = null;
+      return null;
+    }
+
     throw error;
   }
 
-  return user ?? null;
+  currentUser = user ?? null;
+
+  return currentUser;
 };
 
-/**
- * Get the current Supabase session.
- *
- * Returns:
- *   session object → authenticated session
- *   null          → no active session
+/*
+ * --------------------------------------------------
+ * GET CURRENT SESSION
+ * --------------------------------------------------
  */
+
 export const getCurrentSession = async () => {
   const {
     data: { session },
@@ -37,13 +50,50 @@ export const getCurrentSession = async () => {
     throw error;
   }
 
+  currentUser =
+    session?.user ?? null;
+
   return session ?? null;
 };
 
-/**
- * Create a new user account.
+/*
+ * --------------------------------------------------
+ * CACHED AUTHENTICATED USER
+ *
+ * Used by local application code so a guest does
+ * not trigger unnecessary Supabase requests.
+ * --------------------------------------------------
  */
-export const signUp = async (email, password) => {
+
+export const getCachedAuthenticatedUser = () =>
+  currentUser;
+
+/*
+ * --------------------------------------------------
+ * INITIALIZE AUTH STATE
+ * --------------------------------------------------
+ */
+
+export const initializeAuth = async () => {
+  const session =
+    await getCurrentSession();
+
+  currentUser =
+    session?.user ?? null;
+
+  return currentUser;
+};
+
+/*
+ * --------------------------------------------------
+ * SIGN UP
+ * --------------------------------------------------
+ */
+
+export const signUp = async (
+  email,
+  password
+) => {
   const {
     data,
     error
@@ -56,13 +106,22 @@ export const signUp = async (email, password) => {
     throw error;
   }
 
+  currentUser =
+    data?.user ?? null;
+
   return data;
 };
 
-/**
- * Sign in an existing user.
+/*
+ * --------------------------------------------------
+ * SIGN IN
+ * --------------------------------------------------
  */
-export const signIn = async (email, password) => {
+
+export const signIn = async (
+  email,
+  password
+) => {
   const {
     data,
     error
@@ -75,12 +134,18 @@ export const signIn = async (email, password) => {
     throw error;
   }
 
+  currentUser =
+    data?.user ?? null;
+
   return data;
 };
 
-/**
- * Sign out the current user.
+/*
+ * --------------------------------------------------
+ * SIGN OUT
+ * --------------------------------------------------
  */
+
 export const signOut = async () => {
   const { error } =
     await supabase.auth.signOut();
@@ -88,102 +153,30 @@ export const signOut = async () => {
   if (error) {
     throw error;
   }
+
+  currentUser = null;
 };
 
-/**
- * Listen for authentication/session changes.
- *
- * The callback receives:
- *   event
- *   session
+/*
+ * --------------------------------------------------
+ * AUTH STATE LISTENER
+ * --------------------------------------------------
  */
+
 export const onAuthStateChange = callback => {
   const {
     data: { subscription }
   } = supabase.auth.onAuthStateChange(
     (event, session) => {
-      callback(event, session);
+      currentUser =
+        session?.user ?? null;
+
+      callback(
+        event,
+        session
+      );
     }
   );
 
   return subscription;
-};
-
-export const inspectCurrentUser = async () => {
-  const {
-    data: { session },
-    error
-  } = await supabase.auth.getSession();
-
-  if (error) {
-    throw error;
-  }
-
-  console.log("Current Supabase user:", session?.user);
-  console.log("User ID:", session?.user?.id);
-  console.log(
-    "Is anonymous:",
-    session?.user?.is_anonymous
-  );
-
-  return session?.user ?? null;
-};
-
-export const convertAnonymousUser = async email => {
-  const {
-    data: { session },
-    error: sessionError
-  } = await supabase.auth.getSession();
-
-  if (sessionError) {
-    throw sessionError;
-  }
-
-  const user = session?.user;
-
-  if (!user) {
-    throw new Error(
-      "No authenticated Supabase user is available."
-    );
-  }
-
-  if (!user.is_anonymous) {
-    throw new Error(
-      "The current Supabase user is already a permanent account."
-    );
-  }
-
-  const {
-    data,
-    error
-  } = await supabase.auth.updateUser({
-    email
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data?.user) {
-    throw new Error(
-      "Supabase did not return the converted user."
-    );
-  }
-
-  return data.user;
-};
-
-export const setAccountPassword = async password => {
-  const {
-    data,
-    error
-  } = await supabase.auth.updateUser({
-    password
-  });
-
-  if (error) {
-    throw error;
-  }
-
-  return data.user;
 };

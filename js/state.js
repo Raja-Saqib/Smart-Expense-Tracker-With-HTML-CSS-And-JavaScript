@@ -1,3 +1,6 @@
+import {
+  getCachedAuthenticatedUser
+} from "./auth.js";
 import { pushToCloud } from "../cloud/cloudSync.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
@@ -89,31 +92,36 @@ export const saveData = async ({
 
   let cloudState = null;
   let cloudError = null;
-  
+
   // --------------------------------------------------
   // REMOTE SYNCHRONIZATION
+  //
+  // Guests remain local-only.
+  // Supabase is contacted only when an
+  // authenticated account exists.
   // --------------------------------------------------
-  try {
-    const currentBlobId =
-      cloudMeta?.blobId ?? 
-      getCloudMeta()?.blobId ?? 
-      null;
 
-    cloudState = await pushToCloud({
-      transactions,
-      cloudMeta,
-      chartMode,
-      deviceId,
-      meta,
-      blobId: currentBlobId,
-    });
-  } catch (error) {
-    cloudError = error;
+  const authenticatedUser =
+    getCachedAuthenticatedUser();
 
-    console.warn(
-      "Cloud sync failed, saved locally",
-      error
-    );
+  if (authenticatedUser) {
+    try {
+      cloudState = await pushToCloud({
+        userId: authenticatedUser.id,
+        transactions,
+        cloudMeta,
+        chartMode,
+        deviceId,
+        meta,
+      });
+    } catch (error) {
+      cloudError = error;
+
+      console.warn(
+        "Cloud sync failed, saved locally",
+        error
+      );
+    }
   }
 
   // --------------------------------------------------
