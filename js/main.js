@@ -838,7 +838,7 @@ onAuthStateChange(
 const initializeAuthUI = async () => {
   try {
     const user =
-      await getAuthenticatedUser();
+      getCachedAuthenticatedUser();
 
     updateAuthUI(user);
   } catch (error) {
