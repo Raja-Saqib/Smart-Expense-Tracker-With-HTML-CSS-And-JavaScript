@@ -8,14 +8,88 @@ const USER_STORAGE_PREFIX =
 
 
 /**
+ * Creates a fresh default application state.
+ */
+export const createDefaultState = () => ({
+  transactions: [],
+  chartMode: "donut",
+  cloudMeta: {
+    version: 0,
+    updatedAt: 0,
+    deviceId: null
+  },
+  meta: {}
+});
+
+
+/**
+ * Validates the structure of locally stored state.
+ *
+ * This validates the storage contract, not business rules
+ * for individual transactions.
+ */
+const validateState = state => {
+  if (
+    !state ||
+    typeof state !== "object" ||
+    Array.isArray(state)
+  ) {
+    return false;
+  }
+
+  if (!Array.isArray(state.transactions)) {
+    return false;
+  }
+
+  if (
+    state.chartMode !== "pie" &&
+    state.chartMode !== "donut"
+  ) {
+    return false;
+  }
+
+  if (
+    !state.cloudMeta ||
+    typeof state.cloudMeta !== "object" ||
+    Array.isArray(state.cloudMeta)
+  ) {
+    return false;
+  }
+
+  if (
+    !Number.isFinite(
+      Number(state.cloudMeta.version)
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !Number.isFinite(
+      Number(state.cloudMeta.updatedAt)
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    state.meta !== undefined &&
+    (
+      state.meta === null ||
+      typeof state.meta !== "object" ||
+      Array.isArray(state.meta)
+    )
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+
+/**
  * Returns the LocalStorage key belonging to
  * the currently active identity.
- *
- * Guest:
- *   expenseTracker:guest:state
- *
- * Authenticated user:
- *   expenseTracker:user:<userId>:state
  */
 export const getActiveStorageKey = user => {
   if (!user?.id) {
@@ -27,12 +101,10 @@ export const getActiveStorageKey = user => {
 
 
 /**
- * Loads the state belonging to the supplied user.
+ * Loads state for the supplied identity.
  *
- * If no user is supplied, Guest state is loaded.
- *
- * Returns:
- *   parsed state object, or null if no state exists.
+ * Invalid or missing state falls back to a fresh
+ * default state without changing the storage key.
  */
 export const loadState = user => {
   const storageKey =
@@ -42,27 +114,57 @@ export const loadState = user => {
     localStorage.getItem(storageKey);
 
   if (!storedState) {
-    return null;
+    return createDefaultState();
   }
 
+  let parsedState;
+
   try {
-    return JSON.parse(storedState);
+    parsedState =
+      JSON.parse(storedState);
   } catch (error) {
     console.warn(
-      `Failed to parse LocalStorage state for "${storageKey}":`,
+      `Invalid JSON in LocalStorage key "${storageKey}". Using default state.`,
       error
     );
 
-    return null;
+    return createDefaultState();
   }
+
+  if (!validateState(parsedState)) {
+    console.warn(
+      `Invalid state structure in LocalStorage key "${storageKey}". Using default state.`
+    );
+
+    return createDefaultState();
+  }
+
+  return {
+    transactions:
+      parsedState.transactions,
+
+    chartMode:
+      parsedState.chartMode,
+
+    cloudMeta: {
+      version:
+        Number(parsedState.cloudMeta.version),
+
+      updatedAt:
+        Number(parsedState.cloudMeta.updatedAt),
+
+      deviceId:
+        parsedState.cloudMeta.deviceId ?? null
+    },
+
+    meta:
+      parsedState.meta ?? {}
+  };
 };
 
 
 /**
- * Saves state belonging to the supplied user.
- *
- * If no user is supplied, the state is saved
- * to the Guest namespace.
+ * Saves state for the supplied identity.
  */
 export const saveState = (
   state,
@@ -70,6 +172,12 @@ export const saveState = (
 ) => {
   const storageKey =
     getActiveStorageKey(user);
+
+  if (!validateState(state)) {
+    throw new Error(
+      "Cannot save invalid expense tracker state."
+    );
+  }
 
   localStorage.setItem(
     storageKey,
@@ -79,17 +187,8 @@ export const saveState = (
 
 
 /**
- * Clears only the state belonging to the
- * supplied user.
- *
- * No user:
- *   clears Guest state only.
- *
- * User A:
- *   clears Account A state only.
- *
- * User B:
- *   clears Account B state only.
+ * Clears only the state belonging to
+ * the supplied identity.
  */
 export const clearState = user => {
   const storageKey =
