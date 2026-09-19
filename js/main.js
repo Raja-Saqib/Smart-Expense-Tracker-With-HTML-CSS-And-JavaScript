@@ -1566,123 +1566,302 @@ listenToBroadcast(payload => {
   chartStatus.textContent = "Updated from another tab";
 });
 
-window.addEventListener("storage", e => {
-  if (isBroadcastAvailable()) return;
+// window.addEventListener("storage", e => {
+//   if (isBroadcastAvailable()) return;
 
-  if (e.key !== "expenseTrackerSyncState") return;
+//   if (e.key !== "expenseTrackerSyncState") return;
 
-  if (!e.newValue) return;
+//   if (!e.newValue) return;
 
-  let persistedState;
+//   let persistedState;
 
-  try {
-    persistedState = JSON.parse(e.newValue);
-  } catch {
-    return;
+//   try {
+//     persistedState = JSON.parse(e.newValue);
+//   } catch {
+//     return;
+//   }
+
+//   if (
+//     !persistedState ||
+//     !Array.isArray(persistedState.transactions)
+//   ) {
+//     return;
+//   }
+
+//   if (
+//     persistedState.chartMode !== "pie" &&
+//     persistedState.chartMode !== "donut"
+//   ) {
+//     return;
+//   }
+
+//   if (!persistedState.cloudMeta) {
+//     return;
+//   }
+
+//   const previousSlices = slices.map(slice => ({
+//     category: slice.category,
+//     value: slice.value
+//   }));
+
+//   setTransactions(
+//     structuredClone(persistedState.transactions)
+//   );
+
+//   setCloudMeta(
+//     structuredClone(persistedState.cloudMeta)
+//   );
+
+//   setChartMode(persistedState.chartMode);
+
+//   replaceCurrentUndoStateAndClearRedo(
+//     createUndoState({
+//       transactions,
+//       cloudMeta: structuredClone(getCloudMeta()),
+//       chartMode,
+//       label: "Cross-tab update"
+//     })
+//   );
+
+//   init();
+
+//   const changed = getChangedCategories(
+//     previousSlices,
+//     slices
+//   );
+
+//   if (changed.length) {
+//     highlightChangedSlices({
+//       ctx,
+//       cx: canvas.width / 2,
+//       cy: canvas.height / 2,
+//       radius: 120,
+//       innerRadius: chartMode === "donut" ? 70 : 0,
+//       slices,
+//       changedCategories: changed
+//     });
+//   }
+
+//   chartStatus.textContent =
+//     "Updated from another tab";
+// });
+
+const isValidExternalStateEvent = event => {
+  if (!event || typeof event !== "object") {
+    return false;
+  }
+
+  if (typeof event.storageKey !== "string") {
+    return false;
   }
 
   if (
-    !persistedState ||
-    !Array.isArray(persistedState.transactions)
+    event.userId !== null &&
+    typeof event.userId !== "string"
   ) {
-    return;
+    return false;
   }
 
   if (
-    persistedState.chartMode !== "pie" &&
-    persistedState.chartMode !== "donut"
+    !Number.isSafeInteger(event.version) ||
+    event.version < 0
   ) {
-    return;
+    return false;
   }
 
-  if (!persistedState.cloudMeta) {
-    return;
-  }
-
-  const previousSlices = slices.map(slice => ({
-    category: slice.category,
-    value: slice.value
-  }));
-
-  setTransactions(
-    structuredClone(persistedState.transactions)
-  );
-
-  setCloudMeta(
-    structuredClone(persistedState.cloudMeta)
-  );
-
-  setChartMode(persistedState.chartMode);
-
-  replaceCurrentUndoStateAndClearRedo(
-    createUndoState({
-      transactions,
-      cloudMeta: structuredClone(getCloudMeta()),
-      chartMode,
-      label: "Cross-tab update"
-    })
-  );
-
-  init();
-
-  const changed = getChangedCategories(
-    previousSlices,
-    slices
-  );
-
-  if (changed.length) {
-    highlightChangedSlices({
-      ctx,
-      cx: canvas.width / 2,
-      cy: canvas.height / 2,
-      radius: 120,
-      innerRadius: chartMode === "donut" ? 70 : 0,
-      slices,
-      changedCategories: changed
-    });
-  }
-
-  chartStatus.textContent =
-    "Updated from another tab";
-});
-
-const handleExternalStateUpdate = persistedState => {
   if (
-    !persistedState ||
-    typeof persistedState !== "object"
+    !event.state ||
+    typeof event.state !== "object"
   ) {
-    return;
+    return false;
   }
 
-  if (!Array.isArray(persistedState.transactions)) {
+  if (!Array.isArray(event.state.transactions)) {
+    return false;
+  }
+
+  if (
+    event.state.chartMode !== "pie" &&
+    event.state.chartMode !== "donut"
+  ) {
+    return false;
+  }
+
+  if (
+    !event.state.cloudMeta ||
+    typeof event.state.cloudMeta !== "object"
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+const isCurrentIdentityEvent = event => {
+  const currentUser =
+    getCachedAuthenticatedUser();
+
+  const activeStorageKey =
+    getActiveStorageKey(currentUser);
+
+  if (event.storageKey !== activeStorageKey) {
+    return false;
+  }
+
+  const activeUserId =
+    currentUser?.id ?? null;
+
+  if (event.userId !== activeUserId) {
+    return false;
+  }
+
+  return true;
+};
+
+const isStaleExternalStateEvent = event => {
+  const localMeta =
+    getCloudMeta();
+
+  const localVersion =
+    Number.isSafeInteger(localMeta?.version)
+      ? localMeta.version
+      : 0;
+
+  return event.version <= localVersion;
+};
+
+// const handleExternalStateUpdate = persistedState => {
+//   if (
+//     !persistedState ||
+//     typeof persistedState !== "object"
+//   ) {
+//     return;
+//   }
+
+//   if (!Array.isArray(persistedState.transactions)) {
+//     console.warn(
+//       "Ignored external state with invalid transactions"
+//     );
+
+//     return;
+//   }
+
+//   if (
+//     persistedState.chartMode !== "pie" &&
+//     persistedState.chartMode !== "donut"
+//   ) {
+//     console.warn(
+//       "Ignored external state with invalid chartMode"
+//     );
+
+//     return;
+//   }
+
+//   if (
+//     !persistedState.cloudMeta ||
+//     typeof persistedState.cloudMeta !== "object"
+//   ) {
+//     console.warn(
+//       "Ignored external state with invalid cloudMeta"
+//     );
+
+//     return;
+//   }
+
+//   const previousSlices =
+//     slices.map(slice => ({
+//       category: slice.category,
+//       value: slice.value
+//     }));
+
+//   setTransactions(
+//     structuredClone(
+//       persistedState.transactions
+//     )
+//   );
+
+//   setCloudMeta(
+//     structuredClone(
+//       persistedState.cloudMeta
+//     )
+//   );
+
+//   setChartMode(
+//     persistedState.chartMode
+//   );
+
+//   replaceCurrentUndoStateAndClearRedo(
+//     createUndoState({
+//       transactions,
+//       cloudMeta:
+//         structuredClone(
+//           getCloudMeta()
+//         ),
+//       chartMode,
+//       label: "Cross-tab update"
+//     })
+//   );
+
+//   init();
+
+//   const changed =
+//     getChangedCategories(
+//       previousSlices,
+//       slices
+//     );
+
+//   if (changed.length) {
+//     highlightChangedSlices({
+//       ctx,
+//       cx: canvas.width / 2,
+//       cy: canvas.height / 2,
+//       radius: 120,
+//       innerRadius:
+//         chartMode === "donut"
+//           ? 70
+//           : 0,
+//       slices,
+//       changedCategories: changed
+//     });
+//   }
+
+//   chartStatus.textContent =
+//     "Updated from another tab";
+// };
+
+const handleExternalStateUpdate = event => {
+  if (!isValidExternalStateEvent(event)) {
     console.warn(
-      "Ignored external state with invalid transactions"
+      "Ignored malformed external state event"
     );
 
     return;
   }
 
-  if (
-    persistedState.chartMode !== "pie" &&
-    persistedState.chartMode !== "donut"
-  ) {
+  if (!isCurrentIdentityEvent(event)) {
     console.warn(
-      "Ignored external state with invalid chartMode"
+      "Ignored external state event for another identity"
     );
 
     return;
   }
 
-  if (
-    !persistedState.cloudMeta ||
-    typeof persistedState.cloudMeta !== "object"
-  ) {
-    console.warn(
-      "Ignored external state with invalid cloudMeta"
+  if (isStaleExternalStateEvent(event)) {
+    console.info(
+      "Ignored stale external state event",
+      {
+        incomingVersion: event.version,
+        localVersion:
+          getCloudMeta()?.version ?? 0
+      }
     );
 
     return;
   }
+
+  const {
+    state
+  } = event;
 
   const previousSlices =
     slices.map(slice => ({
@@ -1692,18 +1871,17 @@ const handleExternalStateUpdate = persistedState => {
 
   setTransactions(
     structuredClone(
-      persistedState.transactions
+      state.transactions
     )
   );
 
-  setCloudMeta(
-    structuredClone(
-      persistedState.cloudMeta
-    )
-  );
+  setCloudMeta({
+    ...structuredClone(state.cloudMeta),
+    version: event.version
+  });
 
   setChartMode(
-    persistedState.chartMode
+    state.chartMode
   );
 
   replaceCurrentUndoStateAndClearRedo(
@@ -1769,8 +1947,23 @@ window.addEventListener(
       const state =
         JSON.parse(event.newValue);
 
+      const externalEvent = {
+        storageKey: activeKey,
+        userId:
+        currentUser?.id ?? null,
+        version:
+        Number.isSafeInteger(
+          state.cloudMeta?.version
+        )
+        ? state.cloudMeta.version
+        : 0,
+        state
+      };
+        
       // Apply the state update.
-      handleExternalStateUpdate(state);
+      handleExternalStateUpdate(
+        externalEvent
+      );
     } catch (error) {
       console.warn(
         "Failed to parse external state:",
