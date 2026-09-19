@@ -38,6 +38,7 @@ import {
   signOut,
   onAuthStateChange
 } from "./auth.js";
+import { getActiveStorageKey } from "./localState.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -1644,4 +1645,138 @@ window.addEventListener("storage", e => {
   chartStatus.textContent =
     "Updated from another tab";
 });
+
+const handleExternalStateUpdate = persistedState => {
+  if (
+    !persistedState ||
+    typeof persistedState !== "object"
+  ) {
+    return;
+  }
+
+  if (!Array.isArray(persistedState.transactions)) {
+    console.warn(
+      "Ignored external state with invalid transactions"
+    );
+
+    return;
+  }
+
+  if (
+    persistedState.chartMode !== "pie" &&
+    persistedState.chartMode !== "donut"
+  ) {
+    console.warn(
+      "Ignored external state with invalid chartMode"
+    );
+
+    return;
+  }
+
+  if (
+    !persistedState.cloudMeta ||
+    typeof persistedState.cloudMeta !== "object"
+  ) {
+    console.warn(
+      "Ignored external state with invalid cloudMeta"
+    );
+
+    return;
+  }
+
+  const previousSlices =
+    slices.map(slice => ({
+      category: slice.category,
+      value: slice.value
+    }));
+
+  setTransactions(
+    structuredClone(
+      persistedState.transactions
+    )
+  );
+
+  setCloudMeta(
+    structuredClone(
+      persistedState.cloudMeta
+    )
+  );
+
+  setChartMode(
+    persistedState.chartMode
+  );
+
+  replaceCurrentUndoStateAndClearRedo(
+    createUndoState({
+      transactions,
+      cloudMeta:
+        structuredClone(
+          getCloudMeta()
+        ),
+      chartMode,
+      label: "Cross-tab update"
+    })
+  );
+
+  init();
+
+  const changed =
+    getChangedCategories(
+      previousSlices,
+      slices
+    );
+
+  if (changed.length) {
+    highlightChangedSlices({
+      ctx,
+      cx: canvas.width / 2,
+      cy: canvas.height / 2,
+      radius: 120,
+      innerRadius:
+        chartMode === "donut"
+          ? 70
+          : 0,
+      slices,
+      changedCategories: changed
+    });
+  }
+
+  chartStatus.textContent =
+    "Updated from another tab";
+};
+
+window.addEventListener(
+  "storage",
+  event => {
+    const currentUser =
+      getCachedAuthenticatedUser();
+
+    const activeKey =
+      getActiveStorageKey(currentUser);
+
+    // Ignore changes belonging to another
+    // account or another storage identity.
+    if (event.key !== activeKey) {
+      return;
+    }
+
+    if (event.newValue === null) {
+      // Active state was cleared.
+      return;
+    }
+
+    try {
+      const state =
+        JSON.parse(event.newValue);
+
+      // Apply the state update.
+      handleExternalStateUpdate(state);
+    } catch (error) {
+      console.warn(
+        "Failed to parse external state:",
+        error
+      );
+    }
+  }
+);
 

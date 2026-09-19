@@ -7,6 +7,36 @@ const USER_STORAGE_PREFIX =
   "expenseTracker:user:";
 
 
+const getBackupStorageKey = storageKey =>
+  `${storageKey}:backup`;
+
+const backupInvalidState = (
+  storageKey,
+  raw,
+  reason
+) => {
+  try {
+    localStorage.setItem(
+      getBackupStorageKey(storageKey),
+      raw
+    );
+
+    console.warn(
+      `Invalid LocalStorage state backed up before recovery (${reason}).`
+    );
+
+    return true;
+  } catch (error) {
+    console.warn(
+      "Invalid LocalStorage state could not be backed up:",
+      error
+    );
+
+    return false;
+  }
+};
+
+
 /**
  * Creates a fresh default application state.
  */
@@ -110,28 +140,41 @@ export const loadState = user => {
   const storageKey =
     getActiveStorageKey(user);
 
-  const storedState =
+  const stored =
     localStorage.getItem(storageKey);
 
-  if (!storedState) {
+  if (!stored) {
     return createDefaultState();
   }
 
-  let parsedState;
-
   try {
-    parsedState =
-      JSON.parse(storedState);
+    const parsed =
+      JSON.parse(stored);
+
+    const snapshot = {
+      state: parsed
+    };
+
+    validateSnapshot(snapshot);
+
+    // return parsed;
   } catch (error) {
+    backupInvalidState(
+      storageKey,
+      stored,
+      error?.message ??
+        "Invalid state"
+    );
+
     console.warn(
-      `Invalid JSON in LocalStorage key "${storageKey}". Using default state.`,
+      "Invalid LocalStorage state; using default state:",
       error
     );
 
     return createDefaultState();
   }
 
-  if (!validateState(parsedState)) {
+  if (!validateState(parsed)) {
     console.warn(
       `Invalid state structure in LocalStorage key "${storageKey}". Using default state.`
     );
@@ -141,24 +184,24 @@ export const loadState = user => {
 
   return {
     transactions:
-      parsedState.transactions,
+      parsed.transactions,
 
     chartMode:
-      parsedState.chartMode,
+      parsed.chartMode,
 
     cloudMeta: {
       version:
-        Number(parsedState.cloudMeta.version),
+        Number(parsed.cloudMeta.version),
 
       updatedAt:
-        Number(parsedState.cloudMeta.updatedAt),
+        Number(parsed.cloudMeta.updatedAt),
 
       deviceId:
-        parsedState.cloudMeta.deviceId ?? null
+        parsed.cloudMeta.deviceId ?? null
     },
 
     meta:
-      parsedState.meta ?? {}
+      parsed.meta ?? {}
   };
 };
 
