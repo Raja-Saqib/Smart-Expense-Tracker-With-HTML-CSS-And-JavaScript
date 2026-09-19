@@ -1,39 +1,37 @@
 import {
   getCachedAuthenticatedUser
 } from "./auth.js";
-import { pushToCloud } from "../cloud/cloudSync.js";
+import { pushToCloud, pullFromCloud } from "../cloud/cloudSync.js";
+import {
+  saveWithRetry,
+} from "../cloud/saveWithRetry.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
-import { getCloudMeta, setCloudMeta, STORAGE_SYNC_KEY } from "../cloud/cloudState.js";
-import { chartMode } from "./chartState.js";
+import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
+import { chartMode, setChartMode } from "./chartState.js";
 import { deviceId } from "./deviceIdentity.js";
+import {
+  loadState,
+  saveState
+} from "./localState.js";
 
-const loadTransactions = () => {
-  try {
-    const stored =
-      localStorage.getItem("transactions");
-
-    if (!stored) return [];
-
-    const parsed = JSON.parse(stored);
-
-    return Array.isArray(parsed)
-      ? parsed
-      : [];
-  } catch (error) {
-    console.warn(
-      "Invalid local transactions; using empty state:",
-      error
-    );
-
-    return [];
-  }
-};
-
-export let transactions = loadTransactions();
+export let transactions = [];
 
 export let editId = null;
 export let activeCategory = null;
+
+export const initializeState = user => {
+  const state = loadState(user);
+
+  transactions =
+    structuredClone(state.transactions);
+
+  setCloudMeta(state.cloudMeta);
+
+  setChartMode(state.chartMode);
+
+  return state;
+};
 
 const getErrorDetails = error => {
   if (!error) return null;
@@ -73,52 +71,101 @@ const rollbackTransactionPersistence = (
   };
 };
 
-export const saveData = async ({
+const createStateSnapshot = ({
   transactions,
   cloudMeta,
   chartMode,
   meta = {}
+}) => ({
+  transactions:
+    structuredClone(transactions),
+
+  cloudMeta:
+    structuredClone(cloudMeta),
+
+  chartMode,
+
+  meta:
+    structuredClone(meta)
+});
+
+export const saveData = async ({
+  transactions,
+  cloudMeta,
+  chartMode,
+  meta = {},
+  operation = null
 }) => {
+  const authenticatedUser =
+    getCachedAuthenticatedUser();
+
   // --------------------------------------------------
-  // PRIMARY LOCAL PERSISTENCE
+  // PREPARE LOCAL STATE
   //
-  // If this throws, let it escape.
-  // The transaction operation will roll back.
+  // This is the state we will persist locally if the
+  // user is a guest or if cloud synchronization fails.
   // --------------------------------------------------
-  localStorage.setItem(
-    "transactions",
-    JSON.stringify(transactions)
-  );
+
+  const localState = {
+    transactions:
+      structuredClone(transactions),
+
+    chartMode,
+
+    cloudMeta:
+      structuredClone(cloudMeta),
+
+    meta:
+      structuredClone(meta)
+  };
 
   let cloudState = null;
   let cloudError = null;
 
   // --------------------------------------------------
-  // REMOTE SYNCHRONIZATION
+  // AUTHENTICATED CLOUD SYNCHRONIZATION
   //
-  // Guests remain local-only.
-  // Supabase is contacted only when an
-  // authenticated account exists.
+  // Guests remain LocalStorage-only.
+  //
+  // saveWithRetry() is responsible for optimistic
+  // concurrency:
+  //
+  //   expected version
+  //        ↓
+  //   conditional write
+  //        ↓
+  //   version conflict?
+  //        ↓
+  //   pull latest → reapply operation → retry
+  //
+  // We never retry a stale complete snapshot.
   // --------------------------------------------------
 
-  const authenticatedUser =
-    getCachedAuthenticatedUser();
+  const MAX_SAVE_RETRIES = 3;
 
   if (authenticatedUser) {
     try {
-      cloudState = await pushToCloud({
+      cloudState = await saveWithRetry({
         userId: authenticatedUser.id,
-        transactions,
-        cloudMeta,
-        chartMode,
+
+        state: structuredClone(localState),
+
+        operation,
+
         deviceId,
-        meta,
+
+        pushToCloud,
+
+        pullFromCloud,
+
+        maxRetries: MAX_SAVE_RETRIES
       });
+
     } catch (error) {
       cloudError = error;
 
       console.warn(
-        "Cloud sync failed, saved locally",
+        "Cloud sync failed, saving locally:",
         error
       );
     }
@@ -126,15 +173,30 @@ export const saveData = async ({
 
   // --------------------------------------------------
   // CLOUD METADATA
+  //
+  // Only replace the local cloud metadata when the
+  // cloud write actually succeeded.
+  //
+  // This prevents a failed/conflicted cloud operation
+  // from falsely advancing the local cloud version.
   // --------------------------------------------------
+
   if (cloudState) {
     try {
       setCloudMeta({
-        version: cloudState.version,
-        updatedAt: cloudState.updatedAt,
-        deviceId: cloudState.updatedBy,
-        blobId: cloudState.blobId,
+        version:
+          cloudState.version,
+
+        updatedAt:
+          cloudState.updatedAt,
+
+        deviceId:
+          cloudState.updatedBy,
+
+        blobId:
+          cloudState.blobId
       });
+
     } catch (error) {
       console.warn(
         "Cloud metadata could not be persisted:",
@@ -144,48 +206,89 @@ export const saveData = async ({
   }
 
   // --------------------------------------------------
-  // CROSS-TAB/STORAGE-FALLBACK MIRROR
+  // PRIMARY LOCAL PERSISTENCE
+  //
+  // IMPORTANT:
+  //
+  // If cloud synchronization succeeded, persist the
+  // authoritative cloud metadata returned by the
+  // successful cloud write.
+  //
+  // If cloud synchronization failed, persist the
+  // original local state and keep the previous cloud
+  // metadata.
+  //
+  // saveState() automatically chooses:
+  //
+  //   guest:
+  //   expenseTracker:guest:state
+  //
+  //   authenticated:
+  //   expenseTracker:user:<userId>:state
   // --------------------------------------------------
-  let syncStateError = null;
 
-  try {
-    const synchronizedState = {
-      transactions:
-        structuredClone(transactions),
+  const persistedState = {
+    transactions:
+      structuredClone(transactions),
 
-      cloudMeta:
-        structuredClone(getCloudMeta()),
-
-      chartMode
-    };
-
-    localStorage.setItem(
-      STORAGE_SYNC_KEY,
-      JSON.stringify(synchronizedState)
-    );
-  } catch (error) {
-    syncStateError = error;
-
-    console.warn(
-      "Sync-state mirror could not be persisted:",
-      error
-    );
-  }
-
-  // The transaction itself WAS saved locally.
-  return {
-    success: true,
-
-    offline: Boolean(cloudError),
+    chartMode,
 
     cloudMeta:
       structuredClone(getCloudMeta()),
 
+    meta:
+      structuredClone(meta)
+  };
+
+  // Local persistence remains authoritative for the
+  // browser when cloud synchronization is unavailable.
+  //
+  // If this throws, the caller's existing rollback
+  // mechanism must handle the failed transaction.
+  saveState(
+    persistedState,
+    authenticatedUser
+  );
+
+  // --------------------------------------------------
+  // SYNC-STATE ERROR REPORTING
+  //
+  // The old STORAGE_SYNC_KEY mirror has been removed.
+  //
+  // saveState() is now the identity-aware local
+  // persistence mechanism and the storage-event fallback
+  // watches that identity-specific key directly.
+  //
+  // Keep syncStateError in the return contract so
+  // existing callers do not regress.
+  // --------------------------------------------------
+
+  const syncStateError = null;
+
+  // --------------------------------------------------
+  // RESULT
+  // --------------------------------------------------
+
+  return {
+    success: true,
+
+    offline:
+      Boolean(cloudError),
+
+    cloudMeta:
+      structuredClone(
+        getCloudMeta()
+      ),
+
     cloudError:
-      getErrorDetails(cloudError),
+      getErrorDetails(
+        cloudError
+      ),
 
     syncStateError:
-      getErrorDetails(syncStateError)
+      getErrorDetails(
+        syncStateError
+      )
   };
 };
 
@@ -294,6 +397,22 @@ export const addTransaction = async ({
         : {
             type: "add",
             category: data.category
+          },
+      operation: currentEditId
+        ? {
+            type: "edit",
+            transactionId: currentEditId,
+            changes: {
+              text: data.text,
+              category: data.category,
+              amount: data.amount,
+              updatedAt: data.updatedAt,
+              updatedBy: data.updatedBy
+            }
+          }
+        : {
+            type: "add",
+            transaction: structuredClone(data)
           }
     });
 
@@ -373,6 +492,10 @@ export const deleteTransaction = async (
       meta: {
         type: "delete",
         category: t.category
+      },
+      operation: {
+        type: "delete",
+        transactionId: id
       }
     });
 

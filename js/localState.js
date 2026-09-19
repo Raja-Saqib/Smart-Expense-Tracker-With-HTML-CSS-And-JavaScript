@@ -1,6 +1,6 @@
 // js/localState.js
 
-import { sanitizeTransactions } from "./stateValidator";
+import { sanitizeTransactions, validateSnapshot } from "./stateValidator.js";
 
 const GUEST_STORAGE_KEY =
   "expenseTracker:guest:state";
@@ -149,9 +149,10 @@ export const loadState = user => {
     return createDefaultState();
   }
 
+  let parsed;
+
   try {
-    const parsed =
-      JSON.parse(stored);
+    parsed = JSON.parse(stored);
 
     const snapshot = {
       state: parsed
@@ -165,11 +166,11 @@ export const loadState = user => {
       storageKey,
       stored,
       error?.message ??
-        "Invalid state"
+        "Invalid JSON"
     );
 
     console.warn(
-      "Invalid LocalStorage state; using default state:",
+      "Invalid LocalStorage JSON; using default state:",
       error
     );
 

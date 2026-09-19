@@ -38,7 +38,10 @@ import {
   signOut,
   onAuthStateChange
 } from "./auth.js";
-import { getActiveStorageKey } from "./localState.js";
+import { getActiveStorageKey, saveState } from "./localState.js";
+import {
+  initializeState
+} from "./state.js";
 
 // DOM
 const balanceEl = document.getElementById("balance");
@@ -933,11 +936,6 @@ donutToggle.addEventListener("change", async () => {
   try {
     setChartMode(mode);
 
-    localStorage.setItem(
-      "chartMode",
-      mode
-    );
-
     const result = await saveData({
       transactions,
       cloudMeta: getCloudMeta(),
@@ -982,11 +980,6 @@ donutToggle.addEventListener("change", async () => {
 
   } catch (error) {
     setChartMode(
-      previousChartMode
-    );
-
-    localStorage.setItem(
-      "chartMode",
       previousChartMode
     );
 
@@ -1058,23 +1051,17 @@ const applySnapshot = snapshot => {
   setCloudMeta(structuredClone(cloudMeta));
   setChartMode(mode);
 
-  localStorage.setItem(
-    "transactions",
-    JSON.stringify(transactions)
-  );
+  const currentUser =
+    getCachedAuthenticatedUser();
 
-  localStorage.setItem(
-    "chartMode",
-    chartMode
-  );
-
-  localStorage.setItem(
-    "expenseTrackerSyncState",
-    JSON.stringify({
-      transactions: structuredClone(transactions),
-      cloudMeta: structuredClone(getCloudMeta()),
-      chartMode
-    })
+  saveState(
+    {
+      transactions,
+      chartMode,
+      cloudMeta,
+      meta: {}
+    },
+    currentUser
   );
 
   init();
@@ -1174,6 +1161,8 @@ attachChartClick(
 
   const authenticatedUser =
     getCachedAuthenticatedUser();
+
+  initializeState(authenticatedUser);
 
   // --------------------------------------------------
   // LOAD PERSISTED CLOUD METADATA
@@ -1409,33 +1398,17 @@ attachChartClick(
      * The existing cloudMeta still contains the persisted
      * blobId that identifies the user's cloud resource.
      */
-    localStorage.setItem(
-      "transactions",
-      JSON.stringify(
-        transactions
-      )
-    );
+    const currentUser =
+      getCachedAuthenticatedUser();
 
-    localStorage.setItem(
-      "chartMode",
-      chartMode
-    );
-
-    localStorage.setItem(
-      "expenseTrackerSyncState",
-      JSON.stringify({
-        transactions:
-          structuredClone(
-            transactions
-          ),
-
-        cloudMeta:
-          structuredClone(
-            getCloudMeta()
-          ),
-
-        chartMode
-      })
+    saveState(
+      {
+        transactions,
+        cloudMeta: getCloudMeta(),
+        chartMode,
+        meta: {}
+      },
+      currentUser
     );
 
     chartStatus.textContent =
@@ -1520,20 +1493,6 @@ listenToBroadcast(payload => {
 
     return;
   }
-
-  localStorage.setItem(
-    "chartMode",
-    chartMode
-  );
-
-  localStorage.setItem(
-    "expenseTrackerSyncState",
-    JSON.stringify({
-      transactions: structuredClone(transactions),
-      cloudMeta: structuredClone(getCloudMeta()),
-      chartMode
-    })
-  );
 
   replaceCurrentUndoStateAndClearRedo(
     createUndoState({
@@ -1923,124 +1882,15 @@ const handleExternalStateUpdate = event => {
     "Updated from another tab";
 };
 
-const applyTransactionOperation = (
-  state,
-  operation
-) => {
-  switch (operation.type) {
-    case "add":
-      return {
-        ...state,
-        transactions: [
-          ...state.transactions,
-          operation.transaction
-        ]
-      };
-
-    case "edit":
-      return {
-        ...state,
-        transactions:
-          state.transactions.map(transaction =>
-            transaction.id ===
-            operation.transactionId
-              ? {
-                  ...transaction,
-                  ...operation.changes
-                }
-              : transaction
-          )
-      };
-
-    case "delete":
-      return {
-        ...state,
-        transactions:
-          state.transactions.filter(
-            transaction =>
-              transaction.id !==
-              operation.transactionId
-          )
-      };
-
-    default:
-      throw new Error(
-        `Unsupported transaction operation: ${operation.type}`
-      );
-  }
-};
-
-const saveWithRetry = async ({
-  userId,
-  state,
-  operation,
-  deviceId
-}) => {
-  let workingState = state;
-
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const expectedVersion =
-      workingState.cloudMeta.version;
-
-    const nextVersion =
-      expectedVersion + 1;
-
-    const nextState =
-      applyTransactionOperation(
-        workingState,
-        operation
-      );
-
-    nextState.cloudMeta = {
-      ...nextState.cloudMeta,
-      version: nextVersion,
-      updatedAt: Date.now(),
-      deviceId
-    };
-
-    try {
-      return await pushToCloud({
-        userId,
-        transactions:
-          nextState.transactions,
-        cloudMeta:
-          nextState.cloudMeta,
-        chartMode:
-          nextState.chartMode,
-        deviceId,
-        meta:
-          nextState.meta,
-        expectedVersion
-      });
-
-    } catch (error) {
-      if (!isVersionConflict(error)) {
-        throw error;
-      }
-
-      const latest =
-        await pullFromCloud({
-          userId
-        });
-
-      if (!latest) {
-        throw new Error(
-          "Unable to retrieve the latest cloud state after a version conflict."
-        );
-      }
-
-      workingState = latest;
-    }
-  }
-
-  throw new Error(
-    "Cloud state changed repeatedly; retry limit reached."
-  );
-};
-
 window.addEventListener(
   "storage",
   event => {
+    // Storage events are only the fallback
+    // when BroadcastChannel is unavailable.
+    if (isBroadcastAvailable()) {
+      return;
+    }
+
     const currentUser =
       getCachedAuthenticatedUser();
 
