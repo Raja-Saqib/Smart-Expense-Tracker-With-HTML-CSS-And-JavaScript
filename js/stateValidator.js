@@ -383,3 +383,60 @@ export const validateSnapshot = snapshot => {
 
   return true;
 };
+
+export const sanitizeTransactions = transactions => {
+  if (!Array.isArray(transactions)) {
+    return {
+      transactions: [],
+      invalidTransactions: [],
+      valid: false
+    };
+  }
+
+  const validTransactions = [];
+  const invalidTransactions = [];
+
+  const ids = new Map();
+
+  transactions.forEach((transaction, index) => {
+    const result =
+      validateTransaction(transaction);
+
+    if (!result.valid) {
+      invalidTransactions.push({
+        index,
+        transaction,
+        errors: result.errors
+      });
+
+      return;
+    }
+
+    if (ids.has(transaction.id)) {
+      invalidTransactions.push({
+        index,
+        transaction,
+        errors: {
+          id:
+            `Duplicate transaction ID; first used at index ${ids.get(transaction.id)}`
+        }
+      });
+
+      return;
+    }
+
+    ids.set(
+      transaction.id,
+      index
+    );
+
+    validTransactions.push(transaction);
+  });
+
+  return {
+    transactions: validTransactions,
+    invalidTransactions,
+    valid:
+      invalidTransactions.length === 0
+  };
+};

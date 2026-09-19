@@ -1,5 +1,7 @@
 // js/localState.js
 
+import { sanitizeTransactions } from "./stateValidator";
+
 const GUEST_STORAGE_KEY =
   "expenseTracker:guest:state";
 
@@ -182,9 +184,21 @@ export const loadState = user => {
     return createDefaultState();
   }
 
+  const transactionResult =
+    sanitizeTransactions(
+        parsed.transactions
+    );
+
+  if (!transactionResult.valid) {
+    console.warn(
+        "Invalid transactions found in LocalStorage:",
+        transactionResult.invalidTransactions
+    );
+  }
+
   return {
     transactions:
-      parsed.transactions,
+      transactionResult.transactions,
 
     chartMode:
       parsed.chartMode,
