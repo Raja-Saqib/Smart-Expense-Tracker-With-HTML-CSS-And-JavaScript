@@ -429,6 +429,11 @@ const handleImportCSV = async e => {
             result.duplicateCount,
           invalidCount:
             result.errors.length
+        },
+        operation: {
+          type: "replaceTransactions",
+          transactions:
+            structuredClone(transactions)
         }
       });
 
@@ -942,6 +947,10 @@ donutToggle.addEventListener("change", async () => {
       chartMode: mode,
       meta: {
         type: "chart-mode"
+      },
+      operation: {
+        type: "setChartMode",
+        chartMode: mode
       }
     });
 

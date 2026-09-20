@@ -33,6 +33,21 @@ export const initializeState = user => {
   return state;
 };
 
+export const switchStateIdentity = user => {
+  const state =
+    initializeState(user);
+
+  transactions =
+    structuredClone(
+      state.transactions
+    );
+
+  editId = null;
+  activeCategory = null;
+
+  return state;
+};
+
 const getErrorDetails = error => {
   if (!error) return null;
 
@@ -99,67 +114,44 @@ export const saveData = async ({
   const authenticatedUser =
     getCachedAuthenticatedUser();
 
-  // --------------------------------------------------
-  // PREPARE LOCAL STATE
-  //
-  // This is the state we will persist locally if the
-  // user is a guest or if cloud synchronization fails.
-  // --------------------------------------------------
-
   const localState = {
-    transactions:
-      structuredClone(transactions),
-
+    transactions: structuredClone(transactions),
     chartMode,
-
-    cloudMeta:
-      structuredClone(cloudMeta),
-
-    meta:
-      structuredClone(meta)
+    cloudMeta: structuredClone(cloudMeta),
+    meta: structuredClone(meta)
   };
 
-  let cloudState = null;
-  let cloudError = null;
+  let authoritativeState =
+    structuredClone(localState);
 
-  // --------------------------------------------------
-  // AUTHENTICATED CLOUD SYNCHRONIZATION
-  //
-  // Guests remain LocalStorage-only.
-  //
-  // saveWithRetry() is responsible for optimistic
-  // concurrency:
-  //
-  //   expected version
-  //        ↓
-  //   conditional write
-  //        ↓
-  //   version conflict?
-  //        ↓
-  //   pull latest → reapply operation → retry
-  //
-  // We never retry a stale complete snapshot.
-  // --------------------------------------------------
+  let cloudError = null;
 
   const MAX_SAVE_RETRIES = 3;
 
   if (authenticatedUser) {
     try {
-      cloudState = await saveWithRetry({
-        userId: authenticatedUser.id,
+      const cloudResult =
+        await saveWithRetry({
+          userId: authenticatedUser.id,
+          state: structuredClone(localState),
+          operation,
+          deviceId,
+          pushToCloud,
+          pullFromCloud,
+          maxRetries: MAX_SAVE_RETRIES
+        });
 
-        state: structuredClone(localState),
-
-        operation,
-
-        deviceId,
-
-        pushToCloud,
-
-        pullFromCloud,
-
-        maxRetries: MAX_SAVE_RETRIES
-      });
+      /*
+       * IMPORTANT:
+       * saveWithRetry() may have rebased the operation
+       * on a newer cloud state.
+       *
+       * Therefore its returned state is authoritative.
+       */
+      authoritativeState =
+        structuredClone(
+          cloudResult.state
+        );
 
     } catch (error) {
       cloudError = error;
@@ -171,32 +163,17 @@ export const saveData = async ({
     }
   }
 
-  // --------------------------------------------------
-  // CLOUD METADATA
-  //
-  // Only replace the local cloud metadata when the
-  // cloud write actually succeeded.
-  //
-  // This prevents a failed/conflicted cloud operation
-  // from falsely advancing the local cloud version.
-  // --------------------------------------------------
-
-  if (cloudState) {
+  /*
+   * If cloud save succeeded, use the authoritative
+   * cloud metadata returned by saveWithRetry().
+   */
+  if (!cloudError && authenticatedUser) {
     try {
-      setCloudMeta({
-        version:
-          cloudState.version,
-
-        updatedAt:
-          cloudState.updatedAt,
-
-        deviceId:
-          cloudState.updatedBy,
-
-        blobId:
-          cloudState.blobId
-      });
-
+      setCloudMeta(
+        structuredClone(
+          authoritativeState.cloudMeta
+        )
+      );
     } catch (error) {
       console.warn(
         "Cloud metadata could not be persisted:",
@@ -205,69 +182,21 @@ export const saveData = async ({
     }
   }
 
-  // --------------------------------------------------
-  // PRIMARY LOCAL PERSISTENCE
-  //
-  // IMPORTANT:
-  //
-  // If cloud synchronization succeeded, persist the
-  // authoritative cloud metadata returned by the
-  // successful cloud write.
-  //
-  // If cloud synchronization failed, persist the
-  // original local state and keep the previous cloud
-  // metadata.
-  //
-  // saveState() automatically chooses:
-  //
-  //   guest:
-  //   expenseTracker:guest:state
-  //
-  //   authenticated:
-  //   expenseTracker:user:<userId>:state
-  // --------------------------------------------------
-
-  const persistedState = {
-    transactions:
-      structuredClone(transactions),
-
-    chartMode,
-
-    cloudMeta:
-      structuredClone(getCloudMeta()),
-
-    meta:
-      structuredClone(meta)
-  };
-
-  // Local persistence remains authoritative for the
-  // browser when cloud synchronization is unavailable.
-  //
-  // If this throws, the caller's existing rollback
-  // mechanism must handle the failed transaction.
+  /*
+   * Persist the authoritative state locally.
+   *
+   * When cloud save succeeded:
+   *   authoritativeState = rebased cloud state
+   *
+   * When offline/cloud save failed:
+   *   authoritativeState = original local state
+   */
   saveState(
-    persistedState,
+    authoritativeState,
     authenticatedUser
   );
 
-  // --------------------------------------------------
-  // SYNC-STATE ERROR REPORTING
-  //
-  // The old STORAGE_SYNC_KEY mirror has been removed.
-  //
-  // saveState() is now the identity-aware local
-  // persistence mechanism and the storage-event fallback
-  // watches that identity-specific key directly.
-  //
-  // Keep syncStateError in the return contract so
-  // existing callers do not regress.
-  // --------------------------------------------------
-
   const syncStateError = null;
-
-  // --------------------------------------------------
-  // RESULT
-  // --------------------------------------------------
 
   return {
     success: true,
@@ -277,17 +206,18 @@ export const saveData = async ({
 
     cloudMeta:
       structuredClone(
-        getCloudMeta()
+        authoritativeState.cloudMeta
       ),
 
     cloudError:
-      getErrorDetails(
-        cloudError
-      ),
+      getErrorDetails(cloudError),
 
     syncStateError:
-      getErrorDetails(
-        syncStateError
+      getErrorDetails(syncStateError),
+
+    state:
+      structuredClone(
+        authoritativeState
       )
   };
 };
@@ -361,7 +291,11 @@ export const addTransaction = async ({
     structuredClone(transactions);
 
   const data = {
-    id: currentEditId ?? Date.now(),
+    id:
+      currentEditId !== null &&
+      currentEditId !== undefined
+        ? String(currentEditId)
+        : String(Date.now()),
     text: normalizedText,
     category,
     amount: numericAmount,

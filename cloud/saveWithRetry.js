@@ -211,6 +211,68 @@ export const applyOperation = (
       };
     }
 
+    case "replaceTransactions":
+      if (!Array.isArray(operation.transactions)) {
+        throw new OperationConflictError(
+          "Replacement transactions must be an array."
+        );
+      }
+
+      return {
+        ...state,
+        transactions:
+          structuredClone(
+            operation.transactions
+          )
+      }
+    
+    case "restoreTransactions":
+      if (!Array.isArray(operation.transactions)) {
+        throw new OperationConflictError(
+          "Restored transactions must be an array."
+        );
+      }
+
+      return {
+        ...state,
+        transactions:
+          structuredClone(
+            operation.transactions
+          )
+      }
+
+    case "restoreState":
+      if (
+        !Array.isArray(
+        operation.transactions
+        )
+      ) {
+        throw new OperationConflictError(
+          "Restored transactions must be an array."
+        );
+      }
+
+      if (
+        operation.chartMode !== "pie" &&
+        operation.chartMode !== "donut"
+      ) {
+        throw new OperationConflictError(
+          "Invalid restored chart mode."
+        );
+      }
+
+      return {
+        ...state,
+
+        transactions:
+          structuredClone(
+            operation.transactions
+          ),
+
+        chartMode:
+          operation.chartMode
+      }
+
     default:
       throw new OperationConflictError(
         `Unsupported operation type: ${operation.type}.`,

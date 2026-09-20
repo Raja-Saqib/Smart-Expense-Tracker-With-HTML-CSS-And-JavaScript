@@ -153,14 +153,6 @@ export const loadState = user => {
 
   try {
     parsed = JSON.parse(stored);
-
-    const snapshot = {
-      state: parsed
-    };
-
-    validateSnapshot(snapshot);
-
-    // return parsed;
   } catch (error) {
     backupInvalidState(
       storageKey,
@@ -178,8 +170,14 @@ export const loadState = user => {
   }
 
   if (!validateState(parsed)) {
+    backupInvalidState(
+        storageKey,
+        stored,
+        "invalid state structure"
+    );
+
     console.warn(
-      `Invalid state structure in LocalStorage key "${storageKey}". Using default state.`
+        "Invalid LocalStorage state recovered."
     );
 
     return createDefaultState();
