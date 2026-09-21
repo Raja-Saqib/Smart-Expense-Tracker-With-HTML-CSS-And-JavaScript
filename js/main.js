@@ -414,8 +414,7 @@ const handleImportCSV = async e => {
     }
 
     /*
-     * Prepare the transaction collection and persistence
-     * operation.
+     * Prepare the persistence operation.
      *
      * Merge is rebaseable because the imported transactions
      * can be applied again to the latest cloud state.
@@ -423,16 +422,6 @@ const handleImportCSV = async e => {
      * Replace is NOT rebaseable because it intentionally
      * replaces the complete transaction collection.
      */
-    const nextTransactions =
-      mode === "replace"
-        ? structuredClone(
-            result.transactions
-          )
-        : [
-            ...previousTransactions,
-            ...result.transactions
-          ];
-
     const importMeta = {
       type: "csv-import",
       mode,
