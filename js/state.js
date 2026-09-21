@@ -4,6 +4,7 @@ import {
 import { pushToCloud, pullFromCloud } from "../cloud/cloudSync.js";
 import {
   saveWithRetry,
+  applyOperation,
 } from "../cloud/saveWithRetry.js";
 import { broadcastState } from "./crossTabSync.js";
 import { createUndoState, pushUndoState } from "./historyState.js";
@@ -180,7 +181,14 @@ export const saveData = async ({
   const authenticatedUser =
     getCachedAuthenticatedUser();
 
-  const localState = {
+  /*
+   * This is the BASE state.
+   *
+   * Important:
+   * It must represent the state BEFORE the
+   * supplied operation is applied.
+   */
+  const baseState = {
     transactions:
       structuredClone(transactions),
 
@@ -194,7 +202,7 @@ export const saveData = async ({
   };
 
   let authoritativeState =
-    structuredClone(localState);
+    structuredClone(baseState);
 
   let cloudResult = null;
   let cloudError = null;
@@ -211,7 +219,7 @@ export const saveData = async ({
             authenticatedUser.id,
 
           state:
-            structuredClone(localState),
+            structuredClone(baseState),
 
           operation,
 
@@ -224,14 +232,6 @@ export const saveData = async ({
           maxRetries: 3
         });
 
-      /*
-       * IMPORTANT:
-       *
-       * saveWithRetry() may have rebased the operation
-       * onto a newer cloud state.
-       *
-       * Therefore its returned state is authoritative.
-       */
       if (
         !cloudResult?.state ||
         typeof cloudResult.state !== "object"
@@ -241,6 +241,12 @@ export const saveData = async ({
         );
       }
 
+      /*
+       * Cloud state is authoritative.
+       *
+       * This is especially important after
+       * a successful rebase.
+       */
       authoritativeState =
         structuredClone(
           cloudResult.state
@@ -250,24 +256,44 @@ export const saveData = async ({
       cloudError = error;
 
       console.warn(
-        "Cloud sync failed, saving locally:",
+        "Cloud sync failed, applying operation locally:",
         error
       );
     }
   }
 
   // --------------------------------------------------
-  // APPLY AUTHORITATIVE IN-MEMORY STATE
+  // LOCAL / OFFLINE OPERATION
   // --------------------------------------------------
 
   /*
-   * If the cloud write succeeded, these values may
-   * differ from the state originally supplied to saveData()
-   * because saveWithRetry() may have rebased the operation.
+   * If there was no successful cloud write,
+   * apply the operation locally.
    *
-   * If cloud synchronization failed, authoritativeState
-   * remains the original local state.
+   * This covers:
+   *
+   * 1. Guest users
+   * 2. Authenticated users while cloud is offline
+   *
+   * The operation is therefore applied exactly
+   * once regardless of cloud availability.
    */
+  if (!cloudResult) {
+    if (operation) {
+      authoritativeState =
+        applyOperation(
+          structuredClone(baseState),
+          operation
+        );
+    } else {
+      authoritativeState =
+        structuredClone(baseState);
+    }
+  }
+
+  // --------------------------------------------------
+  // APPLY AUTHORITATIVE IN-MEMORY STATE
+  // --------------------------------------------------
 
   setTransactions(
     structuredClone(
@@ -438,21 +464,13 @@ export const addTransaction = async ({
     updatedBy: deviceId
   };
 
-  // MUTATE
-  setTransactions(
-    currentEditId
-      ? transactions.map(t =>
-          t.id === currentEditId
-            ? data
-            : t
-        )
-      : [...transactions, data]
-  );
-
   // PERSIST
   try {
     const result = await saveData({
-      transactions,
+      transactions:
+        structuredClone(
+          previousTransactions
+        ),
       cloudMeta: getCloudMeta(),
       chartMode,
       meta: currentEditId
@@ -551,18 +569,12 @@ export const deleteTransaction = async (
   const previousTransactions =
     structuredClone(transactions);
 
-  // MUTATE
-  setTransactions(
-    transactions.filter(
-      transaction =>
-        transaction.id !==
-        normalizedId
-    )
-  );
-
   try {
     const result = await saveData({
-      transactions,
+      transactions:
+        structuredClone(
+          previousTransactions
+        ),
       cloudMeta: getCloudMeta(),
       chartMode,
       meta: {

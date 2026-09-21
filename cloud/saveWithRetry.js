@@ -360,14 +360,36 @@ export const applyOperation = (
         );
       }
 
+      if (
+        !Array.isArray(
+          operation.state.transactions
+        )
+      ) {
+        throw new OperationConflictError(
+          "replaceState requires transactions to be an array."
+        );
+      }
+
+      if (
+        operation.state.chartMode !== "pie" &&
+        operation.state.chartMode !== "donut"
+      ) {
+        throw new OperationConflictError(
+          "replaceState requires a valid chart mode."
+        );
+      }
+
       return {
         ...state,
+
         transactions:
           structuredClone(
             operation.state.transactions
           ),
+
         chartMode:
-        operation.state.chartMode,
+          operation.state.chartMode,
+
         meta:
           structuredClone(
             operation.state.meta ?? {}

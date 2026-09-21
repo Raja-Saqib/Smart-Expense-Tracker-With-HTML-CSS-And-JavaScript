@@ -103,20 +103,18 @@ const restoreHistoryState = async target => {
   const currentCloudMeta =
     structuredClone(getCloudMeta());
 
-  setTransactions(structuredClone(tx));
-  setChartMode(mode);
-
   try {
     const result =
       await saveData({
         transactions:
-          structuredClone(tx),
+          structuredClone(
+            transactions
+          ),
 
         cloudMeta:
           currentCloudMeta,
 
-        chartMode:
-          mode,
+        chartMode,
 
         meta: {
           type: "history-jump"
@@ -1013,15 +1011,22 @@ donutToggle.addEventListener("change", async () => {
     chartMode;
 
   try {
-    setChartMode(mode);
 
     const result = await saveData({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode: mode,
+      transactions:
+        structuredClone(
+          transactions
+        ),
+
+      cloudMeta:
+        getCloudMeta(),
+
+      chartMode,
+
       meta: {
         type: "chart-mode"
       },
+
       operation: {
         type: "setChartMode",
         chartMode: mode
@@ -1034,6 +1039,10 @@ donutToggle.addEventListener("change", async () => {
         "Chart mode was not saved"
       );
     }
+
+    setChartMode(
+      authoritativeState.chartMode
+    );
 
     pushUndoState(
       createUndoState({

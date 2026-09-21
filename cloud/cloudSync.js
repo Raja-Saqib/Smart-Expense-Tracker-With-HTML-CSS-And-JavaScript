@@ -13,6 +13,8 @@ import { deviceId } from "../js/deviceIdentity.js";
  * @param {string} params.chartMode
  * @param {string} params.deviceId
  * @param {Object} params.meta
+ * @param {number} params.expectedVersion
+ * @param {number} params.nextVersion
  * @returns {Promise<Object>} Cloud state using the application's existing format.
  */
 export const pushToCloud = async ({
@@ -22,6 +24,8 @@ export const pushToCloud = async ({
   chartMode,
   deviceId,
   meta = {},
+  expectedVersion,
+  nextVersion
 }) => {
   if (!userId) {
     throw new Error(
@@ -29,60 +33,120 @@ export const pushToCloud = async ({
     );
   }
 
-  const nextVersion =
-    (cloudMeta?.version ?? 0) + 1;
+  if (
+    !Number.isSafeInteger(
+      expectedVersion
+    ) ||
+    expectedVersion < 0
+  ) {
+    throw new Error(
+      "A valid expected cloud version is required."
+    );
+  }
 
-  const updatedAt = Date.now();
-
-  const payload = {
-    user_id: userId,
-    version: nextVersion,
-    updated_at: new Date(updatedAt).toISOString(),
-    updated_by: deviceId,
-    transactions,
-    chart_mode: chartMode,
-    meta,
-  };
+  if (
+    !Number.isSafeInteger(
+      nextVersion
+    ) ||
+    nextVersion !==
+      expectedVersion + 1
+  ) {
+    throw new Error(
+      "Invalid cloud version transition."
+    );
+  }
 
   const {
     data,
-    error,
-  } = await supabase
-    .from("expense_tracker_state")
-    .upsert(
-      payload,
-      {
-        onConflict: "user_id",
-      }
-    )
-    .select()
-    .single();
+    error
+  } = await supabase.rpc(
+    "update_expense_tracker_state",
+    {
+      p_user_id:
+        userId,
+
+      p_expected_version:
+        expectedVersion,
+
+      p_next_version:
+        nextVersion,
+
+      p_transactions:
+        transactions,
+
+      p_chart_mode:
+        chartMode,
+
+      p_meta:
+        meta,
+
+      p_updated_by:
+        deviceId
+    }
+  );
 
   if (error) {
-    const cloudError = new Error(
-      `Supabase push failed: ${error.message}`
-    );
+    const cloudError =
+      new Error(
+        `Supabase push failed: ${error.message}`
+      );
 
-    cloudError.status = error.status;
-    cloudError.code = error.code;
+    cloudError.status =
+      error.status;
+
+    cloudError.code =
+      error.code;
 
     throw cloudError;
   }
 
-  if (!data) {
-    throw new Error(
-      "Supabase push succeeded but no state was returned"
-    );
+  /*
+   * The RPC returns zero rows when the expected
+   * version no longer matches the cloud version.
+   */
+  if (
+    !Array.isArray(data) ||
+    data.length === 0
+  ) {
+    const conflictError =
+      new Error(
+        "Cloud state changed before this write could be committed."
+      );
+
+    conflictError.name =
+      "CloudVersionConflictError";
+
+    conflictError.code =
+      "CLOUD_VERSION_CONFLICT";
+
+    throw conflictError;
   }
 
+  const row = data[0];
+
   return {
-    version: Number(data.version),
-    updatedAt: Date.parse(data.updated_at),
-    updatedBy: data.updated_by,
-    transactions: data.transactions,
-    chartMode: data.chart_mode,
-    meta: data.meta,
-    userId: data.user_id,
+    version:
+      Number(row.version),
+
+    updatedAt:
+      Date.parse(
+        row.updated_at
+      ),
+
+    updatedBy:
+      row.updated_by,
+
+    transactions:
+      row.transactions,
+
+    chartMode:
+      row.chart_mode,
+
+    meta:
+      row.meta,
+
+    userId:
+      row.user_id
   };
 };
 
