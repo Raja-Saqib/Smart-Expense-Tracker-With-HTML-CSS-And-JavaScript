@@ -45,6 +45,22 @@ const getVersion = state => {
   return version;
 };
 
+const REBASEABLE_OPERATION_TYPES =
+  new Set([
+    "add",
+    "edit",
+    "delete",
+    "setChartMode",
+    "mergeTransactions"
+  ]);
+
+const isRebaseableOperation =
+  operation =>
+    REBASEABLE_OPERATION_TYPES.has(
+      operation?.type
+    );
+
+
 /**
  * Apply one user operation to a state snapshot.
  *
@@ -272,6 +288,92 @@ export const applyOperation = (
         chartMode:
           operation.chartMode
       }
+
+    case "mergeTransactions": {
+      if (
+        !Array.isArray(
+          operation.transactions
+        )
+      ) {
+        throw new OperationConflictError(
+          "mergeTransactions requires transactions"
+        );
+      }
+
+      const existingIds =
+        new Set(
+          state.transactions.map(
+            transaction =>
+            transaction.id
+          )
+        );
+
+      const mergedTransactions =
+        [...state.transactions];
+
+      for (
+        const transaction of
+        operation.transactions
+      ) {
+        if (
+          !transaction ||
+          !Number.isSafeInteger(
+            transaction.id
+          )
+        ) {
+          continue;
+        }
+
+        if (
+          existingIds.has(
+            transaction.id
+          )
+        ) {
+          continue;
+        }
+
+        mergedTransactions.push(
+          structuredClone(
+            transaction
+          )
+        );
+
+        existingIds.add(
+          transaction.id
+        );
+      }
+
+      return {
+        ...state,
+        transactions:
+          mergedTransactions
+      };
+    }
+
+    case "replaceState": {
+      if (
+        !operation.state ||
+        typeof operation.state !== "object"
+      ) {
+        throw new OperationConflictError(
+          "replaceState requires a state"
+        );
+      }
+
+      return {
+        ...state,
+        transactions:
+          structuredClone(
+            operation.state.transactions
+          ),
+        chartMode:
+        operation.state.chartMode,
+        meta:
+          structuredClone(
+            operation.state.meta ?? {}
+          )
+      };
+    }
 
     default:
       throw new OperationConflictError(

@@ -8,38 +8,51 @@ const DEFAULT_CLOUD_META = {
   version: 0,
   updatedAt: 0,
   deviceId: null,
-  blobId: null
 };
 
 // --------------------------------------------------
 // Validation helpers
 // --------------------------------------------------
 
-const isValidBlobId = value =>
-  typeof value === "string" &&
-  value.trim() !== "";
+// const normalizeCloudMeta = meta => ({
+//   version: Number.isFinite(meta?.version)
+//     ? meta.version
+//     : DEFAULT_CLOUD_META.version,
 
-const normalizeBlobId = value =>
-  isValidBlobId(value)
-    ? value.trim()
-    : DEFAULT_CLOUD_META.blobId;
+//   updatedAt: Number.isFinite(meta?.updatedAt)
+//     ? meta.updatedAt
+//     : DEFAULT_CLOUD_META.updatedAt,
+
+//   deviceId:
+//     typeof meta?.deviceId === "string" &&
+//     meta.deviceId.trim() !== ""
+//       ? meta.deviceId
+//       : DEFAULT_CLOUD_META.deviceId,
+
+// });
 
 const normalizeCloudMeta = meta => ({
-  version: Number.isFinite(meta?.version)
-    ? meta.version
-    : DEFAULT_CLOUD_META.version,
+  version:
+    Number.isSafeInteger(
+      meta?.version
+    ) &&
+    meta.version >= 0
+      ? meta.version
+      : 0,
 
-  updatedAt: Number.isFinite(meta?.updatedAt)
-    ? meta.updatedAt
-    : DEFAULT_CLOUD_META.updatedAt,
+  updatedAt:
+    Number.isSafeInteger(
+      meta?.updatedAt
+    ) &&
+    meta.updatedAt >= 0
+      ? meta.updatedAt
+      : 0,
 
   deviceId:
     typeof meta?.deviceId === "string" &&
     meta.deviceId.trim() !== ""
       ? meta.deviceId
-      : DEFAULT_CLOUD_META.deviceId,
-
-  blobId: normalizeBlobId(meta?.blobId)
+      : null
 });
 
 // --------------------------------------------------
@@ -86,23 +99,3 @@ export const setCloudMeta = meta => {
   return getCloudMeta();
 };
 
-// --------------------------------------------------
-// Blob ID helpers
-// --------------------------------------------------
-
-export const getBlobId = () =>
-  cloudMeta.blobId;
-
-export const setBlobId = blobId => {
-  cloudMeta = {
-    ...cloudMeta,
-    blobId: normalizeBlobId(blobId)
-  };
-
-  localStorage.setItem(
-    CLOUD_META_KEY,
-    JSON.stringify(cloudMeta)
-  );
-
-  return cloudMeta.blobId;
-};

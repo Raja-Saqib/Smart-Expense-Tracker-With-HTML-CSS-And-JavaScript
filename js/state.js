@@ -20,17 +20,83 @@ export let transactions = [];
 export let editId = null;
 export let activeCategory = null;
 
+const normalizeTransactionId = id => {
+  if (Number.isSafeInteger(id)) {
+    return id;
+  }
+
+  if (
+    typeof id === "string" &&
+    id.trim() !== ""
+  ) {
+    const numericId =
+      Number(id);
+
+    if (
+      Number.isSafeInteger(
+        numericId
+      )
+    ) {
+      return numericId;
+    }
+  }
+
+  return null;
+};
+
+const normalizeTransactions = list => {
+  if (!Array.isArray(list)) {
+    return [];
+  }
+
+  return list
+    .map(transaction => {
+      const normalizedId =
+        normalizeTransactionId(
+          transaction?.id
+        );
+
+      if (
+        normalizedId === null
+      ) {
+        return null;
+      }
+
+      return {
+        ...transaction,
+        id: normalizedId
+      };
+    })
+    .filter(Boolean);
+};
+
 export const initializeState = user => {
-  const state = loadState(user);
+  const state =
+    loadState(user);
+
+  const normalizedTransactions =
+    normalizeTransactions(
+      state.transactions
+    );
 
   transactions =
-    structuredClone(state.transactions);
+    structuredClone(
+      normalizedTransactions
+    );
 
-  setCloudMeta(state.cloudMeta);
+  setCloudMeta(
+    state.cloudMeta
+  );
 
-  setChartMode(state.chartMode);
+  setChartMode(
+    state.chartMode
+  );
 
-  return state;
+  return {
+    ...state,
+    transactions:
+      normalizedTransactions
+  };
 };
 
 export const switchStateIdentity = user => {
@@ -115,39 +181,66 @@ export const saveData = async ({
     getCachedAuthenticatedUser();
 
   const localState = {
-    transactions: structuredClone(transactions),
+    transactions:
+      structuredClone(transactions),
+
     chartMode,
-    cloudMeta: structuredClone(cloudMeta),
-    meta: structuredClone(meta)
+
+    cloudMeta:
+      structuredClone(cloudMeta),
+
+    meta:
+      structuredClone(meta)
   };
 
   let authoritativeState =
     structuredClone(localState);
 
+  let cloudResult = null;
   let cloudError = null;
 
-  const MAX_SAVE_RETRIES = 3;
+  // --------------------------------------------------
+  // AUTHENTICATED CLOUD SYNCHRONIZATION
+  // --------------------------------------------------
 
   if (authenticatedUser) {
     try {
-      const cloudResult =
+      cloudResult =
         await saveWithRetry({
-          userId: authenticatedUser.id,
-          state: structuredClone(localState),
+          userId:
+            authenticatedUser.id,
+
+          state:
+            structuredClone(localState),
+
           operation,
+
           deviceId,
+
           pushToCloud,
+
           pullFromCloud,
-          maxRetries: MAX_SAVE_RETRIES
+
+          maxRetries: 3
         });
 
       /*
        * IMPORTANT:
+       *
        * saveWithRetry() may have rebased the operation
-       * on a newer cloud state.
+       * onto a newer cloud state.
        *
        * Therefore its returned state is authoritative.
        */
+      if (
+        !cloudResult?.state ||
+        typeof cloudResult.state !== "object"
+      ) {
+        throw new Error(
+          "Cloud save succeeded but no authoritative state was returned"
+        );
+      }
+
       authoritativeState =
         structuredClone(
           cloudResult.state
@@ -163,40 +256,47 @@ export const saveData = async ({
     }
   }
 
-  /*
-   * If cloud save succeeded, use the authoritative
-   * cloud metadata returned by saveWithRetry().
-   */
-  if (!cloudError && authenticatedUser) {
-    try {
-      setCloudMeta(
-        structuredClone(
-          authoritativeState.cloudMeta
-        )
-      );
-    } catch (error) {
-      console.warn(
-        "Cloud metadata could not be persisted:",
-        error
-      );
-    }
-  }
+  // --------------------------------------------------
+  // APPLY AUTHORITATIVE IN-MEMORY STATE
+  // --------------------------------------------------
 
   /*
-   * Persist the authoritative state locally.
+   * If the cloud write succeeded, these values may
+   * differ from the state originally supplied to saveData()
+   * because saveWithRetry() may have rebased the operation.
    *
-   * When cloud save succeeded:
-   *   authoritativeState = rebased cloud state
-   *
-   * When offline/cloud save failed:
-   *   authoritativeState = original local state
+   * If cloud synchronization failed, authoritativeState
+   * remains the original local state.
    */
+
+  setTransactions(
+    structuredClone(
+      authoritativeState.transactions
+    )
+  );
+
+  setChartMode(
+    authoritativeState.chartMode
+  );
+
+  setCloudMeta(
+    structuredClone(
+      authoritativeState.cloudMeta
+    )
+  );
+
+  // --------------------------------------------------
+  // LOCAL PERSISTENCE
+  // --------------------------------------------------
+
   saveState(
     authoritativeState,
     authenticatedUser
   );
 
-  const syncStateError = null;
+  // --------------------------------------------------
+  // RESULT
+  // --------------------------------------------------
 
   return {
     success: true,
@@ -204,21 +304,29 @@ export const saveData = async ({
     offline:
       Boolean(cloudError),
 
+    state:
+      structuredClone(
+        authoritativeState
+      ),
+
     cloudMeta:
       structuredClone(
         authoritativeState.cloudMeta
       ),
 
     cloudError:
-      getErrorDetails(cloudError),
+      getErrorDetails(
+        cloudError
+      ),
 
     syncStateError:
-      getErrorDetails(syncStateError),
+      null,
 
-    state:
-      structuredClone(
-        authoritativeState
-      )
+    attempts:
+      cloudResult?.attempts ?? 0,
+
+    rebased:
+      cloudResult?.rebased ?? false
   };
 };
 
@@ -285,21 +393,47 @@ export const addTransaction = async ({
     }
   }
 
-  const currentEditId = editId;
+  const currentEditId =
+    normalizeTransactionId(
+      editId
+    );
 
+  if (
+    currentEditId !== null &&
+    currentEditId !== undefined
+  ) {
+    editId = currentEditId;
+  }
+  
   const previousTransactions =
     structuredClone(transactions);
 
+  const createTransactionId = () => {
+    let id = Date.now();
+
+    while (
+      transactions.some(
+        transaction =>
+          transaction.id === id
+      )
+    ) {
+      id++;
+    }
+
+    return id;
+  };
+
   const data = {
     id:
-      currentEditId !== null &&
-      currentEditId !== undefined
-        ? String(currentEditId)
-        : String(Date.now()),
+      currentEditId ??
+      createTransactionId(),
+
     text: normalizedText,
     category,
     amount: numericAmount,
-    date: existing?.date ?? new Date().toISOString(),
+    date:
+      existing?.date ??
+      new Date().toISOString(),
     updatedAt: Date.now(),
     updatedBy: deviceId
   };
@@ -397,9 +531,15 @@ export const deleteTransaction = async (
   id,
   { chartMode }
 ) => {
-  const t = transactions.find(
-    transaction => transaction.id === id
-  );
+  const normalizedId =
+    normalizeTransactionId(id);
+
+  const t =
+    transactions.find(
+      transaction =>
+        transaction.id ===
+        normalizedId
+    );
 
   if (!t) {
     return {
@@ -414,7 +554,9 @@ export const deleteTransaction = async (
   // MUTATE
   setTransactions(
     transactions.filter(
-      transaction => transaction.id !== id
+      transaction =>
+        transaction.id !==
+        normalizedId
     )
   );
 
@@ -429,7 +571,7 @@ export const deleteTransaction = async (
       },
       operation: {
         type: "delete",
-        transactionId: id
+        transactionId: normalizedId
       }
     });
 
@@ -470,11 +612,22 @@ export const deleteTransaction = async (
 };
 
 export const editTransaction = id => {
-  const t = transactions.find(t => t.id === id);
+  const normalizedId =
+    normalizeTransactionId(id);
 
-  if (!t) return null;
+  const t =
+    transactions.find(
+      transaction =>
+        transaction.id ===
+        normalizedId
+    );
 
-  editId = id;
+  if (!t) {
+    return null;
+  }
+
+  editId =
+    normalizedId;
 
   return structuredClone(t);
 };

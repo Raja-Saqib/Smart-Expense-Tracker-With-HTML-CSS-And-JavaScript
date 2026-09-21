@@ -107,14 +107,37 @@ const restoreHistoryState = async target => {
   setChartMode(mode);
 
   try {
-    const result = await saveData({
-      transactions,
-      cloudMeta: currentCloudMeta,
-      chartMode,
-      meta: {
-        type: "history-jump"
-      }
-    });
+    const result =
+      await saveData({
+        transactions:
+          structuredClone(tx),
+
+        cloudMeta:
+          currentCloudMeta,
+
+        chartMode:
+          mode,
+
+        meta: {
+          type: "history-jump"
+        },
+
+        operation: {
+          type: "replaceState",
+
+          state: {
+            transactions:
+              structuredClone(tx),
+
+            chartMode:
+              mode,
+
+            meta: {
+              type: "history-jump"
+            }
+          }
+        }
+      });
 
     if (!result.success) {
       throw new Error(
@@ -408,33 +431,44 @@ const handleImportCSV = async e => {
       structuredClone(nextTransactions)
     );
 
+    
+    const importedTransactions =
+      structuredClone(
+        result.transactions
+      );
+
+    const operation = {
+      type: "mergeTransactions",
+      transactions:
+        importedTransactions
+    };
+
+
     /*
      * Persist the complete resulting state.
      */
     const saveResult =
       await saveData({
-        transactions,
-        cloudMeta: getCloudMeta(),
+        transactions:
+          nextTransactions,
+
+        cloudMeta:
+          getCloudMeta(),
+
         chartMode,
+
         meta: {
           type: "csv-import",
-          mode,
+          mode: "merge",
           importedCount:
-            result.transactions.length,
-          replacedCount:
-            mode === "replace"
-              ? previousTransactions.length
-              : 0,
+            importedTransactions.length,
           duplicateCount:
             result.duplicateCount,
           invalidCount:
             result.errors.length
         },
-        operation: {
-          type: "replaceTransactions",
-          transactions:
-            structuredClone(transactions)
-        }
+
+        operation
       });
 
     /*
@@ -801,6 +835,8 @@ const handleLogout = async () => {
   try {
     await signOut();
 
+    initializeState(null);
+
     authStatus.textContent =
       "Logged out";
   } catch (error) {
@@ -829,19 +865,32 @@ const updateAuthUI = user => {
   }
 };
 
-onAuthStateChange(
+let authTransitionPromise =
+  Promise.resolve();
+
+const handleAuthTransition =
   (event, session) => {
-    const user =
-      session?.user ?? null;
+    authTransitionPromise =
+      authTransitionPromise
+        .then(() =>
+          switchApplicationIdentity(
+            event,
+            session
+          )
+        )
+        .catch(error => {
+          console.error(
+            "Authentication state transition failed:",
+            error
+          );
 
-    console.log(
-      "Auth state changed:",
-      event,
-      user
-    );
+          chartStatus.textContent =
+            "Account state could not be switched safely";
+        });
+  };
 
-    updateAuthUI(user);
-  }
+onAuthStateChange(
+  handleAuthTransition
 );
 
 const initializeAuthUI = async () => {
