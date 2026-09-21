@@ -181,6 +181,19 @@ export const saveData = async ({
   const authenticatedUser =
     getCachedAuthenticatedUser();
 
+  const currentLocalRevision =
+    Number.isSafeInteger(
+      Number(
+        cloudMeta?.localRevision
+      )
+    ) &&
+    Number(cloudMeta.localRevision) >= 0
+      ? Number(cloudMeta.localRevision)
+      : 0;
+
+  const nextLocalRevision =
+    currentLocalRevision + 1;
+
   /*
    * This is the BASE state.
    *
@@ -196,6 +209,9 @@ export const saveData = async ({
 
     cloudMeta:
       structuredClone(cloudMeta),
+
+    localRevision:
+      nextLocalRevision,
 
     meta:
       structuredClone(meta)
@@ -251,6 +267,9 @@ export const saveData = async ({
         structuredClone(
           cloudResult.state
         );
+
+      authoritativeState.localRevision =
+        nextLocalRevision;
 
     } catch (error) {
       cloudError = error;
@@ -516,11 +535,9 @@ export const addTransaction = async ({
       })
     );
 
-    broadcastState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode
-    });
+    broadcastState(
+      result.state
+    );
 
     editId = null;
 
@@ -596,11 +613,9 @@ export const deleteTransaction = async (
       })
     );
 
-    broadcastState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode
-    });
+    broadcastState(
+      result.state
+    );
 
     return {
       success: true,

@@ -197,11 +197,9 @@ const jumpToHistoryState = async index => {
     })
   );
 
-  broadcastState({
-    transactions,
-    cloudMeta: getCloudMeta(),
-    chartMode
-  });
+  broadcastState(
+    result.state
+  );
 
   chartStatus.textContent = result.offline
     ? `Restored locally: ${target.label} (cloud offline)`
@@ -1053,11 +1051,9 @@ donutToggle.addEventListener("change", async () => {
       })
     );
 
-    broadcastState({
-      transactions,
-      cloudMeta: getCloudMeta(),
-      chartMode: mode
-    });
+    broadcastState(
+      result.state
+    );
 
     chartStatus.textContent =
       result.offline
@@ -1445,10 +1441,21 @@ attachChartClick(
      * has been successfully applied locally.
      */
     broadcastState({
-      transactions,
+      transactions:
+        structuredClone(
+          transactions
+        ),
+
       cloudMeta:
-        getCloudMeta(),
-      chartMode
+        structuredClone(
+          getCloudMeta()
+        ),
+
+      chartMode,
+
+      meta: {
+        type: "cloud-restore"
+      }
     });
 
     chartStatus.textContent =
@@ -1523,99 +1530,99 @@ attachChartClick(
   });
 })();
 
-const isValidBroadcastPayload = payload => {
-  if (
-    !payload ||
-    typeof payload !== "object"
-  ) {
-    return false;
-  }
+// const isValidBroadcastPayload = payload => {
+//   if (
+//     !payload ||
+//     typeof payload !== "object"
+//   ) {
+//     return false;
+//   }
 
-  if (!Array.isArray(payload.transactions)) {
-    return false;
-  }
+//   if (!Array.isArray(payload.transactions)) {
+//     return false;
+//   }
 
-  if (
-    !payload.cloudMeta ||
-    typeof payload.cloudMeta !== "object"
-  ) {
-    return false;
-  }
+//   if (
+//     !payload.cloudMeta ||
+//     typeof payload.cloudMeta !== "object"
+//   ) {
+//     return false;
+//   }
 
-  if (
-    payload.chartMode !== "pie" &&
-    payload.chartMode !== "donut"
-  ) {
-    return false;
-  }
+//   if (
+//     payload.chartMode !== "pie" &&
+//     payload.chartMode !== "donut"
+//   ) {
+//     return false;
+//   }
 
-  return true;
-};
+//   return true;
+// };
 
-listenToBroadcast(payload => {
-  if (!isValidBroadcastPayload(payload)) {
-    console.warn(
-      "Ignored invalid cross-tab state payload"
-    );
+// listenToBroadcast(payload => {
+//   if (!isValidBroadcastPayload(payload)) {
+//     console.warn(
+//       "Ignored invalid cross-tab state payload"
+//     );
 
-    return;
-  }
+//     return;
+//   }
 
-  const previousSlices =
-    slices.map(slice => ({
-      category: slice.category,
-      value: slice.value
-    }));
+//   const previousSlices =
+//     slices.map(slice => ({
+//       category: slice.category,
+//       value: slice.value
+//     }));
 
-  setTransactions(
-    structuredClone(payload.transactions)
-  );
+//   setTransactions(
+//     structuredClone(payload.transactions)
+//   );
 
-  setCloudMeta(
-    structuredClone(payload.cloudMeta)
-  );
+//   setCloudMeta(
+//     structuredClone(payload.cloudMeta)
+//   );
 
-  const accepted =
-    setChartMode(payload.chartMode);
+//   const accepted =
+//     setChartMode(payload.chartMode);
 
-  if (!accepted) {
-    console.warn(
-      "Ignored cross-tab state with invalid chartMode"
-    );
+//   if (!accepted) {
+//     console.warn(
+//       "Ignored cross-tab state with invalid chartMode"
+//     );
 
-    return;
-  }
+//     return;
+//   }
 
-  replaceCurrentUndoStateAndClearRedo(
-    createUndoState({
-      transactions,
-      cloudMeta: structuredClone(getCloudMeta()),
-      chartMode,
-      label: "Cross-tab update"
-    })
-  );
+//   replaceCurrentUndoStateAndClearRedo(
+//     createUndoState({
+//       transactions,
+//       cloudMeta: structuredClone(getCloudMeta()),
+//       chartMode,
+//       label: "Cross-tab update"
+//     })
+//   );
 
-  init();
+//   init();
 
-  const changed = getChangedCategories(
-    previousSlices,
-    slices
-  );
+//   const changed = getChangedCategories(
+//     previousSlices,
+//     slices
+//   );
 
-  if (changed.length) {
-    highlightChangedSlices({
-      ctx,
-      cx: canvas.width / 2,
-      cy: canvas.height / 2,
-      radius: 120,
-      innerRadius: chartMode === "donut" ? 70 : 0,
-      slices,
-      changedCategories: changed
-    });
-  }
+//   if (changed.length) {
+//     highlightChangedSlices({
+//       ctx,
+//       cx: canvas.width / 2,
+//       cy: canvas.height / 2,
+//       radius: 120,
+//       innerRadius: chartMode === "donut" ? 70 : 0,
+//       slices,
+//       changedCategories: changed
+//     });
+//   }
 
-  chartStatus.textContent = "Updated from another tab";
-});
+//   chartStatus.textContent = "Updated from another tab";
+// });
 
 // window.addEventListener("storage", e => {
 //   if (isBroadcastAvailable()) return;
@@ -1974,6 +1981,10 @@ const handleExternalStateUpdate = event => {
     "Updated from another tab";
 };
 
+listenToBroadcast(
+  handleExternalStateUpdate
+);
+
 window.addEventListener(
   "storage",
   event => {
@@ -2007,13 +2018,13 @@ window.addEventListener(
       const externalEvent = {
         storageKey: activeKey,
         userId:
-        currentUser?.id ?? null,
+          currentUser?.id ?? null,
         version:
-        Number.isSafeInteger(
-          state.cloudMeta?.version
-        )
-        ? state.cloudMeta.version
-        : 0,
+          Number.isSafeInteger(
+            state.cloudMeta?.version
+          )
+          ? state.cloudMeta.version
+          : 0,
         state
       };
         

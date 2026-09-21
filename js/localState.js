@@ -1,6 +1,6 @@
 // js/localState.js
 
-import { sanitizeTransactions, validateSnapshot } from "./stateValidator.js";
+import { sanitizeTransactions, } from "./stateValidator.js";
 
 const GUEST_STORAGE_KEY =
   "expenseTracker:guest:state";
@@ -45,11 +45,15 @@ const backupInvalidState = (
 export const createDefaultState = () => ({
   transactions: [],
   chartMode: "donut",
+
   cloudMeta: {
     version: 0,
     updatedAt: 0,
     deviceId: null
   },
+
+  localRevision: 0,
+
   meta: {}
 });
 
@@ -99,6 +103,18 @@ const validateState = state => {
   if (
     !Number.isFinite(
       Number(state.cloudMeta.updatedAt)
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    state.localRevision !== undefined &&
+    (
+      !Number.isSafeInteger(
+        Number(state.localRevision)
+      ) ||
+      Number(state.localRevision) < 0
     )
   ) {
     return false;
@@ -212,6 +228,14 @@ export const loadState = user => {
       deviceId:
         parsed.cloudMeta.deviceId ?? null
     },
+
+    localRevision:
+      Number.isSafeInteger(
+        Number(parsed.localRevision)
+      ) &&
+      Number(parsed.localRevision) >= 0
+        ? Number(parsed.localRevision)
+        : 0,
 
     meta:
       parsed.meta ?? {}
