@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState, getNextRedoLabel } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState, getNextRedoLabel, captureHistoryState, restoreHistoryState } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable, broadcastState } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -83,7 +83,7 @@ const authLoggedIn = document.getElementById("authLoggedIn");
 const authUserEmail = document.getElementById("authUserEmail");
 const authStatus = document.getElementById("authStatus");
 
-const restoreHistoryState = async target => {
+const restoreHistoryJumpState = async target => {
   if (!target?.state) {
     return {
       success: false,
@@ -177,7 +177,7 @@ const jumpToHistoryState = async index => {
     return false;
   }
 
-  const result = await restoreHistoryState(target);
+  const result = await restoreHistoryJumpState(target);
 
   if (!result.success) {
     chartStatus.textContent =
@@ -1380,6 +1380,9 @@ attachChartClick(
    * This gives the user an undo point for the cloud
    * restore.
    */
+  const previousHistory =
+    captureHistoryState();
+  
   pushUndoState(
     createUndoState({
       transactions:
@@ -1529,6 +1532,10 @@ attachChartClick(
     
     setLocalRevision(
       previousLocalRevision
+    );
+
+    restoreHistoryState(
+      previousHistory
     );
 
 

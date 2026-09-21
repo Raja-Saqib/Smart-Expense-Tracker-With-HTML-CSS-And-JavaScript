@@ -216,3 +216,26 @@ export const jumpToState = index => {
 
 export const getCurrentIndex = () =>
   undoStack.length - 1;
+
+export const captureHistoryState = () => ({
+  undoStack: [...undoStack],
+  redoStack: [...redoStack]
+});
+
+export const restoreHistoryState = historyState => {
+  if (
+    !historyState ||
+    !Array.isArray(historyState.undoStack) ||
+    !Array.isArray(historyState.redoStack)
+  ) {
+    return false;
+  }
+
+  undoStack = [...historyState.undoStack];
+  redoStack = [...historyState.redoStack];
+
+  publish("history:changed");
+
+  return true;
+};
+
