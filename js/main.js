@@ -414,59 +414,95 @@ const handleImportCSV = async e => {
     }
 
     /*
-     * Decide the final transaction collection.
+     * Prepare the transaction collection and persistence
+     * operation.
+     *
+     * Merge is rebaseable because the imported transactions
+     * can be applied again to the latest cloud state.
+     *
+     * Replace is NOT rebaseable because it intentionally
+     * replaces the complete transaction collection.
      */
     const nextTransactions =
       mode === "replace"
-        ? result.transactions
+        ? structuredClone(
+            result.transactions
+          )
         : [
             ...previousTransactions,
             ...result.transactions
           ];
 
-    /*
-     * Update application state.
-     */
-    setTransactions(
-      structuredClone(nextTransactions)
-    );
+    const importMeta = {
+      type: "csv-import",
+      mode,
 
-    
-    const importedTransactions =
-      structuredClone(
-        result.transactions
-      );
+      importedCount:
+        result.transactions.length,
 
-    const operation = {
-      type: "mergeTransactions",
-      transactions:
-        importedTransactions
+      replacedCount:
+        mode === "replace"
+          ? previousTransactions.length
+          : 0,
+
+      duplicateCount:
+        result.duplicateCount,
+
+      invalidCount:
+        result.errors.length
     };
 
+    const operation =
+      mode === "replace"
+        ? {
+            type: "replaceState",
+
+            state: {
+              transactions:
+                structuredClone(
+                  result.transactions
+                ),
+
+              chartMode,
+
+              meta:
+                structuredClone(
+                  importMeta
+                )
+            }
+          }
+        : {
+            type: "mergeTransactions",
+
+            transactions:
+              structuredClone(
+                result.transactions
+              )
+          };
 
     /*
-     * Persist the complete resulting state.
+     * Persist the operation.
+     *
+     * Do NOT update the live transaction state before
+     * persistence. saveData() will apply the authoritative
+     * resulting state after the operation succeeds.
      */
     const saveResult =
       await saveData({
         transactions:
-          nextTransactions,
+          structuredClone(
+            transactions
+          ),
 
         cloudMeta:
           getCloudMeta(),
 
         chartMode,
 
-        meta: {
-          type: "csv-import",
-          mode: "merge",
-          importedCount:
-            importedTransactions.length,
-          duplicateCount:
-            result.duplicateCount,
-          invalidCount:
-            result.errors.length
-        },
+        meta:
+          structuredClone(
+            importMeta
+          ),
 
         operation
       });
