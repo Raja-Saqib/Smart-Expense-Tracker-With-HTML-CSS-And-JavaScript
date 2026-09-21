@@ -40,7 +40,8 @@ import {
 } from "./auth.js";
 import { getActiveStorageKey, loadState, saveState } from "./localState.js";
 import {
-  initializeState
+  initializeState,
+  setLocalRevision
 } from "./state.js";
 
 // DOM
@@ -1153,6 +1154,10 @@ const applySnapshot = snapshot => {
   const nextLocalRevision =
     currentLocalRevision + 1;
 
+  setLocalRevision(
+    nextLocalRevision
+  );
+
   setTransactions(
     structuredClone(tx)
   );
@@ -1399,6 +1404,11 @@ attachChartClick(
   const previousCloudMeta =
     structuredClone(getCloudMeta());
 
+  const previousState =
+    loadState(
+      getCachedAuthenticatedUser()
+    );
+
   // --------------------------------------------------
   // APPLY CLOUD SNAPSHOT
   // --------------------------------------------------
@@ -1469,23 +1479,14 @@ attachChartClick(
      * Notify other tabs only AFTER the cloud snapshot
      * has been successfully applied locally.
      */
-    broadcastState({
-      transactions:
-        structuredClone(
-          transactions
-        ),
+    const restoredState =
+      loadState(
+        getCachedAuthenticatedUser()
+      );
 
-      cloudMeta:
-        structuredClone(
-          getCloudMeta()
-        ),
-
-      chartMode,
-
-      meta: {
-        type: "cloud-restore"
-      }
-    });
+    broadcastState(
+      restoredState
+    );
 
     chartStatus.textContent =
       "Data restored from cloud";
@@ -1503,6 +1504,9 @@ attachChartClick(
      * metadata so the local snapshot remains internally
      * consistent if persistence fails midway.
      */
+    const currentUser =
+      getCachedAuthenticatedUser();
+      
     setTransactions(
       previousTransactions
     );
@@ -1515,26 +1519,51 @@ attachChartClick(
       previousCloudMeta
     );
 
-    /*
-     * Re-persist the previous local state so the failed
-     * cloud restore does not leave LocalStorage
-     * inconsistent.
-     *
-     * IMPORTANT:
-     * Do not modify cloudMeta here.
-     *
-     * The existing cloudMeta still contains the persisted
-     * blobId that identifies the user's cloud resource.
-     */
-    const currentUser =
-      getCachedAuthenticatedUser();
+    const previousLocalRevision =
+      Number.isSafeInteger(
+        Number(previousState?.localRevision)
+      ) &&
+      Number(previousState.localRevision) >= 0
+        ? Number(previousState.localRevision)
+        : 0;
+    
+    setLocalRevision(
+      previousLocalRevision
+    );
 
+
+    /*
+     * Restore the exact previous cloud metadata.
+     *
+     * Do not increment or otherwise modify the cloud
+     * version during rollback.
+     *
+     * The Supabase user's identity is managed separately
+     * through the authenticated user's user.id.
+     */
+    
     saveState(
       {
-        transactions,
-        cloudMeta: getCloudMeta(),
-        chartMode,
-        meta: {}
+        transactions:
+          structuredClone(
+            previousState.transactions
+          ),
+
+        cloudMeta:
+          structuredClone(
+            previousState.cloudMeta
+          ),
+
+        chartMode:
+          previousState.chartMode,
+
+        localRevision:
+          previousLocalRevision,
+
+        meta:
+          structuredClone(
+            previousState.meta ?? {}
+          )
       },
       currentUser
     );
@@ -1996,6 +2025,10 @@ const handleExternalStateUpdate = event => {
 
   setChartMode(
     state.chartMode
+  );
+
+  setLocalRevision(
+    state.localRevision
   );
 
   const currentUser =

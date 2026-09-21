@@ -23,6 +23,28 @@ export let activeCategory = null;
 
 let localRevision = 0;
 
+export const getLocalRevision = () =>
+  localRevision;
+
+export const setLocalRevision = revision => {
+  const normalizedRevision =
+    Number(revision);
+
+  if (
+    !Number.isSafeInteger(
+      normalizedRevision
+    ) ||
+    normalizedRevision < 0
+  ) {
+    throw new Error(
+      "localRevision must be a non-negative integer."
+    );
+  }
+
+  localRevision =
+    normalizedRevision;
+};
+
 const normalizeTransactionId = id => {
   if (Number.isSafeInteger(id)) {
     return id;
