@@ -21,6 +21,8 @@ export let transactions = [];
 export let editId = null;
 export let activeCategory = null;
 
+let localRevision = 0;
+
 const normalizeTransactionId = id => {
   if (Number.isSafeInteger(id)) {
     return id;
@@ -84,6 +86,14 @@ export const initializeState = user => {
     structuredClone(
       normalizedTransactions
     );
+
+  localRevision =
+    Number.isSafeInteger(
+      Number(state.localRevision)
+    ) &&
+    Number(state.localRevision) >= 0
+      ? Number(state.localRevision)
+      : 0;
 
   setCloudMeta(
     state.cloudMeta
@@ -183,12 +193,10 @@ export const saveData = async ({
 
   const currentLocalRevision =
     Number.isSafeInteger(
-      Number(
-        cloudMeta?.localRevision
-      )
+      localRevision
     ) &&
-    Number(cloudMeta.localRevision) >= 0
-      ? Number(cloudMeta.localRevision)
+    localRevision >= 0
+      ? localRevision
       : 0;
 
   const nextLocalRevision =
@@ -330,12 +338,25 @@ export const saveData = async ({
     )
   );
 
+  localRevision =
+    Number.isSafeInteger(
+      authoritativeState.localRevision
+    ) &&
+    authoritativeState.localRevision >= 0
+      ? authoritativeState.localRevision
+      : nextLocalRevision;
+
   // --------------------------------------------------
   // LOCAL PERSISTENCE
   // --------------------------------------------------
 
   saveState(
-    authoritativeState,
+    {
+      ...structuredClone(
+        authoritativeState
+      ),
+      localRevision
+    },
     authenticatedUser
   );
 
@@ -349,10 +370,12 @@ export const saveData = async ({
     offline:
       Boolean(cloudError),
 
-    state:
-      structuredClone(
+    state: {
+      ...structuredClone(
         authoritativeState
       ),
+      localRevision
+    },
 
     cloudMeta:
       structuredClone(

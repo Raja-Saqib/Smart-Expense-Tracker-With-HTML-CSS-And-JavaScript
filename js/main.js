@@ -543,17 +543,9 @@ const handleImportCSV = async e => {
     /*
      * Synchronize other browser tabs.
      */
-    broadcastState({
-      transactions:
-        structuredClone(transactions),
-
-      cloudMeta:
-        structuredClone(
-          getCloudMeta()
-        ),
-
-      chartMode
-    });
+    broadcastState(
+      saveResult.state
+    );
 
     /*
      * Re-render the complete application.
@@ -1124,29 +1116,66 @@ const applySnapshot = snapshot => {
   } = snapshot.state;
 
   if (!Array.isArray(tx)) {
-    throw new Error("Invalid transactions in snapshot");
+    throw new Error(
+      "Invalid transactions in snapshot"
+    );
   }
 
   if (!cloudMeta) {
-    throw new Error("Invalid cloud metadata in snapshot");
+    throw new Error(
+      "Invalid cloud metadata in snapshot"
+    );
   }
 
-  if (mode !== "pie" && mode !== "donut") {
-    throw new Error("Invalid chart mode in snapshot");
+  if (
+    mode !== "pie" &&
+    mode !== "donut"
+  ) {
+    throw new Error(
+      "Invalid chart mode in snapshot"
+    );
   }
-
-  setTransactions(structuredClone(tx));
-  setCloudMeta(structuredClone(cloudMeta));
-  setChartMode(mode);
 
   const currentUser =
     getCachedAuthenticatedUser();
 
+  const currentState =
+    loadState(currentUser);
+
+  const currentLocalRevision =
+    Number.isSafeInteger(
+      Number(currentState?.localRevision)
+    ) &&
+    Number(currentState.localRevision) >= 0
+      ? Number(currentState.localRevision)
+      : 0;
+
+  const nextLocalRevision =
+    currentLocalRevision + 1;
+
+  setTransactions(
+    structuredClone(tx)
+  );
+
+  setCloudMeta(
+    structuredClone(cloudMeta)
+  );
+
+  setChartMode(mode);
+
   saveState(
     {
-      transactions,
-      chartMode,
-      cloudMeta,
+      transactions:
+        structuredClone(tx),
+
+      chartMode: mode,
+
+      cloudMeta:
+        structuredClone(cloudMeta),
+
+      localRevision:
+        nextLocalRevision,
+
       meta: {}
     },
     currentUser
