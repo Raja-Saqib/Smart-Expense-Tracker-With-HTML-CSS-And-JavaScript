@@ -30,12 +30,7 @@ export const isBroadcastAvailable =
  * Create the identity-aware state event
  * used by BroadcastChannel.
  */
-const createStateEvent = ({
-  transactions,
-  cloudMeta,
-  chartMode,
-  meta = {}
-}) => {
+const createStateEvent = state => {
   const currentUser =
     getCachedAuthenticatedUser();
 
@@ -49,35 +44,45 @@ const createStateEvent = ({
 
   const version =
     Number.isSafeInteger(
-      cloudMeta?.version
+      state?.cloudMeta?.version
     ) &&
-    cloudMeta.version >= 0
-      ? cloudMeta.version
+    state.cloudMeta.version >= 0
+      ? state.cloudMeta.version
+      : 0;
+
+  const localRevision =
+    Number.isSafeInteger(
+      state?.localRevision
+    ) &&
+    state.localRevision >= 0
+      ? state.localRevision
       : 0;
 
   return {
     storageKey,
-
     userId,
-
     version,
+    localRevision,
 
     state: {
       transactions:
         structuredClone(
-          transactions
+          state.transactions
         ),
 
-      chartMode,
+      chartMode:
+        state.chartMode,
 
       cloudMeta:
         structuredClone(
-          cloudMeta
+          state.cloudMeta
         ),
+
+      localRevision,
 
       meta:
         structuredClone(
-          meta
+          state.meta ?? {}
         )
     }
   };
@@ -87,23 +92,13 @@ const createStateEvent = ({
  * Broadcast an identity-aware state update
  * to other tabs.
  */
-export const broadcastState = ({
-  transactions,
-  cloudMeta,
-  chartMode,
-  meta = {}
-}) => {
+export const broadcastState = state => {
   if (!channel) {
     return;
   }
 
   const event =
-    createStateEvent({
-      transactions,
-      cloudMeta,
-      chartMode,
-      meta
-    });
+    createStateEvent(state);
 
   channel.postMessage({
     type: "STATE_UPDATE",

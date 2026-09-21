@@ -38,7 +38,7 @@ import {
   signOut,
   onAuthStateChange
 } from "./auth.js";
-import { getActiveStorageKey, saveState } from "./localState.js";
+import { getActiveStorageKey, loadState, saveState } from "./localState.js";
 import {
   initializeState
 } from "./state.js";
@@ -1039,7 +1039,7 @@ donutToggle.addEventListener("change", async () => {
     }
 
     setChartMode(
-      authoritativeState.chartMode
+      result.state.chartMode
     );
 
     pushUndoState(
@@ -1728,6 +1728,15 @@ const isValidExternalStateEvent = event => {
   }
 
   if (
+    !Number.isSafeInteger(
+      event.localRevision
+    ) ||
+    event.localRevision < 0
+  ) {
+    return false;
+  }
+
+  if (
     !event.state ||
     typeof event.state !== "object"
   ) {
@@ -1748,6 +1757,15 @@ const isValidExternalStateEvent = event => {
   if (
     !event.state.cloudMeta ||
     typeof event.state.cloudMeta !== "object"
+  ) {
+    return false;
+  }
+
+  if (
+    !Number.isSafeInteger(
+      event.state.localRevision
+    ) ||
+    event.state.localRevision < 0
   ) {
     return false;
   }
@@ -1777,15 +1795,23 @@ const isCurrentIdentityEvent = event => {
 };
 
 const isStaleExternalStateEvent = event => {
-  const localMeta =
-    getCloudMeta();
+  const currentUser =
+    getCachedAuthenticatedUser();
 
-  const localVersion =
-    Number.isSafeInteger(localMeta?.version)
-      ? localMeta.version
+  const activeState =
+    loadState(currentUser);
+
+  const localRevision =
+    Number.isSafeInteger(
+      activeState?.localRevision
+    )
+      ? activeState.localRevision
       : 0;
 
-  return event.version <= localVersion;
+  return (
+    event.localRevision <=
+    localRevision
+  );
 };
 
 // const handleExternalStateUpdate = persistedState => {
@@ -1933,13 +1959,43 @@ const handleExternalStateUpdate = event => {
     )
   );
 
-  setCloudMeta({
-    ...structuredClone(state.cloudMeta),
-    version: event.version
-  });
+  setCloudMeta(
+    structuredClone(
+      state.cloudMeta
+    )
+  );
 
   setChartMode(
     state.chartMode
+  );
+
+  const currentUser =
+    getCachedAuthenticatedUser();
+
+  saveState(
+    {
+      transactions:
+        structuredClone(
+          state.transactions
+        ),
+
+      chartMode:
+        state.chartMode,
+
+      cloudMeta:
+        structuredClone(
+          state.cloudMeta
+        ),
+
+      localRevision:
+        state.localRevision,
+
+      meta:
+        structuredClone(
+          state.meta ?? {}
+        )
+    },
+    currentUser
   );
 
   replaceCurrentUndoStateAndClearRedo(
@@ -2017,14 +2073,24 @@ window.addEventListener(
 
       const externalEvent = {
         storageKey: activeKey,
+
         userId:
           currentUser?.id ?? null,
+
         version:
           Number.isSafeInteger(
             state.cloudMeta?.version
           )
-          ? state.cloudMeta.version
-          : 0,
+            ? state.cloudMeta.version
+            : 0,
+
+        localRevision:
+          Number.isSafeInteger(
+            state.localRevision
+          )
+            ? state.localRevision
+            : 0,
+
         state
       };
         
