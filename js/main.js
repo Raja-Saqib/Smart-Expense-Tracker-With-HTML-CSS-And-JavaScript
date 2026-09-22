@@ -1319,39 +1319,13 @@ const switchApplicationIdentity =
         nextUser
       );
 
-    if (
-      migrationResult?.migrated
-    ) {
-      /*
-       * Guest data has now been moved
-       * successfully.
-       *
-       * The migration helper already:
-       * 1. saved account state
-       * 2. verified authoritative state
-       * 3. saved account LocalStorage
-       * 4. cleared guest state
-       *
-       * Now hydrate the authenticated
-       * identity normally.
-       */
-      await hydrateAuthenticatedState(
-        nextUser
-      );
+    await hydrateAuthenticatedState(
+      nextUser
+    );
 
+    if (migrationResult?.migrated) {
       chartStatus.textContent =
         "Guest data moved to your account";
-    } else {
-      /*
-       * Either:
-       *
-       * - no guest data
-       * - account already had data
-       * - user selected Start Empty
-       */
-      await hydrateAuthenticatedState(
-        nextUser
-      );
     }
 
     chartStatus.textContent =
