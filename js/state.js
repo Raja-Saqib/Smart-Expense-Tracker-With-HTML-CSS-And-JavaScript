@@ -203,6 +203,76 @@ const createStateSnapshot = ({
     structuredClone(meta)
 });
 
+const isCloudVersionConflict = error => {
+  return (
+    error?.code ===
+      "CLOUD_VERSION_CONFLICT" ||
+    error?.name ===
+      "CloudVersionConflictError"
+  );
+};
+
+const isOperationConflict = error => {
+  return (
+    error?.code ===
+      "OPERATION_REBASE_CONFLICT" ||
+    error?.name ===
+      "OperationConflictError"
+  );
+};
+
+const isCloudUnavailable = error => {
+  if (!error) {
+    return false;
+  }
+
+  if (
+    isCloudVersionConflict(error) ||
+    isOperationConflict(error)
+  ) {
+    return false;
+  }
+
+  /*
+   * Explicit timeout / abort failures.
+   */
+  if (
+    error.name === "TimeoutError" ||
+    error.name === "AbortError"
+  ) {
+    return true;
+  }
+
+  /*
+   * Browser/network failures commonly surface
+   * as TypeError from fetch().
+   */
+  if (
+    error.name === "TypeError" &&
+    /fetch|network|load/i.test(
+      error.message ?? ""
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * No HTTP status usually indicates that a
+   * request never received a server response.
+   */
+  if (
+    error.status == null &&
+    error.code == null &&
+    /network|fetch|offline|timeout|unavailable/i.test(
+      error.message ?? ""
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 export const saveData = async ({
   transactions,
   cloudMeta,
@@ -302,12 +372,91 @@ export const saveData = async ({
         nextLocalRevision;
 
     } catch (error) {
-      cloudError = error;
+      /*
+       * ------------------------------------------------
+       * CLASSIFY CLOUD SAVE FAILURE
+       * ------------------------------------------------
+       */
 
-      console.warn(
-        "Cloud sync failed, applying operation locally:",
-        error
-      );
+      /*
+       * These are real save failures.
+       *
+       * They must NOT silently fall back to local
+       * persistence because doing so could hide:
+       *
+       * - optimistic concurrency conflicts
+       * - invalid operations
+       * - invalid state
+       * - application bugs
+       */
+      if (
+        isCloudVersionConflict(error) ||
+        isOperationConflict(error)
+      ) {
+        console.error(
+          "Cloud save failed due to a state/operation conflict:",
+          error
+        );
+
+        return {
+          success: false,
+          offline: false,
+          state: null,
+          cloudMeta:
+            structuredClone(
+              cloudMeta
+            ),
+          cloudError:
+            getErrorDetails(error),
+          syncStateError:
+            getErrorDetails(error),
+          attempts: 0,
+          rebased: false
+        };
+      }
+
+      /*
+       * ------------------------------------------------
+       * CLOUD UNAVAILABLE
+       * ------------------------------------------------
+       *
+       * Only genuine connectivity/timeout failures
+       * are allowed to use local fallback.
+       */
+      if (isCloudUnavailable(error)) {
+        cloudError = error;
+
+        console.warn(
+          "Cloud unavailable; applying operation locally:",
+          error
+        );
+
+      } else {
+        /*
+         * Unknown cloud failures are NOT treated as
+         * offline.
+         */
+        console.error(
+          "Cloud save failed:",
+          error
+        );
+
+        return {
+          success: false,
+          offline: false,
+          state: null,
+          cloudMeta:
+            structuredClone(
+              cloudMeta
+            ),
+          cloudError:
+            getErrorDetails(error),
+          syncStateError:
+            getErrorDetails(error),
+          attempts: 0,
+          rebased: false
+        };
+      }
     }
   }
 
@@ -390,7 +539,10 @@ export const saveData = async ({
     success: true,
 
     offline:
-      Boolean(cloudError),
+      Boolean(
+        cloudError &&
+        isCloudUnavailable(cloudError)
+      ),
 
     state: {
       ...structuredClone(
