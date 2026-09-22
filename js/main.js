@@ -884,11 +884,16 @@ const hydrateAuthenticatedState = async user => {
     return;
   }
 
-  // First load this account's own LocalStorage state.
+  // --------------------------------------------------
+  // LOAD THIS ACCOUNT'S LOCAL STATE
+  // --------------------------------------------------
   switchStateIdentity(user);
 
   let cloudData = null;
 
+  // --------------------------------------------------
+  // PULL CLOUD SNAPSHOT
+  // --------------------------------------------------
   try {
     cloudData = await pullFromCloud({
       userId: user.id
@@ -900,14 +905,26 @@ const hydrateAuthenticatedState = async user => {
     );
   }
 
-  // No cloud state yet or cloud temporarily unavailable.
+  // --------------------------------------------------
+  // CLOUD UNAVAILABLE OR NO CLOUD STATE
+  // --------------------------------------------------
+  /*
+   * The account's local state remains active.
+   *
+   * This also covers:
+   * - first account login before cloud data exists
+   * - temporary Supabase failure
+   */
   if (!cloudData) {
     init();
     return;
   }
 
+  // --------------------------------------------------
+  // COMPARE CLOUD VERSION WITH LOCAL VERSION
+  // --------------------------------------------------
   const remoteVersion =
-    Number.isSafeInteger(
+    Number.isFinite(
       Number(cloudData.version)
     )
       ? Number(cloudData.version)
@@ -917,20 +934,45 @@ const hydrateAuthenticatedState = async user => {
     structuredClone(getCloudMeta());
 
   const localVersion =
-    Number.isSafeInteger(
+    Number.isFinite(
       Number(localCloudMeta?.version)
     )
       ? Number(localCloudMeta.version)
       : 0;
 
-  // Cloud is not newer than this account's local state.
+  /*
+   * Local state is already equal to or newer
+   * than the cloud state.
+   */
   if (remoteVersion <= localVersion) {
     init();
     return;
   }
 
-  // Save the account's current local state
-  // before replacing it with the newer cloud snapshot.
+  // --------------------------------------------------
+  // SAVE LOCAL STATE BEFORE CLOUD RESTORE
+  // --------------------------------------------------
+  /*
+   * Cloud is newer.
+   *
+   * Preserve the complete current state so a failed
+   * restore can be rolled back safely.
+   */
+  const previousHistory =
+    captureHistoryState();
+
+  const previousTransactions =
+    structuredClone(transactions);
+
+  const previousChartMode =
+    chartMode;
+
+  const previousCloudMeta =
+    structuredClone(getCloudMeta());
+
+  const previousState =
+    loadState(user);
+
   pushUndoState(
     createUndoState({
       transactions:
@@ -946,74 +988,200 @@ const hydrateAuthenticatedState = async user => {
     })
   );
 
-  const cloudSnapshot = {
-    state: {
-      transactions:
-        structuredClone(
-          cloudData.transactions
-        ),
+  // --------------------------------------------------
+  // APPLY CLOUD SNAPSHOT
+  // --------------------------------------------------
+  try {
+    const cloudSnapshot = {
+      state: {
+        transactions:
+          structuredClone(
+            cloudData.transactions
+          ),
 
-      cloudMeta: {
-        version:
-          remoteVersion,
+        cloudMeta: {
+          version:
+            remoteVersion,
 
-        updatedAt:
-          Number.isFinite(
-            Number(cloudData.updatedAt)
+          updatedAt:
+            Number.isFinite(
+              Number(cloudData.updatedAt)
+            )
+              ? Number(cloudData.updatedAt)
+              : 0,
+
+          deviceId:
+            cloudData.updatedBy ??
+            cloudData.deviceId ??
+            null
+        },
+
+        chartMode:
+          cloudData.chartMode,
+
+        meta:
+          structuredClone(
+            cloudData.meta ?? {}
           )
-            ? Number(cloudData.updatedAt)
-            : 0,
+      }
+    };
 
-        deviceId:
-          cloudData.updatedBy ??
-          cloudData.deviceId ??
-          null
+    /*
+     * Apply the cloud state to the application.
+     *
+     * applySnapshot() is responsible for the normal
+     * application-state persistence path.
+     */
+    applySnapshot(
+      cloudSnapshot
+    );
+
+    // ------------------------------------------------
+    // PERSIST HYDRATED ACCOUNT STATE
+    // ------------------------------------------------
+    /*
+     * Explicitly persist under this authenticated
+     * user's LocalStorage key.
+     */
+    saveState(
+      {
+        transactions:
+          structuredClone(
+            cloudData.transactions
+          ),
+
+        chartMode:
+          cloudData.chartMode,
+
+        cloudMeta:
+          structuredClone(
+            cloudSnapshot.state.cloudMeta
+          ),
+
+        localRevision:
+          getLocalRevision(),
+
+        meta:
+          structuredClone(
+            cloudData.meta ?? {}
+          )
       },
+      user
+    );
 
-      chartMode:
-        cloudData.chartMode,
+    // ------------------------------------------------
+    // RECORD SUCCESSFUL CLOUD RESTORE
+    // ------------------------------------------------
+    pushUndoState(
+      createUndoState({
+        transactions:
+          structuredClone(
+            transactions
+          ),
 
-      meta:
-        structuredClone(
-          cloudData.meta ?? {}
+        cloudMeta:
+          structuredClone(
+            getCloudMeta()
+          ),
+
+        chartMode,
+
+        label:
+          "Cloud restore"
+      })
+    );
+
+    // ------------------------------------------------
+    // BROADCAST RESTORED STATE
+    // ------------------------------------------------
+    const restoredState =
+      loadState(user);
+
+    broadcastState(
+      restoredState
+    );
+
+    chartStatus.textContent =
+      "Data restored from cloud";
+
+  } catch (error) {
+
+    // ------------------------------------------------
+    // ROLLBACK FAILED CLOUD RESTORE
+    // ------------------------------------------------
+    const previousLocalRevision =
+      Number.isSafeInteger(
+        Number(
+          previousState?.localRevision
         )
-    }
-  };
+      ) &&
+      Number(
+        previousState.localRevision
+      ) >= 0
+        ? Number(
+            previousState.localRevision
+          )
+        : 0;
 
-  applySnapshot(cloudSnapshot);
+    setTransactions(
+      previousTransactions
+    );
 
-  // Persist the hydrated account state
-  // under this authenticated user's LocalStorage key.
-  saveState(
-    {
-      transactions:
-        structuredClone(
-          cloudData.transactions
-        ),
+    setChartMode(
+      previousChartMode
+    );
 
-      chartMode:
-        cloudData.chartMode,
+    setCloudMeta(
+      previousCloudMeta
+    );
 
-      cloudMeta:
-        structuredClone(
-          cloudSnapshot.state.cloudMeta
-        ),
+    setLocalRevision(
+      previousLocalRevision
+    );
 
-      localRevision:
-        getLocalRevision(),
+    restoreHistoryState(
+      previousHistory
+    );
 
-      meta:
-        structuredClone(
-          cloudData.meta ?? {}
-        )
-    },
-    user
-  );
+    saveState(
+      {
+        transactions:
+          structuredClone(
+            previousState.transactions
+          ),
 
+        cloudMeta:
+          structuredClone(
+            previousState.cloudMeta
+          ),
+
+        chartMode:
+          previousState.chartMode,
+
+        localRevision:
+          previousLocalRevision,
+
+        meta:
+          structuredClone(
+            previousState.meta ?? {}
+          )
+      },
+      user
+    );
+
+    chartStatus.textContent =
+      "Cloud restore failed; local data preserved";
+
+    console.error(
+      "Cloud account hydration failed:",
+      error
+    );
+  }
+
+  // --------------------------------------------------
+  // RENDER FINAL ACCOUNT STATE
+  // --------------------------------------------------
   init();
-
-  chartStatus.textContent =
-    "Data restored from cloud";
 };
 
 const switchApplicationIdentity =
@@ -1055,22 +1223,55 @@ const switchApplicationIdentity =
 let authTransitionPromise =
   Promise.resolve();
 
+let hydratedUserId = null;
+
 const handleAuthTransition =
   (event, session) => {
 
+    const nextUser =
+      session?.user ?? null;
+
+    // --------------------------------------------------
+    // INITIAL_SESSION
+    // --------------------------------------------------
+    /*
+     * INITIAL_SESSION is handled explicitly by the
+     * startup IIFE.
+     *
+     * Do NOT hydrate the account a second time here.
+     */
     if (event === "INITIAL_SESSION") {
+      return;
+    }
+
+    // --------------------------------------------------
+    // IGNORE DUPLICATE AUTH EVENT FOR ALREADY HYDRATED USER
+    // --------------------------------------------------
+    if (
+      nextUser?.id &&
+      hydratedUserId === nextUser.id
+    ) {
       return;
     }
 
     authTransitionPromise =
       authTransitionPromise
-        .then(() =>
-          switchApplicationIdentity(
+        .then(async () => {
+
+          await switchApplicationIdentity(
             event,
             session
-          )
-        )
+          );
+
+          /*
+           * Remember which authenticated account is
+           * currently hydrated.
+           */
+          hydratedUserId =
+            nextUser?.id ?? null;
+        })
         .catch(error => {
+
           console.error(
             "Authentication state transition failed:",
             error
@@ -1455,316 +1656,21 @@ attachChartClick(
 );
 
 (async () => {
-  let cloudData = null;
-
   await initializeAuth();
 
   const authenticatedUser =
     getCachedAuthenticatedUser();
 
-  initializeState(authenticatedUser);
-
-  // --------------------------------------------------
-  // LOAD PERSISTED CLOUD METADATA
-  // --------------------------------------------------
-  const cloudMeta = getCloudMeta();
-
-  // --------------------------------------------------
-  // PULL CLOUD SNAPSHOT
-  // --------------------------------------------------
-  try {
-    /*
-    * Supabase identifies the cloud state through
-    * the authenticated user's user_id.
-    *
-    * 
-    */
-    if (authenticatedUser) {
-      cloudData = await pullFromCloud({
-        userId: authenticatedUser.id
-      });
+  await switchApplicationIdentity(
+    "INITIAL_SESSION",
+    {
+      user: authenticatedUser
     }
-
-  } catch (error) {
-    console.warn(
-      "Cloud startup restore failed:",
-      error
-    );
-  }
-
-  // --------------------------------------------------
-  // CLOUD UNAVAILABLE OR NO CLOUD STATE
-  // --------------------------------------------------
-  /*
-   * If the user is not authenticated, the application
-   * remains completely local.
-   *
-   * If the user is authenticated but no cloud state
-   * exists yet, continue with the existing local state.
-   */
-  if (!cloudData) {
-    init();
-
-    initDebugPanel({
-      deviceId,
-      getCloudMeta,
-      getChartMode: () => chartMode,
-      jumpToHistoryState
-    });
-
-    return;
-  }
-
-  // --------------------------------------------------
-  // COMPARE CLOUD VERSION WITH LOCAL VERSION
-  // --------------------------------------------------
-  const remoteVersion =
-    cloudData.version;
-
-  const localCloudMeta =
-    structuredClone(getCloudMeta());
-
-  const localVersion =
-    Number.isFinite(localCloudMeta?.version)
-      ? localCloudMeta.version
-      : 0;
-
-  /*
-   * The local state is already equal to or newer than
-   * the cloud snapshot.
-   *
-   * Do not replace local state in this case.
-   */
-  if (remoteVersion <= localVersion) {
-    init();
-
-    initDebugPanel({
-      deviceId,
-      getCloudMeta,
-      getChartMode: () => chartMode,
-      jumpToHistoryState
-    });
-
-    return;
-  }
-
-  // --------------------------------------------------
-  // SAVE LOCAL STATE BEFORE CLOUD RESTORE
-  // --------------------------------------------------
-  /*
-   * Cloud is newer.
-   *
-   * Save the current local state BEFORE replacing it.
-   * This gives the user an undo point for the cloud
-   * restore.
-   */
-  const previousHistory =
-    captureHistoryState();
-  
-  pushUndoState(
-    createUndoState({
-      transactions:
-        structuredClone(transactions),
-
-      cloudMeta:
-        localCloudMeta,
-
-      chartMode,
-
-      label:
-        "Before cloud restore"
-    })
   );
 
-  const previousTransactions =
-    structuredClone(transactions);
+  hydratedUserId =
+    authenticatedUser?.id ?? null;
 
-  const previousChartMode =
-    chartMode;
-
-  const previousCloudMeta =
-    structuredClone(getCloudMeta());
-
-  const previousState =
-    loadState(
-      getCachedAuthenticatedUser()
-    );
-
-  // --------------------------------------------------
-  // APPLY CLOUD SNAPSHOT
-  // --------------------------------------------------
-  try {
-    /*
-     * The cloud payload uses `updatedBy`.
-     * Local cloud metadata uses `deviceId`.
-     *
-     * Legacy blobId metadata is intentionally retained
-     * for compatibility and will be cleaned up separately.
-     */
-    const cloudSnapshot = {
-      state: {
-        transactions:
-          structuredClone(
-            cloudData.transactions
-          ),
-
-        cloudMeta: {
-          version:
-            remoteVersion,
-
-          updatedAt:
-            Number.isFinite(
-              cloudData.updatedAt
-            )
-              ? cloudData.updatedAt
-              : 0,
-
-          deviceId:
-            cloudData.updatedBy ?? null
-        },
-
-        chartMode:
-          cloudData.chartMode
-      }
-    };
-
-    /*
-     * Apply and persist the incoming cloud snapshot.
-     */
-    applySnapshot(
-      cloudSnapshot
-    );
-
-    // --------------------------------------------------
-    // RECORD SUCCESSFUL CLOUD RESTORE
-    // --------------------------------------------------
-    /*
-     * The cloud snapshot has now been successfully
-     * applied locally.
-     */
-    pushUndoState(
-      createUndoState({
-        transactions,
-        cloudMeta:
-          getCloudMeta(),
-        chartMode,
-        label:
-          "Cloud restore"
-      })
-    );
-
-    // --------------------------------------------------
-    // BROADCAST RESTORED STATE
-    // --------------------------------------------------
-    /*
-     * Notify other tabs only AFTER the cloud snapshot
-     * has been successfully applied locally.
-     */
-    const restoredState =
-      loadState(
-        getCachedAuthenticatedUser()
-      );
-
-    broadcastState(
-      restoredState
-    );
-
-    chartStatus.textContent =
-      "Data restored from cloud";
-
-  } catch (error) {
-
-    // --------------------------------------------------
-    // ROLLBACK FAILED CLOUD RESTORE
-    // --------------------------------------------------
-    /*
-     * Restore the complete application state that existed
-     * before attempting the cloud restore.
-     *
-     * This includes transactions, chart mode, and cloud
-     * metadata so the local snapshot remains internally
-     * consistent if persistence fails midway.
-     */
-    const currentUser =
-      getCachedAuthenticatedUser();
-      
-    setTransactions(
-      previousTransactions
-    );
-
-    setChartMode(
-      previousChartMode
-    );
-
-    setCloudMeta(
-      previousCloudMeta
-    );
-
-    const previousLocalRevision =
-      Number.isSafeInteger(
-        Number(previousState?.localRevision)
-      ) &&
-      Number(previousState.localRevision) >= 0
-        ? Number(previousState.localRevision)
-        : 0;
-    
-    setLocalRevision(
-      previousLocalRevision
-    );
-
-    restoreHistoryState(
-      previousHistory
-    );
-
-
-    /*
-     * Restore the exact previous cloud metadata.
-     *
-     * Do not increment or otherwise modify the cloud
-     * version during rollback.
-     *
-     * The Supabase user's identity is managed separately
-     * through the authenticated user's user.id.
-     */
-    
-    saveState(
-      {
-        transactions:
-          structuredClone(
-            previousState.transactions
-          ),
-
-        cloudMeta:
-          structuredClone(
-            previousState.cloudMeta
-          ),
-
-        chartMode:
-          previousState.chartMode,
-
-        localRevision:
-          previousLocalRevision,
-
-        meta:
-          structuredClone(
-            previousState.meta ?? {}
-          )
-      },
-      currentUser
-    );
-
-    chartStatus.textContent =
-      "Cloud restore failed; local data preserved";
-
-    console.error(
-      "Cloud startup restore failed:",
-      error
-    );
-  }
-
-  // --------------------------------------------------
-  // INITIALIZE DEBUG PANEL
-  // --------------------------------------------------
   initDebugPanel({
     deviceId,
     getCloudMeta,
