@@ -1,4 +1,4 @@
-import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, setActiveCategory, } from "./state.js";
+import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, setActiveCategory, switchStateIdentity, } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
 import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
@@ -41,6 +41,7 @@ import {
 import { getActiveStorageKey, loadState, saveState } from "./localState.js";
 import {
   initializeState,
+  getLocalRevision,
   setLocalRevision
 } from "./state.js";
 
@@ -878,6 +879,53 @@ const updateAuthUI = user => {
     authUserEmail.textContent = "";
   }
 };
+
+const switchApplicationIdentity =
+  async (event, session) => {
+
+    const nextUser =
+      session?.user ?? null;
+
+    // SIGN OUT
+    if (!nextUser) {
+      switchStateIdentity(null);
+      updateAuthUI();
+      return;
+    }
+
+    // SIGN IN
+    const guestState =
+      loadState(null);
+
+    const accountState =
+      loadState(nextUser);
+
+    const guestHasData =
+      guestState.transactions.length > 0;
+
+    if (!guestHasData) {
+      switchStateIdentity(nextUser);
+      updateAuthUI();
+      return;
+    }
+
+    // Account already has data
+    if (
+      accountState.transactions.length > 0
+    ) {
+      // Do NOT overwrite account data.
+      // Ask user what to do.
+      /* ... */
+      return;
+    }
+
+    // Guest has data + account is empty
+    // Ask:
+    // "Move guest data to this account?"
+    // or
+    // "Start with an empty account?"
+    /* ... */
+  };
 
 let authTransitionPromise =
   Promise.resolve();
@@ -1835,6 +1883,20 @@ const isValidExternalStateEvent = event => {
     return false;
   }
 
+  if (
+    event.state.localRevision !==
+    event.localRevision
+  ) {
+    return false;
+  }
+
+  if (
+    event.state.cloudMeta.version !==
+    event.version
+  ) {
+    return false;
+  }
+
   return true;
 };
 
@@ -1860,18 +1922,8 @@ const isCurrentIdentityEvent = event => {
 };
 
 const isStaleExternalStateEvent = event => {
-  const currentUser =
-    getCachedAuthenticatedUser();
-
-  const activeState =
-    loadState(currentUser);
-
   const localRevision =
-    Number.isSafeInteger(
-      activeState?.localRevision
-    )
-      ? activeState.localRevision
-      : 0;
+    getLocalRevision();
 
   return (
     event.localRevision <=
