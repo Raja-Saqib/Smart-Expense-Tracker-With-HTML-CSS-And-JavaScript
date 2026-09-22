@@ -66,6 +66,7 @@ export const migrateGuestStateToAccount = async ({
    */
   if (
     accountState &&
+    Array.isArray(accountState.transactions) &&
     accountState.transactions.length > 0
   ) {
     return {
@@ -83,11 +84,14 @@ export const migrateGuestStateToAccount = async ({
     chartMode:
       guestState.chartMode,
 
-    cloudMeta: {
-      version: 0,
-      updatedAt: 0,
-      deviceId: null
-    },
+    cloudMeta:
+      structuredClone(
+        accountState?.cloudMeta ?? {
+          version: 0,
+          updatedAt: 0,
+          deviceId: null
+        }
+      ),
 
     meta: {
       migration: "guest-to-account"
