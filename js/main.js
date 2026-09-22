@@ -45,6 +45,12 @@ import {
   setLocalRevision
 } from "./state.js";
 
+import {
+  getGuestState,
+  askGuestMigration,
+  migrateGuestStateToAccount
+} from "./identityMigration.js";
+
 // DOM
 const balanceEl = document.getElementById("balance");
 const incomeEl = document.getElementById("income");
@@ -1184,6 +1190,104 @@ const hydrateAuthenticatedState = async user => {
   init();
 };
 
+const migrateGuestDataIfNeeded = async user => {
+  const guestState =
+    getGuestState();
+
+  if (!guestState) {
+    return {
+      migrated: false,
+      skipped: true
+    };
+  }
+
+  /*
+   * Load the account's existing LOCAL state.
+   */
+  const accountState =
+    loadState(user);
+
+  /*
+   * If the account already contains data,
+   * never overwrite it with guest data.
+   *
+   * Guest data remains untouched.
+   */
+  if (
+    accountState.transactions.length > 0
+  ) {
+    return {
+      migrated: false,
+      skipped: true,
+      reason:
+        "account-already-has-data"
+    };
+  }
+
+  /*
+   * Ask the user explicitly.
+   *
+   * YES  → migrate
+   * NO   → keep guest data
+   */
+  const shouldMigrate =
+    askGuestMigration();
+
+  if (!shouldMigrate) {
+    return {
+      migrated: false,
+      skipped: true,
+      reason:
+        "user-chose-start-empty"
+    };
+  }
+
+  /*
+   * Push the guest state to the account.
+   *
+   * IMPORTANT:
+   * migrateGuestStateToAccount()
+   * clears guest state only AFTER
+   * this succeeds.
+   */
+  const result =
+    await migrateGuestStateToAccount({
+      userId: user.id,
+
+      guestState,
+
+      accountState,
+
+      pushAccountState:
+        async candidateState => {
+
+          const cloudResult =
+            await saveWithRetry({
+              userId: user.id,
+
+              state:
+                structuredClone(
+                  candidateState
+                ),
+
+              operation: null,
+
+              deviceId,
+
+              pushToCloud,
+
+              pullFromCloud,
+
+              maxRetries: 3
+            });
+
+          return cloudResult;
+        }
+    });
+
+  return result;
+};
+
 const switchApplicationIdentity =
   async (event, session) => {
     const nextUser =
@@ -1210,9 +1314,45 @@ const switchApplicationIdentity =
     // -----------------------------
     updateAuthUI(nextUser);
 
-    await hydrateAuthenticatedState(
-      nextUser
-    );
+    const migrationResult =
+      await migrateGuestDataIfNeeded(
+        nextUser
+      );
+
+    if (
+      migrationResult?.migrated
+    ) {
+      /*
+       * Guest data has now been moved
+       * successfully.
+       *
+       * The migration helper already:
+       * 1. saved account state
+       * 2. verified authoritative state
+       * 3. saved account LocalStorage
+       * 4. cleared guest state
+       *
+       * Now hydrate the authenticated
+       * identity normally.
+       */
+      await hydrateAuthenticatedState(
+        nextUser
+      );
+
+      chartStatus.textContent =
+        "Guest data moved to your account";
+    } else {
+      /*
+       * Either:
+       *
+       * - no guest data
+       * - account already had data
+       * - user selected Start Empty
+       */
+      await hydrateAuthenticatedState(
+        nextUser
+      );
+    }
 
     chartStatus.textContent =
       `Signed in as ${

@@ -5,13 +5,27 @@ import {
   clearState
 } from "./localState.js";
 
-export const hasGuestState = () => {
+export const getGuestState = () => {
   const guestState =
     loadState(null);
 
-  return (
-    guestState.transactions.length > 0
+  if (
+    !guestState ||
+    !Array.isArray(
+      guestState.transactions
+    ) ||
+    guestState.transactions.length === 0
+  ) {
+    return null;
+  }
+
+  return structuredClone(
+    guestState
   );
+};
+
+export const hasGuestState = () => {
+  return getGuestState() !== null;
 };
 
 export const getStoredState = user => {
@@ -115,4 +129,13 @@ export const migrateGuestStateToAccount = async ({
     state:
       result.state
   };
+};
+
+export const askGuestMigration = () => {
+  return window.confirm(
+    "Guest data was found.\n\n" +
+    "Do you want to move your guest data into this account?\n\n" +
+    "OK = Move guest data to account\n" +
+    "Cancel = Start with the account's existing data"
+  );
 };
