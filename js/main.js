@@ -878,16 +878,152 @@ const updateAuthUI = user => {
   }
 };
 
+const hydrateAuthenticatedState = async user => {
+  if (!user?.id) {
+    init();
+    return;
+  }
+
+  // First load this account's own LocalStorage state.
+  switchStateIdentity(user);
+
+  let cloudData = null;
+
+  try {
+    cloudData = await pullFromCloud({
+      userId: user.id
+    });
+  } catch (error) {
+    console.warn(
+      "Cloud account hydration failed:",
+      error
+    );
+  }
+
+  // No cloud state yet or cloud temporarily unavailable.
+  if (!cloudData) {
+    init();
+    return;
+  }
+
+  const remoteVersion =
+    Number.isSafeInteger(
+      Number(cloudData.version)
+    )
+      ? Number(cloudData.version)
+      : 0;
+
+  const localCloudMeta =
+    structuredClone(getCloudMeta());
+
+  const localVersion =
+    Number.isSafeInteger(
+      Number(localCloudMeta?.version)
+    )
+      ? Number(localCloudMeta.version)
+      : 0;
+
+  // Cloud is not newer than this account's local state.
+  if (remoteVersion <= localVersion) {
+    init();
+    return;
+  }
+
+  // Save the account's current local state
+  // before replacing it with the newer cloud snapshot.
+  pushUndoState(
+    createUndoState({
+      transactions:
+        structuredClone(transactions),
+
+      cloudMeta:
+        structuredClone(localCloudMeta),
+
+      chartMode,
+
+      label:
+        "Before cloud restore"
+    })
+  );
+
+  const cloudSnapshot = {
+    state: {
+      transactions:
+        structuredClone(
+          cloudData.transactions
+        ),
+
+      cloudMeta: {
+        version:
+          remoteVersion,
+
+        updatedAt:
+          Number.isFinite(
+            Number(cloudData.updatedAt)
+          )
+            ? Number(cloudData.updatedAt)
+            : 0,
+
+        deviceId:
+          cloudData.updatedBy ??
+          cloudData.deviceId ??
+          null
+      },
+
+      chartMode:
+        cloudData.chartMode,
+
+      meta:
+        structuredClone(
+          cloudData.meta ?? {}
+        )
+    }
+  };
+
+  applySnapshot(cloudSnapshot);
+
+  // Persist the hydrated account state
+  // under this authenticated user's LocalStorage key.
+  saveState(
+    {
+      transactions:
+        structuredClone(
+          cloudData.transactions
+        ),
+
+      chartMode:
+        cloudData.chartMode,
+
+      cloudMeta:
+        structuredClone(
+          cloudSnapshot.state.cloudMeta
+        ),
+
+      localRevision:
+        getLocalRevision(),
+
+      meta:
+        structuredClone(
+          cloudData.meta ?? {}
+        )
+    },
+    user
+  );
+
+  init();
+
+  chartStatus.textContent =
+    "Data restored from cloud";
+};
+
 const switchApplicationIdentity =
   async (event, session) => {
-
     const nextUser =
       session?.user ?? null;
 
-    // --------------------------------------------------
-    // SIGN OUT → GUEST IDENTITY
-    // --------------------------------------------------
-
+    // -----------------------------
+    // LOGOUT → GUEST STATE
+    // -----------------------------
     if (!nextUser) {
       switchStateIdentity(null);
 
@@ -896,71 +1032,24 @@ const switchApplicationIdentity =
       init();
 
       chartStatus.textContent =
-        "Logged out. Using local guest data.";
+        "Logged out";
 
       return;
     }
 
-    // --------------------------------------------------
-    // SIGN IN → ACCOUNT IDENTITY
-    // --------------------------------------------------
-
-    const guestState =
-      loadState(null);
-
-    const accountState =
-      loadState(nextUser);
-
-    const guestHasData =
-      guestState.transactions.length > 0;
-
-    // --------------------------------------------------
-    // NO GUEST DATA
-    // --------------------------------------------------
-
-    if (!guestHasData) {
-      switchStateIdentity(nextUser);
-
-      updateAuthUI(nextUser);
-
-      init();
-
-      chartStatus.textContent =
-        "Account state loaded.";
-
-      return;
-    }
-
-    // --------------------------------------------------
-    // GUEST DATA EXISTS
-    // --------------------------------------------------
-    //
-    // Correction 16 does NOT migrate it yet.
-    //
-    // Correction 17 will decide whether to:
-    //
-    //   1. Move guest data to the account
-    //   2. Start with an empty account
-    //
-    // For now we safely switch to the account
-    // without deleting the guest state.
-    // --------------------------------------------------
-
-    switchStateIdentity(nextUser);
-
+    // -----------------------------
+    // LOGIN → ACCOUNT STATE
+    // -----------------------------
     updateAuthUI(nextUser);
 
-    init();
+    await hydrateAuthenticatedState(
+      nextUser
+    );
 
-    if (
-      accountState.transactions.length > 0
-    ) {
-      chartStatus.textContent =
-        "Account loaded. Guest data was preserved.";
-    } else {
-      chartStatus.textContent =
-        "Account loaded. Guest data is available for migration.";
-    }
+    chartStatus.textContent =
+      `Signed in as ${
+        nextUser.email ?? "user"
+      }`;
   };
 
 let authTransitionPromise =
@@ -968,6 +1057,11 @@ let authTransitionPromise =
 
 const handleAuthTransition =
   (event, session) => {
+
+    if (event === "INITIAL_SESSION") {
+      return;
+    }
+
     authTransitionPromise =
       authTransitionPromise
         .then(() =>
