@@ -850,8 +850,6 @@ const handleLogout = async () => {
   try {
     await signOut();
 
-    initializeState(null);
-
     authStatus.textContent =
       "Logged out";
   } catch (error) {
@@ -886,14 +884,27 @@ const switchApplicationIdentity =
     const nextUser =
       session?.user ?? null;
 
-    // SIGN OUT
+    // --------------------------------------------------
+    // SIGN OUT → GUEST IDENTITY
+    // --------------------------------------------------
+
     if (!nextUser) {
       switchStateIdentity(null);
-      updateAuthUI();
+
+      updateAuthUI(null);
+
+      init();
+
+      chartStatus.textContent =
+        "Logged out. Using local guest data.";
+
       return;
     }
 
-    // SIGN IN
+    // --------------------------------------------------
+    // SIGN IN → ACCOUNT IDENTITY
+    // --------------------------------------------------
+
     const guestState =
       loadState(null);
 
@@ -903,28 +914,53 @@ const switchApplicationIdentity =
     const guestHasData =
       guestState.transactions.length > 0;
 
+    // --------------------------------------------------
+    // NO GUEST DATA
+    // --------------------------------------------------
+
     if (!guestHasData) {
       switchStateIdentity(nextUser);
-      updateAuthUI();
+
+      updateAuthUI(nextUser);
+
+      init();
+
+      chartStatus.textContent =
+        "Account state loaded.";
+
       return;
     }
 
-    // Account already has data
+    // --------------------------------------------------
+    // GUEST DATA EXISTS
+    // --------------------------------------------------
+    //
+    // Correction 16 does NOT migrate it yet.
+    //
+    // Correction 17 will decide whether to:
+    //
+    //   1. Move guest data to the account
+    //   2. Start with an empty account
+    //
+    // For now we safely switch to the account
+    // without deleting the guest state.
+    // --------------------------------------------------
+
+    switchStateIdentity(nextUser);
+
+    updateAuthUI(nextUser);
+
+    init();
+
     if (
       accountState.transactions.length > 0
     ) {
-      // Do NOT overwrite account data.
-      // Ask user what to do.
-      /* ... */
-      return;
+      chartStatus.textContent =
+        "Account loaded. Guest data was preserved.";
+    } else {
+      chartStatus.textContent =
+        "Account loaded. Guest data is available for migration.";
     }
-
-    // Guest has data + account is empty
-    // Ask:
-    // "Move guest data to this account?"
-    // or
-    // "Start with an empty account?"
-    /* ... */
   };
 
 let authTransitionPromise =

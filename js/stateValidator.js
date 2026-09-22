@@ -6,6 +6,8 @@ const VALID_CATEGORIES = new Set([
   "Entertainment",
   "Health",
   "Income",
+  "Rent",
+  "Salary",
   "Other"
 ]);
 

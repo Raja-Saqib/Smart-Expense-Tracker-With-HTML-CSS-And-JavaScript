@@ -189,6 +189,8 @@ const VALID_CATEGORIES = new Set([
   "Entertainment",
   "Health",
   "Income",
+  "Salary",
+  "Rent",
   "Other"
 ]);
 
@@ -337,6 +339,14 @@ export const validateTransaction = transaction => {
       ) {
         errors.category =
           `category must not exceed ${MAX_CATEGORY_LENGTH} characters`;
+      }
+
+      if (
+        transaction.category.trim() !== "" &&
+        !VALID_CATEGORIES.has(transaction.category)
+      ) {
+        errors.category =
+          "category is not an allowed transaction category";
       }
     }
   }
@@ -677,45 +687,229 @@ const isMissingUpdatedBy = value => {
 
 
 /**
+ * Legacy category mappings.
+ *
+ * Old application categories:
+ * - Rent
+ * - Salary
+ *
+ * Current application categories:
+ * - Bills
+ * - Income
+ */
+const LEGACY_CATEGORY_MAP = new Map([
+  // ["Rent", "Bills"],
+  // ["Salary", "Income"]
+]);
+
+
+/**
+ * Converts an old category into a category
+ * accepted by the current application.
+ */
+const normalizeLegacyCategory = category => {
+  if (typeof category !== "string") {
+    return "Other";
+  }
+
+  const normalized = category.trim();
+
+  // Already valid in the current schema.
+  if (VALID_CATEGORIES.has(normalized)) {
+    return normalized;
+  }
+
+  // Known legacy category.
+  const mapped =
+    LEGACY_CATEGORY_MAP.get(normalized);
+
+  if (mapped) {
+    return mapped;
+  }
+
+  // Unknown legacy category.
+  return "Other";
+};
+
+
+/**
+ * Checks whether an ID already satisfies
+ * the current transaction ID contract.
+ */
+const isValidTransactionId = id =>
+  Number.isSafeInteger(id) &&
+  id >= 0;
+
+
+/**
+ * Attempts to convert a legacy ID into the
+ * current numeric ID format.
+ *
+ * Examples:
+ *
+ * 123       -> 123
+ * "123"     -> 123
+ * "abc-123" -> null
+ */
+const normalizeLegacyTransactionId = id => {
+  if (isValidTransactionId(id)) {
+    return id;
+  }
+
+  if (
+    typeof id === "string" &&
+    id.trim() !== ""
+  ) {
+    const numericId = Number(id);
+
+    if (isValidTransactionId(numericId)) {
+      return numericId;
+    }
+  }
+
+  return null;
+};
+
+
+/**
  * Determines whether the transaction array still
- * contains legacy records that need migration.
+ * contains records incompatible with the current schema.
  */
 const hasLegacyTransactions = transactions => {
   if (!Array.isArray(transactions)) {
     return false;
   }
 
-  return transactions.some(
-    transaction =>
-      transaction &&
-      typeof transaction === "object" &&
+  const seenIds = new Set();
+
+  return transactions.some(transaction => {
+    if (
+      !transaction ||
+      typeof transaction !== "object"
+    ) {
+      return true;
+    }
+
+    const normalizedId =
+      normalizeLegacyTransactionId(
+        transaction.id
+      );
+
+    const duplicateId =
+      normalizedId !== null &&
+      seenIds.has(normalizedId);
+
+    if (normalizedId !== null) {
+      seenIds.add(normalizedId);
+    }
+
+    return (
+      normalizedId === null ||
+      duplicateId ||
       isMissingUpdatedBy(
         transaction.updatedBy
-      )
-  );
+      ) ||
+      normalizeLegacyCategory(
+        transaction.category
+      ) !== transaction.category
+    );
+  });
 };
 
 
 /**
- * Adds the cloud-level updatedBy value to only those
- * legacy transactions whose updatedBy is missing.
+ * Migrates legacy transactions into the
+ * current transaction schema.
  *
- * Existing non-blank transaction-level updatedBy
- * values are preserved.
+ * Responsibilities:
+ * - normalize IDs
+ * - remove duplicate IDs
+ * - normalize categories
+ * - restore missing updatedBy
  */
 const migrateLegacyTransactions = (
   transactions,
   fallbackUpdatedBy
 ) => {
-  return transactions.map(transaction => ({
-    ...transaction,
-    updatedBy:
-      isMissingUpdatedBy(
-        transaction.updatedBy
-      )
-        ? fallbackUpdatedBy
-        : transaction.updatedBy
-  }));
+  /*
+   * Reserve every valid legacy ID first.
+   * This prevents generated IDs from colliding
+   * with IDs already present in the dataset.
+   */
+  const usedIds = new Set();
+
+  transactions.forEach(transaction => {
+    const normalizedId =
+      normalizeLegacyTransactionId(
+        transaction?.id
+      );
+
+    if (normalizedId !== null) {
+      usedIds.add(normalizedId);
+    }
+  });
+
+  let nextGeneratedId = 0;
+
+  const allocateId = () => {
+    while (
+      usedIds.has(nextGeneratedId)
+    ) {
+      nextGeneratedId += 1;
+    }
+
+    const id = nextGeneratedId;
+
+    usedIds.add(id);
+    nextGeneratedId += 1;
+
+    return id;
+  };
+
+  /*
+   * Tracks IDs actually assigned in the
+   * final migrated array.
+   */
+  const finalIds = new Set();
+
+  return transactions.map(transaction => {
+    let id =
+      normalizeLegacyTransactionId(
+        transaction?.id
+      );
+
+    /*
+     * Generate a new ID when:
+     * - original ID is invalid
+     * - original ID is duplicated
+     */
+    if (
+      id === null ||
+      finalIds.has(id)
+    ) {
+      id = allocateId();
+    } else {
+      finalIds.add(id);
+    }
+
+    return {
+      ...transaction,
+
+      id,
+
+      category:
+        normalizeLegacyCategory(
+          transaction.category
+        ),
+
+      updatedBy:
+        isMissingUpdatedBy(
+          transaction.updatedBy
+        )
+          ? fallbackUpdatedBy
+          : transaction.updatedBy
+    };
+  });
 };
 
 
