@@ -500,6 +500,43 @@ select {
   margin-top: 6px;
 }
 
+.passwordContainer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background: var(--card);
+  color: var(--text);
+}
+
+.passwordContainer input {
+  border: none;
+  margin-bottom: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+#loginPasswordToggle, #signupPasswordToggle {
+  box-sizing: border-box;
+  flex: 0 0 20px;
+  padding: 0;
+  margin: 5px;
+  border: none;
+  background: none;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 20px;
+  cursor: pointer;
+}
+
 .auth-status {
   min-height: 20px;
   margin: 8px 0 0;

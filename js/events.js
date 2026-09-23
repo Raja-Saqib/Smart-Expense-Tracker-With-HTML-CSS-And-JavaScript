@@ -12,6 +12,8 @@ export const initEvents = ({
   loginForm,
   signupForm,
   logoutBtn,
+  loginPasswordToggle,
+  signupPasswordToggle,
   handlers
 }) => {
   form.addEventListener("submit", handlers.addTransaction);
@@ -65,5 +67,15 @@ export const initEvents = ({
     logoutBtn?.addEventListener(
       "click",
       handlers.logout
+    );
+
+    loginPasswordToggle?.addEventListener(
+      "click",
+      handlers.toggleLoginPassword
+    );
+
+    signupPasswordToggle?.addEventListener(
+      "click",
+      handlers.toggleSignupPassword
     );
 };
