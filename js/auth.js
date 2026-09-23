@@ -168,9 +168,88 @@ export const changePassword = async (
     data,
     error
   } = await supabase.auth.updateUser({
-    currentPassword,
+    current_password: currentPassword,
     password: newPassword
   });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data?.user) {
+    throw new Error(
+      "Supabase did not return the updated user."
+    );
+  }
+
+  currentUser =
+    data.user;
+
+  return data.user;
+};
+
+/*
+ * --------------------------------------------------
+ * REQUEST PASSWORD RESET
+ *
+ * Sends a Supabase password reset email.
+ * --------------------------------------------------
+ */
+
+export const requestPasswordReset = async email => {
+  const normalizedEmail =
+    String(email ?? "").trim();
+
+  if (!normalizedEmail) {
+    throw new Error(
+      "Email is required."
+    );
+  }
+
+  const redirectTo =
+    `${window.location.origin}${window.location.pathname}`;
+
+  const {
+    data,
+    error
+  } =
+    await supabase.auth.resetPasswordForEmail(
+      normalizedEmail,
+      {
+        redirectTo
+      }
+    );
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+};
+
+/*
+ * --------------------------------------------------
+ * RESET PASSWORD
+ *
+ * Used after Supabase PASSWORD_RECOVERY.
+ * --------------------------------------------------
+ */
+
+export const resetPassword = async newPassword => {
+  if (!newPassword) {
+    throw new Error(
+      "New password is required."
+    );
+  }
+
+  const {
+    data,
+    error
+  } =
+    await supabase.auth.updateUser({
+      password:
+        newPassword
+    });
 
   if (error) {
     throw error;

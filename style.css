@@ -525,7 +525,9 @@ select {
 #signupPasswordToggle, 
 #currentPasswordToggle, 
 #newPasswordToggle, 
-#confirmPasswordToggle {
+#confirmPasswordToggle, 
+#resetPasswordToggle,
+#resetPasswordConfirmToggle {
   box-sizing: border-box;
   flex: 0 0 20px;
   padding: 0;
@@ -545,7 +547,9 @@ select {
 #signupPasswordToggle, 
 #currentPasswordToggle, 
 #newPasswordToggle, 
-#confirmPasswordToggle svg {
+#confirmPasswordToggle, 
+#resetPasswordToggle,
+#resetPasswordConfirmToggle svg {
   fill: var(--text);
 }
 

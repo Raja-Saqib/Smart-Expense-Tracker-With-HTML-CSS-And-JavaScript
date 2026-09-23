@@ -938,6 +938,122 @@ const handleLogout = async () => {
   }
 };
 
+const handleForgotPassword = async () => {
+  const loginEmail =
+    document.getElementById(
+      "loginEmail"
+    );
+
+  const email =
+    loginEmail?.value.trim() ?? "";
+
+  if (!email) {
+    authStatus.textContent =
+      "Enter your email address first.";
+
+    loginEmail?.focus();
+
+    return;
+  }
+
+  authStatus.textContent =
+    "Sending password reset email...";
+
+  try {
+    await requestPasswordReset(
+      email
+    );
+
+    authStatus.textContent =
+      "If an account exists for this email, a password reset email has been sent.";
+
+  } catch (error) {
+    console.error(
+      "Password reset request failed:",
+      error
+    );
+
+    authStatus.textContent =
+      error?.message ??
+      "Unable to send password reset email.";
+  }
+};
+
+const handleResetPassword = async e => {
+  e.preventDefault();
+
+  const newPassword =
+    document.getElementById(
+      "resetPassword"
+    )?.value ?? "";
+
+  const confirmPassword =
+    document.getElementById(
+      "resetPasswordConfirm"
+    )?.value ?? "";
+
+  if (!newPassword) {
+    authStatus.textContent =
+      "New password is required.";
+
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    authStatus.textContent =
+      "Password must be at least 6 characters.";
+
+    return;
+  }
+
+  if (
+    newPassword !==
+    confirmPassword
+  ) {
+    authStatus.textContent =
+      "Passwords do not match.";
+
+    return;
+  }
+
+  authStatus.textContent =
+    "Resetting password...";
+
+  try {
+    await resetPassword(
+      newPassword
+    );
+
+    document
+      .getElementById(
+        "passwordRecoveryForm"
+      )
+      ?.reset();
+
+    authStatus.textContent =
+      "Password reset successfully.";
+
+    document
+      .getElementById(
+        "passwordRecovery"
+      )
+      ?.setAttribute(
+        "hidden",
+        ""
+      );
+
+  } catch (error) {
+    console.error(
+      "Password reset failed:",
+      error
+    );
+
+    authStatus.textContent =
+      error?.message ??
+      "Password reset failed.";
+  }
+};
+
 const handleChangePassword = async e => {
   e.preventDefault();
 
@@ -1687,6 +1803,22 @@ initEvents({
   loginForm,
   signupForm,
   logoutBtn,
+  forgotPasswordBtn:
+    document.getElementById(
+      "forgotPasswordBtn"
+    ),
+  passwordRecoveryForm:
+    document.getElementById(
+      "passwordRecoveryForm"
+    ),
+  resetPasswordToggle:
+    document.getElementById(
+      "resetPasswordToggle"
+    ),
+  resetPasswordConfirmToggle:
+    document.getElementById(
+      "resetPasswordConfirmToggle"
+    ),
   changePasswordForm:
     document.getElementById(
       "changePasswordForm"
@@ -1730,6 +1862,23 @@ initEvents({
     login: handleLogin,
     signup: handleSignup,
     logout: handleLogout,
+    forgotPassword:
+      handleForgotPassword,
+    toggleResetPassword: () => {
+      togglePassword(
+        "resetPassword",
+        "resetPasswordIcon",
+        "resetPasswordToggle"
+      );
+    },
+
+    toggleResetPasswordConfirm: () => {
+      togglePassword(
+        "resetPasswordConfirm",
+        "resetPasswordConfirmIcon",
+        "resetPasswordConfirmToggle"
+      );
+    },
     changePassword:
       handleChangePassword,
     toggleLoginPassword: () => {
