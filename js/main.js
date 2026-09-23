@@ -36,6 +36,7 @@ import {
   signIn,
   signUp,
   signOut,
+  changePassword,
   onAuthStateChange
 } from "./auth.js";
 import { getActiveStorageKey, loadState, saveState } from "./localState.js";
@@ -937,6 +938,87 @@ const handleLogout = async () => {
   }
 };
 
+const handleChangePassword = async e => {
+  e.preventDefault();
+
+  const currentPassword =
+    document.getElementById(
+      "currentPassword"
+    )?.value ?? "";
+
+  const newPassword =
+    document.getElementById(
+      "newPassword"
+    )?.value ?? "";
+
+  const confirmPassword =
+    document.getElementById(
+      "confirmPassword"
+    )?.value ?? "";
+
+  if (!currentPassword) {
+    authStatus.textContent =
+      "Current password is required.";
+    return;
+  }
+
+  if (!newPassword) {
+    authStatus.textContent =
+      "New password is required.";
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    authStatus.textContent =
+      "New password must be at least 6 characters.";
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    authStatus.textContent =
+      "New passwords do not match.";
+    return;
+  }
+
+  const authenticatedUser =
+    getCachedAuthenticatedUser();
+
+  if (!authenticatedUser) {
+    authStatus.textContent =
+      "You must be logged in to change your password.";
+    return;
+  }
+
+  authStatus.textContent =
+    "Changing password...";
+
+  try {
+    await changePassword(
+      currentPassword,
+      newPassword
+    );
+
+    document
+      .getElementById(
+        "changePasswordForm"
+      )
+      ?.reset();
+
+    authStatus.textContent =
+      "Password changed successfully.";
+
+  } catch (error) {
+    console.error(
+      "Password change failed:",
+      error
+    );
+
+    authStatus.textContent =
+      error?.message ??
+      "Password change failed.";
+  }
+};
+
 const updateAuthUI = user => {
   const isLoggedIn = Boolean(user);
 
@@ -1605,6 +1687,25 @@ initEvents({
   loginForm,
   signupForm,
   logoutBtn,
+  changePasswordForm:
+    document.getElementById(
+      "changePasswordForm"
+    ),
+
+  currentPasswordToggle:
+    document.getElementById(
+      "currentPasswordToggle"
+    ),
+
+  newPasswordToggle:
+    document.getElementById(
+      "newPasswordToggle"
+    ),
+
+  confirmPasswordToggle:
+    document.getElementById(
+      "confirmPasswordToggle"
+    ),
   loginPasswordToggle:
     document.getElementById(
       "loginPasswordToggle"
@@ -1629,6 +1730,8 @@ initEvents({
     login: handleLogin,
     signup: handleSignup,
     logout: handleLogout,
+    changePassword:
+      handleChangePassword,
     toggleLoginPassword: () => {
       togglePassword(
         "loginPassword",
@@ -1642,6 +1745,30 @@ initEvents({
         "signupPassword",
         "signupIcon",
         "signupPasswordToggle"
+      );
+    },
+
+    toggleCurrentPassword: () => {
+      togglePassword(
+        "currentPassword",
+        "currentPasswordIcon",
+        "currentPasswordToggle"
+      );
+    },
+
+    toggleNewPassword: () => {
+      togglePassword(
+        "newPassword",
+        "newPasswordIcon",
+        "newPasswordToggle"
+      );
+    },
+
+    toggleConfirmPassword: () => {
+      togglePassword(
+        "confirmPassword",
+        "confirmPasswordIcon",
+        "confirmPasswordToggle"
       );
     },
   }

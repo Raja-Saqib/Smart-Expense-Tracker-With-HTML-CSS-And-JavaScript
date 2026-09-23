@@ -12,6 +12,10 @@ export const initEvents = ({
   loginForm,
   signupForm,
   logoutBtn,
+  changePasswordForm,
+  currentPasswordToggle,
+  newPasswordToggle,
+  confirmPasswordToggle,
   loginPasswordToggle,
   signupPasswordToggle,
   handlers
@@ -69,6 +73,11 @@ export const initEvents = ({
       handlers.logout
     );
 
+    changePasswordForm?.addEventListener(
+      "submit",
+      handlers.changePassword
+    );
+
     loginPasswordToggle?.addEventListener(
       "click",
       handlers.toggleLoginPassword
@@ -77,5 +86,20 @@ export const initEvents = ({
     signupPasswordToggle?.addEventListener(
       "click",
       handlers.toggleSignupPassword
+    );
+
+    currentPasswordToggle?.addEventListener(
+      "click",
+      handlers.toggleCurrentPassword
+    );
+
+    newPasswordToggle?.addEventListener(
+      "click",
+      handlers.toggleNewPassword
+    );
+
+    confirmPasswordToggle?.addEventListener(
+      "click",
+      handlers.toggleConfirmPassword
     );
 };

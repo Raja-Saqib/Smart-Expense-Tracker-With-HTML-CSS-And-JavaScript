@@ -521,7 +521,11 @@ select {
   border-bottom-right-radius: 0;
 }
 
-#loginPasswordToggle, #signupPasswordToggle {
+#loginPasswordToggle, 
+#signupPasswordToggle, 
+#currentPasswordToggle, 
+#newPasswordToggle, 
+#confirmPasswordToggle {
   box-sizing: border-box;
   flex: 0 0 20px;
   padding: 0;
@@ -535,6 +539,14 @@ select {
 
   font-size: 20px;
   cursor: pointer;
+}
+
+#loginPasswordToggle, 
+#signupPasswordToggle, 
+#currentPasswordToggle, 
+#newPasswordToggle, 
+#confirmPasswordToggle svg {
+  fill: var(--text);
 }
 
 .auth-status {

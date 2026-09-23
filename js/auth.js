@@ -142,6 +142,54 @@ export const signIn = async (
 
 /*
  * --------------------------------------------------
+ * CHANGE PASSWORD
+ *
+ * For an already authenticated account.
+ * --------------------------------------------------
+ */
+
+export const changePassword = async (
+  currentPassword,
+  newPassword
+) => {
+  if (!currentPassword) {
+    throw new Error(
+      "Current password is required."
+    );
+  }
+
+  if (!newPassword) {
+    throw new Error(
+      "New password is required."
+    );
+  }
+
+  const {
+    data,
+    error
+  } = await supabase.auth.updateUser({
+    currentPassword,
+    password: newPassword
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data?.user) {
+    throw new Error(
+      "Supabase did not return the updated user."
+    );
+  }
+
+  currentUser =
+    data.user;
+
+  return data.user;
+};
+
+/*
+ * --------------------------------------------------
  * SIGN OUT
  * --------------------------------------------------
  */
