@@ -1,6 +1,26 @@
 import { supabase } from "./supabaseClient.js";
 import { deviceId } from "../js/deviceIdentity.js";
 
+export class CloudUnavailableError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+
+    this.name = "CloudUnavailableError";
+    this.code = "CLOUD_UNAVAILABLE";
+    this.details = details;
+  }
+}
+
+export class CloudPullError extends Error {
+  constructor(message, details = {}) {
+    super(message);
+
+    this.name = "CloudPullError";
+    this.code = "CLOUD_PULL_FAILED";
+    this.details = details;
+  }
+}
+
 /**
  * Pushes the current application state to Supabase.
  *
@@ -946,7 +966,10 @@ const hasValidMigrationFallback = updatedBy => {
  * migration can determine whether legacy records still
  * exist before attempting another write.
  */
-const fetchLatestCloudState = async userId => {
+const fetchLatestCloudState = async (
+  userId,
+  signal = undefined
+) => {
   const {
     data,
     error
@@ -956,6 +979,7 @@ const fetchLatestCloudState = async userId => {
       "version, updated_at, updated_by, transactions, chart_mode, meta"
     )
     .eq("user_id", userId)
+    .abortSignal(signal)
     .maybeSingle();
 
   if (error) {
@@ -1257,13 +1281,13 @@ export const pullFromCloud = async ({
 
   try {
     if (callerSignal?.aborted) {
-      console.warn(
-        "Cloud pull cancelled by caller"
+      throw new CloudUnavailableError(
+        "Cloud pull was cancelled by the caller.",
+        {
+          reason: "caller-aborted"
+        }
       );
-
-      return null;
     }
-
 
     if (!userId) {
       return null;
@@ -1278,28 +1302,87 @@ export const pullFromCloud = async ({
         "version, updated_at, updated_by, transactions, chart_mode, meta"
       )
       .eq("user_id", userId)
+      .abortSignal(signal)
       .maybeSingle();
 
-
+    /*
+     * The request was actually aborted.
+     *
+     * Do this before interpreting the Supabase
+     * error object because aborts can be returned
+     * through the normal { data, error } response.
+     */
     if (signal.aborted) {
-      console.warn(
-        "Cloud pull cancelled or timed out"
-      );
+      const reason =
+        signal.reason;
 
-      return null;
+      if (
+        reason === "timeout" ||
+        reason?.name === "TimeoutError"
+      ) {
+        throw new CloudUnavailableError(
+          "Cloud pull timed out.",
+          {
+            reason: "timeout"
+          }
+        );
+      }
+
+      throw new CloudUnavailableError(
+        "Cloud pull was aborted.",
+        {
+          reason:
+            reason?.name ??
+            reason ??
+            "aborted"
+        }
+      );
     }
 
-
+    /*
+     * Supabase/database failure.
+     *
+     * This is NOT the same thing as
+     * "there is no cloud state".
+     */
     if (error) {
-      console.warn(
-        "Supabase pull failed:",
-        error
-      );
+      const cloudError =
+        new CloudPullError(
+          `Supabase pull failed: ${error.message}`,
+          {
+            code: error.code ?? null,
+            details:
+              error.details ?? null,
+            hint:
+              error.hint ?? null,
+            status:
+              Number.isFinite(error.status)
+                ? error.status
+                : null
+          }
+        );
 
-      return null;
+      cloudError.status =
+        error.status;
+
+      cloudError.supabaseCode =
+        error.code;
+
+      cloudError.supabaseDetails =
+        error.details;
+
+      cloudError.supabaseHint =
+        error.hint;
+
+      throw cloudError;
     }
 
-
+    /*
+     * No row exists for this user.
+     *
+     * This is a valid "no cloud state yet"
+     * condition, NOT an error.
+     */
     if (!data) {
       console.info(
         "No cloud state exists for this Supabase user yet."
@@ -1308,14 +1391,12 @@ export const pullFromCloud = async ({
       return null;
     }
 
-
     // ----------------------------------------------------------
     // Convert Supabase row into application cloud payload.
     // ----------------------------------------------------------
 
     let cloudPayload =
       createCloudPayload(data);
-
 
     // ----------------------------------------------------------
     // Migrate legacy transactions if required.
@@ -1324,12 +1405,11 @@ export const pullFromCloud = async ({
     cloudPayload =
       await migrateLegacyCloudState({
         cloudPayload,
-        userId,
+        userId
       });
 
-
     // ----------------------------------------------------------
-    // Existing validation remains unchanged.
+    // Validate final cloud payload.
     // ----------------------------------------------------------
 
     const validation =
@@ -1337,38 +1417,78 @@ export const pullFromCloud = async ({
         cloudPayload
       );
 
-
     if (!validation.valid) {
-      console.warn(
-        "Invalid Supabase cloud payload:",
-        validation.errors
+      throw new CloudPullError(
+        "Invalid Supabase cloud payload.",
+        {
+          validationErrors:
+            validation.errors
+        }
       );
-
-      return null;
     }
-
 
     return cloudPayload;
 
   } catch (error) {
-    if (callerSignal?.aborted) {
-      console.warn(
-        "Cloud pull cancelled by caller"
-      );
-    } else if (
-      error?.name === "TimeoutError"
+    /*
+     * Preserve already-classified errors.
+     */
+    if (
+      error?.code === "CLOUD_UNAVAILABLE" ||
+      error?.code === "CLOUD_PULL_FAILED"
     ) {
-      console.warn(
-        "Cloud pull timed out"
-      );
-    } else {
-      console.warn(
-        "Cloud pull unavailable:",
-        error
+      throw error;
+    }
+
+    /*
+     * Native timeout/abort errors.
+     */
+    if (
+      error?.name === "TimeoutError" ||
+      error?.name === "AbortError"
+    ) {
+      throw new CloudUnavailableError(
+        "Cloud pull was interrupted.",
+        {
+          name: error.name,
+          message: error.message
+        }
       );
     }
 
-    return null;
+    /*
+     * Browser/network failures.
+     */
+    if (
+      error?.name === "TypeError" &&
+      /fetch|network|load/i.test(
+        error.message ?? ""
+      )
+    ) {
+      throw new CloudUnavailableError(
+        "Cloud pull is unavailable.",
+        {
+          name: error.name,
+          message: error.message
+        }
+      );
+    }
+
+    /*
+     * Unexpected application error.
+     *
+     * Do NOT convert this to null.
+     */
+    throw new CloudPullError(
+      error?.message ??
+        "Unexpected cloud pull failure.",
+      {
+        originalName:
+          error?.name ?? "Error",
+        originalError:
+          error
+      }
+    );
 
   } finally {
     cleanup();

@@ -227,6 +227,13 @@ const isCloudUnavailable = error => {
   }
 
   if (
+    error?.code ===
+    "CLOUD_UNAVAILABLE"
+  ) {
+    return true;
+  }
+
+  if (
     isCloudVersionConflict(error) ||
     isOperationConflict(error)
   ) {

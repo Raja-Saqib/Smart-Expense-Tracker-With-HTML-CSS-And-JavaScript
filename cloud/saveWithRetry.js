@@ -614,8 +614,15 @@ export const saveWithRetry = async ({
         });
 
       if (!latestState) {
-        throw new CloudVersionConflictError(
-          "Unable to retrieve the latest cloud state after a version conflict.",
+        /*
+         * No cloud state exists.
+         *
+         * This is different from a version conflict.
+         * We cannot safely rebase the operation without
+         * an authoritative cloud snapshot.
+         */
+        throw new CloudPullError(
+          "No authoritative cloud state exists after a version conflict.",
           {
             attempts: attempt,
             operation
