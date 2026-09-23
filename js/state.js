@@ -621,12 +621,43 @@ export const addTransaction = async ({
     };
   }
 
-  const existing = transactions.find(
-    t => t.id === editId
-  );
+  // Normalize edit ID BEFORE looking up the existing transaction.
+  const currentEditId =
+    editId === null ||
+    editId === undefined ||
+    editId === ""
+      ? null
+      : Number(editId);
 
-  // NO-OP EDIT CHECK
-  if (editId && existing) {
+  // Validate normalized edit ID.
+  if (
+    currentEditId !== null &&
+    (
+      !Number.isSafeInteger(
+        currentEditId
+      ) ||
+      currentEditId < 0
+    )
+  ) {
+    return {
+      success: false,
+      error: "Invalid transaction ID"
+    };
+  }
+
+  // Lookup must use the normalized ID.
+  const existing =
+    currentEditId === null
+      ? undefined
+      : transactions.find(
+          t => t.id === currentEditId
+        );
+
+  // Editing: detect no-op before creating a new object
+  if (
+    currentEditId !== null &&
+    existing
+  ) {
     const isUnchanged =
       existing.text === normalizedText &&
       existing.category === category &&
@@ -641,11 +672,6 @@ export const addTransaction = async ({
       };
     }
   }
-
-  const currentEditId =
-    normalizeTransactionId(
-      editId
-    );
 
   if (
     currentEditId !== null &&
@@ -696,33 +722,35 @@ export const addTransaction = async ({
         ),
       cloudMeta: getCloudMeta(),
       chartMode,
-      meta: currentEditId
-        ? {
-            type: "edit",
-            category: data.category,
-            previousCategory:
-              existing?.category
-          }
-        : {
-            type: "add",
-            category: data.category
-          },
-      operation: currentEditId
-        ? {
-            type: "edit",
-            transactionId: currentEditId,
-            changes: {
-              text: data.text,
+      meta:
+        currentEditId !== null
+          ? {
+              type: "edit",
               category: data.category,
-              amount: data.amount,
-              updatedAt: data.updatedAt,
-              updatedBy: data.updatedBy
+              previousCategory:
+                existing?.category
             }
-          }
-        : {
-            type: "add",
-            transaction: structuredClone(data)
-          }
+          : {
+              type: "add",
+              category: data.category
+            },
+      operation:
+        currentEditId !== null
+          ? {
+              type: "edit",
+              transactionId: currentEditId,
+              changes: {
+                text: data.text,
+                category: data.category,
+                amount: data.amount,
+                updatedAt: data.updatedAt,
+                updatedBy: data.updatedBy
+              }
+            }
+          : {
+              type: "add",
+              transaction: structuredClone(data)
+            }
     });
 
     // LOCAL PERSISTENCE SUCCEEDED.
@@ -733,9 +761,10 @@ export const addTransaction = async ({
         transactions,
         cloudMeta: getCloudMeta(),
         chartMode,
-        label: currentEditId
-          ? "Undo edit"
-          : "Undo add"
+        label:
+          currentEditId !== null
+            ? "Undo edit"
+            : "Undo add"
       })
     );
 
