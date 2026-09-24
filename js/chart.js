@@ -225,6 +225,16 @@ export const drawChart = ({
   setSlices([]);
   legendEl.setAttribute("role", "list");
 
+  const selectedCurrency =
+    currencyFilter ?? "USD";
+
+  const currencyData =
+    data.filter(
+      t =>
+        (t.currency ?? "USD") ===
+        selectedCurrency
+    );
+
   const totals = {};
   data.filter(t => t.amount < 0).forEach(t => {
     totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
@@ -438,3 +448,14 @@ export const drawChart = ({
 
   
 };
+
+export const getTransactionCurrencies =
+  transactions => {
+    return [
+      ...new Set(
+        transactions.map(
+          t => t.currency ?? "USD"
+        )
+      )
+    ];
+  };

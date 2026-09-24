@@ -2,7 +2,7 @@ import { transactions, setTransactions, saveData, activeCategory, addTransaction
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
 import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
-import { drawChart } from "./chart.js";
+import { drawChart, getTransactionCurrencies } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
@@ -61,6 +61,7 @@ const form = document.getElementById("form");
 const textEl = document.getElementById("text");
 const categoryEl = document.getElementById("category");
 const amountEl = document.getElementById("amount");
+const currencyEl = document.getElementById("currency");
 const monthEl = document.getElementById("month");
 const themeBtn = document.getElementById("themeBtn");
 const canvas = document.getElementById("expenseChart");
@@ -68,6 +69,7 @@ const ctx = canvas.getContext("2d");
 const patternToggle = document.getElementById("patternToggle");
 const donutToggle = document.getElementById("donutToggle");
 const chartStatus = document.getElementById("chartStatus");
+const chartCurrencyEl = document.getElementById("chartCurrency");
 const chartView = document.getElementById("chartView");
 const tableView = document.getElementById("tableView");
 const viewChartRadio = document.getElementById("viewChart");
@@ -698,15 +700,50 @@ const handleImportCSV = async e => {
   }
 };
 
+const updateCurrencyOptions = () => {
+  const currencies =
+    getTransactionCurrencies(
+      transactions
+    );
+
+  const current =
+    chartCurrencyEl.value;
+
+  chartCurrencyEl.innerHTML = "";
+
+  currencies.forEach(currency => {
+    const option =
+      document.createElement("option");
+
+    option.value = currency;
+
+    option.textContent = currency;
+
+    chartCurrencyEl.appendChild(option);
+  });
+
+  if (
+    currencies.includes(current)
+  ) {
+    chartCurrencyEl.value =
+      current;
+  } else if (currencies.length) {
+    chartCurrencyEl.value =
+      currencies[0];
+  }
+};
+
 const init = () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
   updateSummary(balanceEl, incomeEl, expenseEl, data);
   renderCategories(tableBody, data);
+  updateCurrencyOptions();
   drawChart({
     canvas,
     ctx,
     data,
+    currency: chartCurrencyEl.value,
     legendEl,
     getFiltered: getCurrentFiltered,
     formatMoney
@@ -730,6 +767,7 @@ const handleAddTransaction = async e => {
     text: textEl.value,
     category: categoryEl.value,
     amount: amountEl.value,
+    currency: currencyEl.value,
     chartMode
   });
 
@@ -779,6 +817,9 @@ const handleEditTransaction = id => {
   textEl.value = transaction.text;
   amountEl.value = transaction.amount;
   categoryEl.value = transaction.category;
+  currencyEl.value =
+    transaction.currency ??
+    DEFAULT_CURRENCY;
 
   form.querySelector("button").textContent =
     "Update Transaction";

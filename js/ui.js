@@ -32,7 +32,10 @@ export const addTransactionToDOM = t => {
 
   amount.className = "list-amount";
   amount.textContent =
-    formatMoney(Math.abs(t.amount));
+    formatMoney(
+      Math.abs(t.amount),
+      t.currency
+    );
 
   const buttons =
     document.createElement("div");
@@ -74,15 +77,87 @@ export const renderList = (listEl, data, addToDOM) => {
   });
 };
 
-export const updateSummary = (balanceEl, incomeEl, expenseEl, data) => {
-  const amounts = data.map(t => t.amount);
-  const total = amounts.reduce((a, b) => a + b, 0);
-  const income = amounts.filter(a => a > 0).reduce((a, b) => a + b, 0);
-  const expense = amounts.filter(a => a < 0).reduce((a, b) => a + b, 0);
+const groupByCurrency = data => {
+  const groups = {};
 
-  balanceEl.textContent = formatMoney(total);
-  incomeEl.textContent = formatMoney(income);
-  expenseEl.textContent = formatMoney(Math.abs(expense));
+  data.forEach(transaction => {
+    const currency =
+      transaction.currency ??
+      "USD";
+
+    if (!groups[currency]) {
+      groups[currency] = {
+        balance: 0,
+        income: 0,
+        expense: 0
+      };
+    }
+
+    groups[currency].balance +=
+      transaction.amount;
+
+    if (transaction.amount > 0) {
+      groups[currency].income +=
+        transaction.amount;
+    }
+
+    if (transaction.amount < 0) {
+      groups[currency].expense +=
+        Math.abs(transaction.amount);
+    }
+  });
+
+  return groups;
+};
+
+export const updateSummary = (
+  balanceEl,
+  incomeEl,
+  expenseEl,
+  data
+) => {
+  const groups =
+    groupByCurrency(data);
+
+  const currencies =
+    Object.keys(groups);
+
+  if (!currencies.length) {
+    balanceEl.textContent = "$0.00";
+    incomeEl.textContent = "$0.00";
+    expenseEl.textContent = "$0.00";
+    return;
+  }
+
+  balanceEl.textContent =
+    currencies
+      .map(currency =>
+        formatMoney(
+          groups[currency].balance,
+          currency
+        )
+      )
+      .join(" • ");
+
+  incomeEl.textContent =
+    currencies
+      .map(currency =>
+        formatMoney(
+          groups[currency].income,
+          currency
+        )
+      )
+      .join(" • ");
+
+  expenseEl.textContent =
+    currencies
+      .map(currency =>
+        formatMoney(
+          groups[currency].expense,
+          currency
+        )
+      )
+      .join(" • ");
 };
 
 export const renderCategories = (tableBody, data) => {
@@ -93,25 +168,40 @@ export const renderCategories = (tableBody, data) => {
   data
     .filter(t => t.amount < 0)
     .forEach(t => {
-      totals[t.category] =
-        (totals[t.category] || 0) +
+      const currency =
+        t.currency ?? "USD";
+
+      const key =
+        `${t.category}__${currency}`;
+
+      totals[key] ??= {
+        category: t.category,
+        currency,
+        amount: 0
+      };
+
+      totals[key].amount +=
         Math.abs(t.amount);
     });
 
-  Object.entries(totals).forEach(([cat, val]) => {
+  Object.values(totals).forEach(item => {
     const row =
       document.createElement("tr");
 
     const categoryCell =
       document.createElement("td");
 
-    categoryCell.textContent = cat;
+    categoryCell.textContent =
+      item.category;
 
     const amountCell =
       document.createElement("td");
 
     amountCell.textContent =
-      formatMoney(val);
+      formatMoney(
+        item.amount,
+        item.currency
+      );
 
     row.appendChild(categoryCell);
     row.appendChild(amountCell);

@@ -1,3 +1,7 @@
+import {
+  isSupportedCurrency
+} from "./currency.js";
+
 const VALID_CATEGORIES = new Set([
   "Food",
   "Transport",
@@ -160,6 +164,20 @@ export const validateTransaction = transaction => {
     ) {
       errors.category =
         "category is not an allowed transaction category";
+    }
+  }
+
+  // --------------------------------------------------
+  // currency
+  // --------------------------------------------------
+
+  if (hasOwn(transaction, "currency")) {
+    if (
+      typeof transaction.currency !== "string" ||
+      !isSupportedCurrency(transaction.currency)
+    ) {
+      errors.currency =
+        "currency must be a supported currency code";
     }
   }
 

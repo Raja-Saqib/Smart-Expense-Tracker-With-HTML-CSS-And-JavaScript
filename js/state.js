@@ -15,6 +15,10 @@ import {
   loadState,
   saveState
 } from "./localState.js";
+import {
+  DEFAULT_CURRENCY,
+  isSupportedCurrency
+} from "./currency.js";
 
 export let transactions = [];
 
@@ -593,6 +597,7 @@ export const addTransaction = async ({
   text,
   category,
   amount,
+  currency,
   chartMode,
 }) => {
   const normalizedText = String(text ?? "").trim();
@@ -604,6 +609,16 @@ export const addTransaction = async ({
     return {
       success: false,
       error: "Category and amount are required"
+    };
+  }
+
+  if (
+    !currency ||
+    typeof currency !== "string"
+  ) {
+    return {
+      success: false,
+      error: "Currency is required"
     };
   }
 
@@ -661,7 +676,10 @@ export const addTransaction = async ({
     const isUnchanged =
       existing.text === normalizedText &&
       existing.category === category &&
-      existing.amount === numericAmount;
+      existing.amount === numericAmount &&
+      (existing.currency ??
+        DEFAULT_CURRENCY) ===
+        normalizedCurrency;
 
     if (isUnchanged) {
       editId = null;
@@ -698,6 +716,11 @@ export const addTransaction = async ({
     return id;
   };
 
+  const normalizedCurrency =
+    isSupportedCurrency(currency)
+      ? currency
+      : DEFAULT_CURRENCY;
+
   const data = {
     id:
       currentEditId ??
@@ -706,6 +729,7 @@ export const addTransaction = async ({
     text: normalizedText,
     category,
     amount: numericAmount,
+    currency: normalizedCurrency,
     date:
       existing?.date ??
       new Date().toISOString(),
