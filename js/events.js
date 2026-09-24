@@ -56,20 +56,6 @@ export const initEvents = ({
   undoBtn.addEventListener("click", handlers.undo);
   redoBtn.addEventListener("click", handlers.redo);
 
-  // chartCurrencyEl?.addEventListener(
-  //   "change",
-  //   handlers.init
-  // );
-
-  // chartCurrencyEl?.addEventListener(
-  //   "change",
-  //   () => {
-  //     handlers.init();
-
-  //     // chartStatus should preferably be handled by main.js
-  //   }
-  // );
-
   chartCurrencyEl?.addEventListener(
     "change",
     handlers.chartCurrencyChange
