@@ -816,7 +816,7 @@ const handleEditTransaction = id => {
   if (!transaction) return;
 
   textEl.value = transaction.text;
-  amountEl.value = transaction.amount;
+  amountEl.value = Math.abs(transaction.amount);
   categoryEl.value = transaction.category;
   currencyEl.value =
     transaction.currency ??

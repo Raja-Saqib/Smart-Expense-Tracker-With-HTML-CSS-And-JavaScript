@@ -61,6 +61,31 @@ const isRebaseableOperation =
     );
 
 
+const normalizeOperationTransactionId = id => {
+  if (
+    Number.isSafeInteger(id) &&
+    id >= 0
+  ) {
+    return id;
+  }
+
+  if (
+    typeof id === "string" &&
+    id.trim() !== ""
+  ) {
+    const numericId = Number(id);
+
+    if (
+      Number.isSafeInteger(numericId) &&
+      numericId >= 0
+    ) {
+      return numericId;
+    }
+  }
+
+  return null;
+};
+
 /**
  * Apply one user operation to a state snapshot.
  *
@@ -122,10 +147,12 @@ export const applyOperation = (
     }
 
     case "edit": {
-      if (
-        typeof operation.transactionId !==
-        "string"
-      ) {
+      const transactionId =
+        normalizeOperationTransactionId(
+          operation.transactionId
+        );
+
+      if (transactionId === null) {
         throw new OperationConflictError(
           "Edit operation contains no valid transaction ID."
         );
@@ -134,8 +161,7 @@ export const applyOperation = (
       const index =
         state.transactions.findIndex(
           transaction =>
-            transaction.id ===
-            operation.transactionId
+            transaction.id === transactionId
         );
 
       if (index === -1) {
@@ -171,10 +197,12 @@ export const applyOperation = (
     }
 
     case "delete": {
-      if (
-        typeof operation.transactionId !==
-        "string"
-      ) {
+      const transactionId =
+        normalizeOperationTransactionId(
+          operation.transactionId
+        );
+
+      if (transactionId === null) {
         throw new OperationConflictError(
           "Delete operation contains no valid transaction ID."
         );
@@ -183,29 +211,19 @@ export const applyOperation = (
       const exists =
         state.transactions.some(
           transaction =>
-            transaction.id ===
-            operation.transactionId
+            transaction.id === transactionId
         );
 
-      /*
-       * Delete is idempotent.
-       *
-       * If another tab already deleted the
-       * transaction, our desired result already
-       * exists, so we don't treat that as failure.
-       */
       if (!exists) {
         return state;
       }
 
       return {
         ...state,
-
         transactions:
           state.transactions.filter(
             transaction =>
-              transaction.id !==
-              operation.transactionId
+              transaction.id !== transactionId
           )
       };
     }

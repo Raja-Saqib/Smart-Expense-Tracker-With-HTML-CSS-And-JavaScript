@@ -2,18 +2,11 @@ import {
   isSupportedCurrency
 } from "./currency.js";
 
-const VALID_CATEGORIES = new Set([
-  "Food",
-  "Transport",
-  "Shopping",
-  "Bills",
-  "Entertainment",
-  "Health",
-  "Income",
-  "Rent",
-  "Salary",
-  "Other"
-]);
+import {
+  VALID_CATEGORIES,
+  isIncomeCategory,
+  isExpenseCategory
+} from "./transactionRules.js";
 
 const REQUIRED_TRANSACTION_FIELDS = new Set([
   "id",
@@ -204,6 +197,25 @@ export const validateTransaction = transaction => {
     ) {
       errors.amount =
         "amount cannot be zero";
+    } else if (
+      typeof transaction.category === "string" &&
+      VALID_CATEGORIES.has(transaction.category)
+    ) {
+      if (
+        isIncomeCategory(transaction.category) &&
+        transaction.amount <= 0
+      ) {
+        errors.amount =
+          "income transactions must have a positive amount";
+      }
+
+      if (
+        isExpenseCategory(transaction.category) &&
+        transaction.amount >= 0
+      ) {
+        errors.amount =
+          "expense transactions must have a negative amount";
+      }
     }
   }
 

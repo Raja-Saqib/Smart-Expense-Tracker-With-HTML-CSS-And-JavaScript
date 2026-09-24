@@ -3,6 +3,9 @@ import {
   DEFAULT_CURRENCY,
   isSupportedCurrency
 } from "./currency.js";
+import {
+  normalizeAmountByCategory
+} from "./transactionRules.js";
 
 const REQUIRED_HEADERS = [
     "description",
@@ -320,10 +323,60 @@ const validateImportedTransaction = transaction => {
     return null;
 };
 
-const buildImportedTransaction = row => {
+const createImportedTransactionId = (
+    existingTransactions = [],
+    importedTransactions = []
+) => {
+    const usedIds = new Set();
+
+    for (const transaction of existingTransactions) {
+        if (
+            transaction &&
+            Number.isSafeInteger(transaction.id) &&
+            transaction.id >= 0
+        ) {
+            usedIds.add(transaction.id);
+        }
+    }
+
+    for (const transaction of importedTransactions) {
+        if (
+            transaction &&
+            Number.isSafeInteger(transaction.id) &&
+            transaction.id >= 0
+        ) {
+            usedIds.add(transaction.id);
+        }
+    }
+
+    let id = Date.now();
+
+    while (usedIds.has(id)) {
+        id += 1;
+    }
+
+    return id;
+};
+
+const buildImportedTransaction = (
+    row,
+    existingTransactions = [],
+    importedTransactions = []
+) => {
     const text = normalizeText(row.description);
     const category = normalizeText(row.category);
-    const amount = parseAmount(row.amount);
+
+    const rawAmount =
+        parseAmount(row.amount);
+
+    const amount =
+        rawAmount === null
+            ? null
+            : normalizeAmountByCategory(
+                rawAmount,
+                category
+            );
+
     const date = parseDate(row.date);
 
     const rawCurrency =
@@ -372,7 +425,10 @@ const buildImportedTransaction = row => {
     const now = Date.now();
 
     const transaction = {
-        id: crypto.randomUUID(),
+        id: createImportedTransactionId(
+            existingTransactions,
+            importedTransactions
+        ),
         text,
         category,
         amount,
@@ -509,7 +565,11 @@ export const importFromCSV = async (
         }
 
         const result =
-            buildImportedTransaction(rowObject);
+            buildImportedTransaction(
+                rowObject,
+                existingTransactions,
+                imported
+            );
 
         if (result.error) {
             errors.push({

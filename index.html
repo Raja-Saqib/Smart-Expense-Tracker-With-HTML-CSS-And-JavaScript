@@ -377,7 +377,14 @@
           <option value="CAD">CAD — Canadian Dollar</option>
           <option value="AUD">AUD — Australian Dollar</option>
         </select>
-        <input id="amount" type="number" placeholder="+income / -expense" />
+        <input
+          id="amount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Enter amount"
+          required
+        />
         <input id="text" type="text" placeholder="Description" />
         <button type="submit">Add Transaction</button>
       </form>

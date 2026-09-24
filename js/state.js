@@ -19,6 +19,9 @@ import {
   DEFAULT_CURRENCY,
   isSupportedCurrency
 } from "./currency.js";
+import {
+  normalizeAmountByCategory
+} from "./transactionRules.js";
 
 export let transactions = [];
 
@@ -612,12 +615,51 @@ export const addTransaction = async ({
   const normalizedText = String(text ?? "").trim();
 
   // VALIDATION
-  const numericAmount = Number(amount);
 
-  if (!category || !amount) {
+  if (!category) {
     return {
       success: false,
-      error: "Category and amount are required"
+      error: "Category is required"
+    };
+  }
+
+  if (
+    amount === undefined ||
+    amount === null ||
+    String(amount).trim() === ""
+  ) {
+    return {
+      success: false,
+      error: "Amount is required"
+    };
+  }
+
+  const enteredAmount = Number(amount);
+
+  if (!Number.isFinite(enteredAmount)) {
+    return {
+      success: false,
+      error: "Amount must be a valid number"
+    };
+  }
+
+  if (enteredAmount === 0) {
+    return {
+      success: false,
+      error: "Amount cannot be zero"
+    };
+  }
+
+  const numericAmount =
+    normalizeAmountByCategory(
+      enteredAmount,
+      category
+    );
+
+  if (numericAmount === null) {
+    return {
+      success: false,
+      error: "Invalid transaction category"
     };
   }
 
