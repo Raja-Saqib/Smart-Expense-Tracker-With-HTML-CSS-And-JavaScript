@@ -15,7 +15,7 @@ const VALID_CATEGORIES = new Set([
   "Other"
 ]);
 
-const TRANSACTION_FIELDS = new Set([
+const REQUIRED_TRANSACTION_FIELDS = new Set([
   "id",
   "text",
   "category",
@@ -23,6 +23,11 @@ const TRANSACTION_FIELDS = new Set([
   "date",
   "updatedAt",
   "updatedBy"
+]);
+
+const TRANSACTION_FIELDS = new Set([
+  ...REQUIRED_TRANSACTION_FIELDS,
+  "currency"
 ]);
 
 const MAX_TEXT_LENGTH = 200;
@@ -81,7 +86,9 @@ export const validateTransaction = transaction => {
   // Required fields
   // --------------------------------------------------
 
-  for (const field of TRANSACTION_FIELDS) {
+  for (
+    const field of REQUIRED_TRANSACTION_FIELDS
+  ) {
     if (!hasOwn(transaction, field)) {
       errors[field] =
         "Required transaction field is missing";

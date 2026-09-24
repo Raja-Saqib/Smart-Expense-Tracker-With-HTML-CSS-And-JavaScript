@@ -204,6 +204,7 @@ export const drawChart = ({
   canvas,
   ctx,
   data,
+  currency,
   legendEl,
   getFiltered,
   formatMoney,
@@ -226,7 +227,7 @@ export const drawChart = ({
   legendEl.setAttribute("role", "list");
 
   const selectedCurrency =
-    currencyFilter ?? "USD";
+    currency ?? "USD";
 
   const currencyData =
     data.filter(
@@ -236,7 +237,7 @@ export const drawChart = ({
     );
 
   const totals = {};
-  data.filter(t => t.amount < 0).forEach(t => {
+  currencyData.filter(t => t.amount < 0).forEach(t => {
     totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
   });
 
@@ -267,7 +268,7 @@ export const drawChart = ({
     ctx.textBaseline = "middle";
 
     ctx.fillText("Total", cx, cy - 10);
-    ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+    ctx.fillText(formatMoney(totalAmount, selectedCurrency), cx, cy + 10);
   };
 
   entries.forEach(([category, value], i) => {
@@ -303,7 +304,7 @@ export const drawChart = ({
 
     item.setAttribute(
       "aria-label",
-      `${category}, ${formatMoney(value)}, ${percent} percent`
+      `${category}, ${formatMoney(value, selectedCurrency)}, ${percent} percent`
     );
 
     item.setAttribute(
@@ -321,7 +322,7 @@ export const drawChart = ({
 
       <span>
         <strong>${category}</strong>:
-        ${formatMoney(value)}
+        ${formatMoney(value, selectedCurrency)}
         (${percent}%)
       </span>
     `;

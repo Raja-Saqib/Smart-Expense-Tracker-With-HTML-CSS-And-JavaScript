@@ -9,7 +9,8 @@ export const attachChartHover = (
   {
     getSlices,
     getChartTotal,
-    getChartMode
+    getChartMode,
+    getChartCurrency
   }
 ) => {
   canvas.addEventListener("mousemove", e => {
@@ -35,9 +36,13 @@ export const attachChartHover = (
     const percent =
       ((slice.value / chartTotal) * 100).toFixed(1);
 
+    const currency =
+      getChartCurrency();
+
     canvas.title =
       `${slice.category}: ${formatMoney(
-        slice.value
+        slice.value,
+        currency
       )} (${percent}%)`;
   });
 

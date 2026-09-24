@@ -93,7 +93,16 @@ const normalizeTransactions = list => {
 
       return {
         ...transaction,
-        id: normalizedId
+
+        id:
+          normalizedId,
+
+        currency:
+          isSupportedCurrency(
+            transaction?.currency
+          )
+            ? transaction.currency
+            : DEFAULT_CURRENCY
       };
     })
     .filter(Boolean);
@@ -660,6 +669,11 @@ export const addTransaction = async ({
     };
   }
 
+  const normalizedCurrency =
+    isSupportedCurrency(currency)
+      ? currency
+      : DEFAULT_CURRENCY;
+
   // Lookup must use the normalized ID.
   const existing =
     currentEditId === null
@@ -716,11 +730,6 @@ export const addTransaction = async ({
     return id;
   };
 
-  const normalizedCurrency =
-    isSupportedCurrency(currency)
-      ? currency
-      : DEFAULT_CURRENCY;
-
   const data = {
     id:
       currentEditId ??
@@ -767,6 +776,7 @@ export const addTransaction = async ({
                 text: data.text,
                 category: data.category,
                 amount: data.amount,
+                currency: data.currency,
                 updatedAt: data.updatedAt,
                 updatedBy: data.updatedBy
               }

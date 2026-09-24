@@ -20,12 +20,21 @@ export const exportToCSV = (data, showError) => {
   }
 
   const rows = [
-    ["Description", "Category", "Amount", "Date"],
+    [
+      "Description",
+      "Category",
+      "Amount",
+      "Currency",
+      "Date"
+    ],
+
     ...data.map(t => [
       t.text,
       t.category,
       t.amount,
-      new Date(t.date).toLocaleDateString()
+      t.currency ?? "USD",
+      new Date(t.date)
+        .toLocaleDateString()
     ])
   ];
 

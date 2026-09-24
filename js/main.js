@@ -373,6 +373,7 @@ const toggleTheme = () => {
       canvas,
       ctx,
       data: getCurrentFiltered(),
+      currency: chartCurrencyEl.value,
       legendEl,
       getFiltered: getCurrentFiltered,
       formatMoney
@@ -866,6 +867,13 @@ const handleRedo = async () => {
     canvas,
     chartStatus
   });
+};
+
+const handleChartCurrencyChange = () => {
+  init();
+
+  chartStatus.textContent =
+    `Showing ${chartCurrencyEl.value} expenses`;
 };
 
 const handleKeydown = (e, { undoBtn, redoBtn }) => {
@@ -1841,6 +1849,7 @@ initEvents({
   themeBtn,
   undoBtn,
   redoBtn,
+  chartCurrencyEl,
   loginForm,
   signupForm,
   logoutBtn,
@@ -1899,6 +1908,7 @@ initEvents({
     toggleTheme,
     undo: handleUndo,
     redo: handleRedo,
+    chartCurrencyChange: handleChartCurrencyChange,
     keydown: handleKeydown,
     login: handleLogin,
     signup: handleSignup,
@@ -2245,7 +2255,8 @@ resolveConflictsBtn.addEventListener("click", async () => {
 attachChartHover(canvas, {
   getSlices: () => slices,
   getChartTotal: () => chartTotal,
-  getChartMode: () => chartMode
+  getChartMode: () => chartMode,
+  getChartCurrency: () => chartCurrencyEl.value
 });
 attachChartClick(
   canvas,

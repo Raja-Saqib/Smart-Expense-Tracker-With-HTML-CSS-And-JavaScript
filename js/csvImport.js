@@ -1,4 +1,8 @@
 import { deviceId } from "./deviceIdentity.js";
+import {
+  DEFAULT_CURRENCY,
+  isSupportedCurrency
+} from "./currency.js";
 
 const REQUIRED_HEADERS = [
     "description",
@@ -249,6 +253,10 @@ const createTransactionFingerprint = transaction =>
         transaction.text.trim().toLowerCase(),
         transaction.category.trim().toLowerCase(),
         transaction.amount,
+        (
+            transaction.currency ??
+            DEFAULT_CURRENCY
+        ).toUpperCase(),
         transaction.date.slice(0, 10)
     ]);
 
@@ -318,6 +326,16 @@ const buildImportedTransaction = row => {
     const amount = parseAmount(row.amount);
     const date = parseDate(row.date);
 
+    const rawCurrency =
+        normalizeText(
+            row.currency
+        ).toUpperCase();
+
+    const currency =
+        rawCurrency
+            ? rawCurrency
+            : DEFAULT_CURRENCY;
+
     if (!text) {
         return {
             error: "Description is required"
@@ -336,6 +354,15 @@ const buildImportedTransaction = row => {
         };
     }
 
+    if (
+        !isSupportedCurrency(currency)
+    ) {
+        return {
+            error:
+                `Unsupported currency: ${currency}`
+        };
+    }
+
     if (!date) {
         return {
             error: "Invalid date"
@@ -349,6 +376,7 @@ const buildImportedTransaction = row => {
         text,
         category,
         amount,
+        currency,
         date,
         updatedAt: now,
         updatedBy: deviceId
@@ -383,7 +411,7 @@ export const importFromCSV = async (
             `Invalid CSV import mode: ${mode}`
         );
     }
-    
+
     if (!file) {
         throw new Error("No CSV file selected");
     }
@@ -459,6 +487,11 @@ export const importFromCSV = async (
 
             amount:
                 row[headerIndexes.amount] ?? "",
+
+            currency:
+                row[
+                    headerIndexes.currency
+                ] ?? "",
 
             date:
                 row[headerIndexes.date] ?? ""
