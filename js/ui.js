@@ -17,7 +17,10 @@ export const addTransactionToDOM = t => {
   const strong =
     document.createElement("strong");
 
-  strong.textContent = t.text;
+  const description =
+    t.text || "No description";
+
+  strong.textContent = description;
 
   const category =
     document.createElement("small");

@@ -123,11 +123,6 @@ export const validateTransaction = transaction => {
       errors.text =
         "text must be a string";
     } else if (
-      transaction.text.trim() === ""
-    ) {
-      errors.text =
-        "text must not be empty";
-    } else if (
       transaction.text.length >
       MAX_TEXT_LENGTH
     ) {
