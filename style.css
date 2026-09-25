@@ -574,10 +574,11 @@ select {
 }
 
 .category-chip {
-  border: 1px solid currentColor;
+  border: 1px solid var(--text);
   border-radius: 999px;
   padding: 0.45rem 0.85rem;
   background: transparent;
+  color: var(--text);
   cursor: pointer;
   font: inherit;
   transition:
@@ -591,13 +592,13 @@ select {
 }
 
 .category-chip:focus-visible {
-  outline: 3px solid currentColor;
+  outline: 3px solid var(--text);
   outline-offset: 2px;
 }
 
 .category-chip.active {
-  background-color: currentColor;
-  color: Canvas;
+  background-color: var(--text);
+  color: var(--soft);
 }
 
 /* Tablet breakpoint (≥600px) */
