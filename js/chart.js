@@ -7,6 +7,7 @@ import {
   CHART_DONUT_INNER_RADIUS
 } from "./chartGeometry.js";
 import {
+  clearSliceHighlight,
   highlightSlice
 } from "./chartHighlight.js";
 import {
@@ -379,15 +380,11 @@ export const drawChart = ({
       });
 
       item.addEventListener("blur", () => {
-        redrawCanvas({
+        clearSliceHighlight(
           ctx,
           canvas,
-          patternMode,
-          chartMode,
-          slices,
-          formatMoney,
-          currency: exchangeRateState.baseCurrency
-        });
+          slices[index]
+        );
       });
 
       item.addEventListener("click", () => {
