@@ -9,7 +9,7 @@ export const initEvents = ({
   themeBtn,
   undoBtn,
   redoBtn,
-  chartCurrencyEl,
+  baseCurrencyEl,
   loginForm,
   signupForm,
   logoutBtn,
@@ -56,9 +56,9 @@ export const initEvents = ({
   undoBtn.addEventListener("click", handlers.undo);
   redoBtn.addEventListener("click", handlers.redo);
 
-  chartCurrencyEl?.addEventListener(
+  baseCurrencyEl?.addEventListener(
     "change",
-    handlers.chartCurrencyChange
+    handlers.baseCurrencyChange
   );
 
   document.addEventListener("keydown", e => {

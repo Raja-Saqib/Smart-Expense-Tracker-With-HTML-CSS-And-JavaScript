@@ -156,7 +156,8 @@ const redrawCanvas = ({
   patternMode,
   chartMode,
   slices,
-  formatMoney
+  formatMoney,
+  currency
 }) => {
   ctx.clearRect(
     0,
@@ -200,14 +201,13 @@ const redrawCanvas = ({
   ctx.textBaseline = "middle";
 
   ctx.fillText("Total", cx, cy - 10);
-  ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+  ctx.fillText(formatMoney(totalAmount, currency), cx, cy + 10);
 };
 
 export const drawChart = ({
   canvas,
   ctx,
   data,
-  currency,
   legendEl,
   getFiltered,
   formatMoney,
@@ -229,16 +229,6 @@ export const drawChart = ({
   legendEl.innerHTML = "";
   setSlices([]);
   legendEl.setAttribute("role", "list");
-
-  const selectedCurrency =
-    currency ?? "USD";
-
-  const currencyData =
-    data.filter(
-      t =>
-        (t.currency ?? "USD") ===
-        selectedCurrency
-    );
 
   const totals = {};
 
@@ -297,7 +287,7 @@ export const drawChart = ({
     ctx.textBaseline = "middle";
 
     ctx.fillText("Total", cx, cy - 10);
-    ctx.fillText(formatMoney(totalAmount, selectedCurrency), cx, cy + 10);
+    ctx.fillText(formatMoney(totalAmount, exchangeRateState.baseCurrency), cx, cy + 10);
   };
 
   entries.forEach(([category, value], i) => {
@@ -333,7 +323,7 @@ export const drawChart = ({
 
     item.setAttribute(
       "aria-label",
-      `${category}, ${formatMoney(value, selectedCurrency)}, ${percent} percent`
+      `${category}, ${formatMoney(value, exchangeRateState.baseCurrency)}, ${percent} percent`
     );
 
     item.setAttribute(
@@ -351,7 +341,7 @@ export const drawChart = ({
 
       <span>
         <strong>${category}</strong>:
-        ${formatMoney(value, selectedCurrency)}
+        ${formatMoney(value, exchangeRateState.baseCurrency)}
         (${percent}%)
       </span>
     `;
@@ -418,7 +408,8 @@ export const drawChart = ({
           patternMode,
           chartMode,
           slices,
-          formatMoney
+          formatMoney,
+          currency: exchangeRateState.baseCurrency
         });
       });
 
@@ -433,7 +424,8 @@ export const drawChart = ({
           data: getFiltered(),
           legendEl,
           getFiltered,
-          formatMoney
+          formatMoney,
+          exchangeRateState
         });
       });
 
@@ -479,13 +471,3 @@ export const drawChart = ({
   
 };
 
-export const getTransactionCurrenciesChart =
-  transactions => {
-    return [
-      ...new Set(
-        transactions.map(
-          t => t.currency ?? "USD"
-        )
-      )
-    ];
-  };

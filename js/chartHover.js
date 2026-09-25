@@ -10,43 +10,63 @@ export const attachChartHover = (
     getSlices,
     getChartTotal,
     getChartMode,
-    getChartCurrency
+    getBaseCurrency
   }
 ) => {
-  canvas.addEventListener("mousemove", e => {
-    const slices = getSlices();
-    const chartTotal = getChartTotal();
-    const chartMode = getChartMode();
+  canvas.addEventListener(
+    "mousemove",
+    e => {
+      const slices =
+        getSlices();
 
-    canvas.title = "";
+      const chartTotal =
+        getChartTotal();
 
-    const hit = getChartHit({
-      canvas,
-      event: e,
-      slices,
-      chartMode
-    });
+      const chartMode =
+        getChartMode();
 
-    if (!hit || chartTotal <= 0) {
-      return;
+      const baseCurrency =
+        getBaseCurrency();
+
+      canvas.title = "";
+
+      const hit =
+        getChartHit({
+          canvas,
+          event: e,
+          slices,
+          chartMode
+        });
+
+      if (
+        !hit ||
+        chartTotal <= 0
+      ) {
+        return;
+      }
+
+      const { slice } = hit;
+
+      const percent =
+        (
+          (slice.value /
+            chartTotal) *
+          100
+        ).toFixed(1);
+
+      canvas.title =
+        `${slice.category}: ${formatMoney(
+          slice.value,
+          baseCurrency
+        )} (${percent}%)`;
     }
+  );
 
-    const { slice } = hit;
-
-    const percent =
-      ((slice.value / chartTotal) * 100).toFixed(1);
-
-    const currency =
-      getChartCurrency();
-
-    canvas.title =
-      `${slice.category}: ${formatMoney(
-        slice.value,
-        currency
-      )} (${percent}%)`;
-  });
-
-  canvas.addEventListener("mouseleave", () => {
-    canvas.title = "";
-  });
+  canvas.addEventListener(
+    "mouseleave",
+    () => {
+      canvas.title = "";
+    }
+  );
 };
+

@@ -2,7 +2,7 @@ import { transactions, setTransactions, saveData, activeCategory, addTransaction
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
 import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
-import { drawChart, getTransactionCurrenciesChart } from "./chart.js";
+import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
@@ -389,10 +389,10 @@ const toggleTheme = () => {
       canvas,
       ctx,
       data: getCurrentFiltered(),
-      currency: chartCurrencyEl.value,
       legendEl,
       getFiltered: getCurrentFiltered,
-      formatMoney
+      formatMoney,
+      exchangeRateState
     });
 
     restoreLegendFocus(
@@ -816,51 +816,16 @@ const handleImportCSV = async e => {
   }
 };
 
-const updateCurrencyOptions = () => {
-  const currencies =
-    getTransactionCurrenciesChart(
-      transactions
-    );
-
-  const current =
-    chartCurrencyEl.value;
-
-  chartCurrencyEl.innerHTML = "";
-
-  currencies.forEach(currency => {
-    const option =
-      document.createElement("option");
-
-    option.value = currency;
-
-    option.textContent = currency;
-
-    chartCurrencyEl.appendChild(option);
-  });
-
-  if (
-    currencies.includes(current)
-  ) {
-    chartCurrencyEl.value =
-      current;
-  } else if (currencies.length) {
-    chartCurrencyEl.value =
-      currencies[0];
-  }
-};
-
 const init = async () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
   await loadExchangeRates(data);
   updateSummary(balanceEl, incomeEl, expenseEl, data, exchangeRateState);
   renderCategories(tableBody, data, exchangeRateState);
-  updateCurrencyOptions();
   drawChart({
     canvas,
     ctx,
     data,
-    currency: chartCurrencyEl.value,
     legendEl,
     getFiltered: getCurrentFiltered,
     formatMoney,
@@ -986,12 +951,20 @@ const handleRedo = async () => {
   });
 };
 
-const handleChartCurrencyChange = () => {
-  init();
+const handleBaseCurrencyChange =
+  async () => {
+    const currency =
+      baseCurrencyEl.value;
 
-  chartStatus.textContent =
-    `Showing ${chartCurrencyEl.value} expenses`;
-};
+    setBaseCurrency(
+      currency
+    );
+
+    exchangeRateStatusEl.textContent =
+      "Updating exchange rates…";
+
+    await init();
+  };
 
 const handleKeydown = (e, { undoBtn, redoBtn }) => {
   const ctrlOrCmd = e.ctrlKey || e.metaKey;
@@ -1966,7 +1939,7 @@ initEvents({
   themeBtn,
   undoBtn,
   redoBtn,
-  chartCurrencyEl,
+  baseCurrencyEl,
   loginForm,
   signupForm,
   logoutBtn,
@@ -2025,7 +1998,7 @@ initEvents({
     toggleTheme,
     undo: handleUndo,
     redo: handleRedo,
-    chartCurrencyChange: handleChartCurrencyChange,
+    baseCurrencyChange: handleBaseCurrencyChange,
     keydown: handleKeydown,
     login: handleLogin,
     signup: handleSignup,
@@ -2392,7 +2365,7 @@ attachChartHover(canvas, {
   getSlices: () => slices,
   getChartTotal: () => chartTotal,
   getChartMode: () => chartMode,
-  getChartCurrency: () => chartCurrencyEl.value
+  getBaseCurrency: () => exchangeRateState.baseCurrency
 });
 attachChartClick(
   canvas,
