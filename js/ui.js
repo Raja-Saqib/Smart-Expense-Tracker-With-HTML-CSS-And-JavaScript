@@ -1,5 +1,8 @@
 import { transactions, setTransactions } from "./state.js";
 import { formatMoney } from "./utils.js";
+import {
+  convertAmount
+} from "./exchangeRates.js";
 
 export const addTransactionToDOM = t => {
   const li = document.createElement("li");
@@ -113,104 +116,155 @@ const groupByCurrency = data => {
   return groups;
 };
 
+const getConvertedAmount = (
+  transaction,
+  exchangeRateState
+) => {
+  const currency =
+    transaction.currency ??
+    "USD";
+
+  return convertAmount(
+    transaction.amount,
+    currency,
+    exchangeRateState.baseCurrency,
+    exchangeRateState.rates
+  );
+};
+
 export const updateSummary = (
   balanceEl,
   incomeEl,
   expenseEl,
-  data
+  data,
+  exchangeRateState
 ) => {
-  const groups =
-    groupByCurrency(data);
+  let balance = 0;
+  let income = 0;
+  let expense = 0;
 
-  const currencies =
-    Object.keys(groups);
+  data.forEach(transaction => {
+    const converted =
+      getConvertedAmount(
+        transaction,
+        exchangeRateState
+      );
 
-  if (!currencies.length) {
-    balanceEl.textContent = "$0.00";
-    incomeEl.textContent = "$0.00";
-    expenseEl.textContent = "$0.00";
-    return;
-  }
+    if (
+      converted === null
+    ) {
+      return;
+    }
+
+    balance += converted;
+
+    if (converted > 0) {
+      income += converted;
+    }
+
+    if (converted < 0) {
+      expense +=
+        Math.abs(converted);
+    }
+  });
+
+  const currency =
+    exchangeRateState.baseCurrency;
 
   balanceEl.textContent =
-    currencies
-      .map(currency =>
-        formatMoney(
-          groups[currency].balance,
-          currency
-        )
-      )
-      .join(" • ");
+    formatMoney(
+      balance,
+      currency
+    );
 
   incomeEl.textContent =
-    currencies
-      .map(currency =>
-        formatMoney(
-          groups[currency].income,
-          currency
-        )
-      )
-      .join(" • ");
+    formatMoney(
+      income,
+      currency
+    );
 
   expenseEl.textContent =
-    currencies
-      .map(currency =>
-        formatMoney(
-          groups[currency].expense,
-          currency
-        )
-      )
-      .join(" • ");
+    formatMoney(
+      expense,
+      currency
+    );
 };
 
-export const renderCategories = (tableBody, data) => {
+export const renderCategories = (
+  tableBody,
+  data,
+  exchangeRateState
+) => {
   tableBody.innerHTML = "";
 
   const totals = {};
 
   data
-    .filter(t => t.amount < 0)
-    .forEach(t => {
-      const currency =
-        t.currency ?? "USD";
+    .filter(
+      transaction =>
+        transaction.amount < 0
+    )
+    .forEach(transaction => {
+      const converted =
+        getConvertedAmount(
+          transaction,
+          exchangeRateState
+        );
 
-      const key =
-        `${t.category}__${currency}`;
+      if (
+        converted === null
+      ) {
+        return;
+      }
 
-      totals[key] ??= {
-        category: t.category,
-        currency,
-        amount: 0
-      };
+      const category =
+        transaction.category;
 
-      totals[key].amount +=
-        Math.abs(t.amount);
+      totals[category] =
+        (totals[category] || 0) +
+        Math.abs(converted);
     });
 
-  Object.values(totals).forEach(item => {
-    const row =
-      document.createElement("tr");
+  Object.entries(totals)
+    .forEach(
+      ([category, amount]) => {
+        const row =
+          document.createElement(
+            "tr"
+          );
 
-    const categoryCell =
-      document.createElement("td");
+        const categoryCell =
+          document.createElement(
+            "td"
+          );
 
-    categoryCell.textContent =
-      item.category;
+        categoryCell.textContent =
+          category;
 
-    const amountCell =
-      document.createElement("td");
+        const amountCell =
+          document.createElement(
+            "td"
+          );
 
-    amountCell.textContent =
-      formatMoney(
-        item.amount,
-        item.currency
-      );
+        amountCell.textContent =
+          formatMoney(
+            amount,
+            exchangeRateState.baseCurrency
+          );
 
-    row.appendChild(categoryCell);
-    row.appendChild(amountCell);
+        row.appendChild(
+          categoryCell
+        );
 
-    tableBody.appendChild(row);
-  });
+        row.appendChild(
+          amountCell
+        );
+
+        tableBody.appendChild(
+          row
+        );
+      }
+    );
 };
 
 const renderConflict = conflict => {

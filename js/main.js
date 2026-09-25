@@ -2,7 +2,7 @@ import { transactions, setTransactions, saveData, activeCategory, addTransaction
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
 import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
-import { drawChart, getTransactionCurrencies } from "./chart.js";
+import { drawChart, getTransactionCurrenciesChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
 import { animateThemeTransition, highlightChangedSlices } from "./chartAnimations.js";
@@ -51,10 +51,26 @@ import {
   migrateGuestStateToAccount
 } from "./identityMigration.js";
 
+import {
+  fetchExchangeRates,
+  getTransactionCurrencies
+} from "./exchangeRates.js";
+
+import {
+  getBaseCurrency,
+  setBaseCurrency
+} from "./currencyPreferences.js";
+
+import {
+  DEFAULT_CURRENCY
+} from "./currency.js";
+
 // DOM
 const balanceEl = document.getElementById("balance");
 const incomeEl = document.getElementById("income");
 const expenseEl = document.getElementById("expense");
+const baseCurrencyEl = document.getElementById("baseCurrency");
+const exchangeRateStatusEl = document.getElementById("exchangeRateStatus");
 const listEl = document.getElementById("list");
 const tableBody = document.getElementById("categoryTable");
 const form = document.getElementById("form");
@@ -403,6 +419,105 @@ const clearFilter = () => {
   chartStatus.textContent = "Filters cleared";
 };
 
+const storedBaseCurrency =
+  getBaseCurrency(
+    DEFAULT_CURRENCY
+  );
+
+baseCurrencyEl.value =
+  storedBaseCurrency;
+  
+let exchangeRateState = {
+  baseCurrency:
+    getBaseCurrency(
+      DEFAULT_CURRENCY
+    ),
+
+  rates: {
+    [DEFAULT_CURRENCY]: 1
+  },
+
+  fetchedAt: null
+};
+
+const loadExchangeRates =
+  async data => {
+    const baseCurrency =
+      baseCurrencyEl.value;
+
+    const currencies =
+      getTransactionCurrencies(
+        data
+      );
+
+    /*
+     * If every transaction is already
+     * in the base currency, no API
+     * request is necessary.
+     */
+    const currenciesToConvert =
+      currencies.filter(
+        currency =>
+          currency !==
+          baseCurrency
+      );
+
+    if (
+      currenciesToConvert.length ===
+      0
+    ) {
+      exchangeRateState = {
+        baseCurrency,
+        rates: {
+          [baseCurrency]: 1
+        },
+        fetchedAt: Date.now()
+      };
+
+      exchangeRateStatusEl.textContent =
+        "No currency conversion needed";
+
+      return true;
+    }
+
+    exchangeRateStatusEl.textContent =
+      "Updating exchange rates…";
+
+    try {
+      const result =
+        await fetchExchangeRates(
+          baseCurrency,
+          currencies
+        );
+
+      exchangeRateState = {
+        baseCurrency:
+          result.baseCurrency,
+
+        rates:
+          result.rates,
+
+        fetchedAt:
+          result.fetchedAt
+      };
+
+      exchangeRateStatusEl.textContent =
+        "Exchange rates updated";
+
+      return true;
+    } catch (error) {
+      console.error(
+        "Exchange-rate loading failed:",
+        error
+      );
+
+      exchangeRateStatusEl.textContent =
+        "Exchange rates unavailable";
+
+      return false;
+    }
+  };
+
 const handleExportCSV = () => {
   exportToCSV(
     getCurrentFiltered(),
@@ -703,7 +818,7 @@ const handleImportCSV = async e => {
 
 const updateCurrencyOptions = () => {
   const currencies =
-    getTransactionCurrencies(
+    getTransactionCurrenciesChart(
       transactions
     );
 
@@ -734,11 +849,12 @@ const updateCurrencyOptions = () => {
   }
 };
 
-const init = () => {
+const init = async () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
-  updateSummary(balanceEl, incomeEl, expenseEl, data);
-  renderCategories(tableBody, data);
+  await loadExchangeRates(data);
+  updateSummary(balanceEl, incomeEl, expenseEl, data, exchangeRateState);
+  renderCategories(tableBody, data, exchangeRateState);
   updateCurrencyOptions();
   drawChart({
     canvas,
@@ -747,7 +863,8 @@ const init = () => {
     currency: chartCurrencyEl.value,
     legendEl,
     getFiltered: getCurrentFiltered,
-    formatMoney
+    formatMoney,
+    exchangeRateState
   });
   donutToggle.checked = chartMode === "donut";
   patternToggle.checked = patternMode;
@@ -1915,6 +2032,8 @@ initEvents({
     logout: handleLogout,
     forgotPassword:
       handleForgotPassword,
+    resetPassword: 
+      handleResetPassword,
     toggleResetPassword: () => {
       togglePassword(
         "resetPassword",
@@ -1973,6 +2092,23 @@ initEvents({
     },
   }
 });
+
+baseCurrencyEl.addEventListener(
+  "change",
+  async () => {
+    const currency =
+      baseCurrencyEl.value;
+
+    setBaseCurrency(
+      currency
+    );
+
+    exchangeRateStatusEl.textContent =
+      "Updating exchange rates…";
+
+    await init();
+  }
+);
 
 // toggleBtn.addEventListener("click", () => {
 //   toggleChartMode();

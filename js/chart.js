@@ -6,6 +6,9 @@ import {
   CHART_OUTER_RADIUS,
   CHART_DONUT_INNER_RADIUS
 } from "./chartGeometry.js";
+import {
+  convertAmount
+} from "./exchangeRates.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);
@@ -208,6 +211,7 @@ export const drawChart = ({
   legendEl,
   getFiltered,
   formatMoney,
+  exchangeRateState
 }) => {
   // Preserve old slices for transitions
   // const previous = structuredClone(slices);
@@ -237,9 +241,34 @@ export const drawChart = ({
     );
 
   const totals = {};
-  currencyData.filter(t => t.amount < 0).forEach(t => {
-    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-  });
+
+  data
+    .filter(
+      transaction =>
+        transaction.amount < 0
+    )
+    .forEach(transaction => {
+      const converted =
+        convertAmount(
+          transaction.amount,
+          transaction.currency,
+          exchangeRateState.baseCurrency,
+          exchangeRateState.rates
+        );
+
+      if (
+        converted === null
+      ) {
+        return;
+      }
+
+      const category =
+        transaction.category;
+
+      totals[category] =
+        (totals[category] || 0) +
+        Math.abs(converted);
+    });
 
   const entries = Object.entries(totals);
   if (!entries.length) {
@@ -450,7 +479,7 @@ export const drawChart = ({
   
 };
 
-export const getTransactionCurrencies =
+export const getTransactionCurrenciesChart =
   transactions => {
     return [
       ...new Set(
