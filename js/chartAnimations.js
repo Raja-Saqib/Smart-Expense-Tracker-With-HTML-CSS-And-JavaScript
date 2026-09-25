@@ -1,3 +1,5 @@
+import { prefersReducedMotion } from "./chartState.js";
+
 export const animateThemeTransition = ({
   ctx,
   canvas,
@@ -18,4 +20,106 @@ export const animateThemeTransition = ({
   };
 
   requestAnimationFrame(step);
+};
+
+const mapSlicesById = slices =>
+  Object.fromEntries(slices.map(s => [s.id, s]));
+
+export const animateChartTransition = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  from,
+  to,
+  duration = 500
+}) => {
+  if (prefersReducedMotion) return;
+
+  const fromMap = mapSlicesById(from);
+  const toMap = mapSlicesById(to);
+
+  const allIds = new Set([
+    ...Object.keys(fromMap),
+    ...Object.keys(toMap)
+  ]);
+
+  const start = performance.now();
+
+  const frame = now => {
+    const progress = Math.min((now - start) / duration, 1);
+    ctx.clearRect(0, 0, cx * 2, cy * 2);
+
+    allIds.forEach(id => {
+      const a = fromMap[id];
+      const b = toMap[id];
+
+      if (!b) return; // slice removed → fade-out optional
+
+      const startAngle =
+        a
+          ? a.startAngle +
+            (b.startAngle - a.startAngle) * progress
+          : b.startAngle;
+
+      const endAngle =
+        a
+          ? a.endAngle +
+            (b.endAngle - a.endAngle) * progress
+          : b.startAngle +
+            (b.endAngle - b.startAngle) * progress;
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startAngle, endAngle);
+      ctx.arc(
+        cx,
+        cy,
+        innerRadius,
+        endAngle,
+        startAngle,
+        true
+      );
+      ctx.closePath();
+      ctx.fillStyle = b.color;
+      ctx.fill();
+    });
+
+    if (progress < 1) {
+      requestAnimationFrame(frame);
+    }
+  };
+
+  requestAnimationFrame(frame);
+};
+
+export const highlightChangedSlices = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  slices,
+  changedCategories
+}) => {
+  slices.forEach(s => {
+    if (!changedCategories.includes(s.category))
+      return;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 6, s.startAngle, s.endAngle);
+    ctx.arc(
+      cx,
+      cy,
+      innerRadius,
+      s.endAngle,
+      s.startAngle,
+      true
+    );
+    ctx.closePath();
+
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  });
 };

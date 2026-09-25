@@ -1,6 +1,14 @@
-import { slices, setSlices, chartTotal, setChartTotal, patternMode } from "./chartState.js";
+import { slices, setSlices, setChartTotal, patternMode, chartMode, setPreviousSlices, setFocusedSliceIndex } from "./chartState.js";
 import { prefersReducedMotion } from "./chartState.js";
 import { createPatterns } from "./chartPatterns.js";
+import { activeCategory, toggleCategoryFilter } from "./state.js";
+import {
+  CHART_OUTER_RADIUS,
+  CHART_DONUT_INNER_RADIUS
+} from "./chartGeometry.js";
+import {
+  convertAmount
+} from "./exchangeRates.js";
 
 export const getChartColors = () => {
   const styles = getComputedStyle(document.body);
@@ -16,27 +24,78 @@ export const getChartColors = () => {
 export const highlightSlice = (
   ctx,
   canvas,
-  getFiltered,
-  drawChart,
   index
 ) => {
-  drawChart(getFiltered());
-
   const slice = slices[index];
+
   if (!slice) return;
 
+  ctx.save();
+
   ctx.beginPath();
-  ctx.moveTo(canvas.width / 2, canvas.height / 2);
   ctx.arc(
     canvas.width / 2,
     canvas.height / 2,
-    125,
+    CHART_OUTER_RADIUS + 5,
     slice.startAngle,
     slice.endAngle
   );
+
   ctx.strokeStyle = slice.color;
   ctx.lineWidth = 4;
   ctx.stroke();
+
+  ctx.restore();
+};
+
+const drawSlices = ({
+  ctx,
+  cx,
+  cy,
+  radius,
+  innerRadius,
+  slices,
+  patternMode
+}) => {
+  slices.forEach(s => {
+    ctx.beginPath();
+
+    ctx.arc(
+      cx,
+      cy,
+      radius,
+      s.startAngle,
+      s.endAngle
+    );
+
+    ctx.arc(
+      cx,
+      cy,
+      innerRadius,
+      s.endAngle,
+      s.startAngle,
+      true
+    );
+
+    ctx.closePath();
+
+    ctx.fillStyle = s.color;
+    ctx.fill();
+
+    if (patternMode) {
+      ctx.fillStyle = s.pattern;
+      ctx.fill();
+    }
+  });
+};
+
+let animationFrameId = null;
+
+const cancelChartAnimation = () => {
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
 };
 
 const animateSlices = ({
@@ -49,6 +108,7 @@ const animateSlices = ({
   duration = 600,
   onComplete
 }) => {
+  cancelChartAnimation();
   const start = performance.now();
 
   const frame = now => {
@@ -77,13 +137,71 @@ const animateSlices = ({
     });
 
     if (progress < 1) {
-      requestAnimationFrame(frame);
-    } else if (onComplete) {
-      onComplete();
+      animationFrameId = requestAnimationFrame(frame);
+    } else {
+      animationFrameId = null;
+
+      if (onComplete) {
+        onComplete();
+      }
     }
   };
 
   requestAnimationFrame(frame);
+};
+
+const redrawCanvas = ({
+  ctx,
+  canvas,
+  patternMode,
+  chartMode,
+  slices,
+  formatMoney,
+  currency
+}) => {
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  if (!slices.length) return;
+
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = CHART_OUTER_RADIUS;
+
+  const innerRadius =
+    chartMode === "donut"
+      ? CHART_DONUT_INNER_RADIUS
+      : 0;
+
+  drawSlices({
+    ctx,
+    cx,
+    cy,
+    radius,
+    innerRadius,
+    slices,
+    patternMode
+  });
+
+  const totalAmount = slices.reduce(
+    (total, slice) => total + slice.value,
+    0
+  );
+
+  ctx.fillStyle = getComputedStyle(document.body)
+    .getPropertyValue("--chart-text")
+    .trim();
+
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.fillText("Total", cx, cy - 10);
+  ctx.fillText(formatMoney(totalAmount, currency), cx, cy + 10);
 };
 
 export const drawChart = ({
@@ -92,20 +210,61 @@ export const drawChart = ({
   data,
   legendEl,
   getFiltered,
-  formatMoney
+  formatMoney,
+  exchangeRateState
 }) => {
+  // Preserve old slices for transitions
+  // const previous = structuredClone(slices);
+  const previous = slices.map(s => ({
+    id: s.id,
+    category: s.category,
+    value: s.value,
+    startAngle: s.startAngle,
+    endAngle: s.endAngle,
+    color: s.color
+  }));
+  setPreviousSlices(previous);
+  
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   legendEl.innerHTML = "";
   setSlices([]);
   legendEl.setAttribute("role", "list");
 
   const totals = {};
-  data.filter(t => t.amount < 0).forEach(t => {
-    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-  });
+
+  data
+    .filter(
+      transaction =>
+        transaction.amount < 0
+    )
+    .forEach(transaction => {
+      const converted =
+        convertAmount(
+          transaction.amount,
+          transaction.currency,
+          exchangeRateState.baseCurrency,
+          exchangeRateState.rates
+        );
+
+      if (
+        converted === null
+      ) {
+        return;
+      }
+
+      const category =
+        transaction.category;
+
+      totals[category] =
+        (totals[category] || 0) +
+        Math.abs(converted);
+    });
 
   const entries = Object.entries(totals);
-  if (!entries.length) return;
+  if (!entries.length) {
+    setChartTotal(0);
+    return;
+  }
 
   const totalAmount = entries.reduce((a, [, v]) => a + v, 0);
   setChartTotal(totalAmount);
@@ -116,47 +275,81 @@ export const drawChart = ({
   let startAngle = 0;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const radius = 120;
+  const radius = CHART_OUTER_RADIUS;
+    
+  const drawTotal = () => {
+    ctx.fillStyle = getComputedStyle(document.body)
+      .getPropertyValue("--chart-text")
+      .trim();
+
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    ctx.fillText("Total", cx, cy - 10);
+    ctx.fillText(formatMoney(totalAmount, exchangeRateState.baseCurrency), cx, cy + 10);
+  };
 
   entries.forEach(([category, value], i) => {
-    const sliceAngle = (value / totalAmount) * Math.PI * 2;
-    const endAngle = startAngle + sliceAngle;
-    const color = colors[i % colors.length];
+    const sliceAngle =
+      (value / totalAmount) * Math.PI * 2;
+
+    const endAngle =
+      startAngle + sliceAngle;
+
+    const color =
+      colors[i % colors.length];
 
     slices.push({
+      id: category,
       category,
       value,
       startAngle,
       endAngle,
       color,
-      pattern: patterns[i % patterns.length],
+      pattern:
+        patterns[i % patterns.length],
     });
 
-    const percent = ((value / totalAmount) * 100).toFixed(1);
-    const item = document.createElement("div");
+    const percent =
+      ((value / totalAmount) * 100).toFixed(1);
+
+    const item =
+      document.createElement("button");
+
+    item.type = "button";
     item.className = "legend-item";
-    item.setAttribute("role", "listitem");
+    item.dataset.category = category;
+
     item.setAttribute(
       "aria-label",
-      `${category}, ${formatMoney(value)}, ${percent} percent`
+      `${category}, ${formatMoney(value, exchangeRateState.baseCurrency)}, ${percent} percent`
     );
+
     item.setAttribute(
-      "aria-selected",
-      activeCategory === category ? "true" : "false"
-    );
-    item.setAttribute(
-      "aria-pressed", 
-      activeCategory === category ? "true" : "false"
+      "aria-pressed",
+      activeCategory === category
+        ? "true"
+        : "false"
     );
 
     item.innerHTML = `
-      <span class="legend-color" aria-hidden="true"></span>
-      <span><strong>${category}</strong>: ${formatMoney(value)} (${percent}%)</span>
+      <span
+        class="legend-color"
+        aria-hidden="true"
+      ></span>
+
+      <span>
+        <strong>${category}</strong>:
+        ${formatMoney(value, exchangeRateState.baseCurrency)}
+        (${percent}%)
+      </span>
     `;
 
     legendEl.appendChild(item);
 
-    const swatch = item.querySelector(".legend-color");
+    const swatch =
+      item.querySelector(".legend-color");
 
     swatch.style.backgroundColor = color;
 
@@ -168,7 +361,10 @@ export const drawChart = ({
     startAngle = endAngle;
   });
 
-  const innerRadius = chartMode === "donut" ? 70 : 0;
+  const innerRadius =
+    chartMode === "donut"
+      ? CHART_DONUT_INNER_RADIUS
+      : 0;
 
   // Animate unless reduced motion is preferred
   if (!prefersReducedMotion) {
@@ -179,114 +375,99 @@ export const drawChart = ({
       radius,
       innerRadius,
       slices,
-      onComplete: () => {
-        ctx.fillStyle = getComputedStyle(document.body)
-          .getPropertyValue("--chart-text")
-          .trim();
-        ctx.font = "bold 14px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("Total", cx, cy - 10);
-        ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
-      }
+      onComplete: drawTotal,
     });
   } else {
-      slices.forEach(s => {
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, s.startAngle, s.endAngle);
-        ctx.arc(cx, cy, innerRadius, s.endAngle, s.startAngle, true);
-        ctx.closePath();
+      drawSlices({
+        ctx,
+        cx,
+        cy,
+        radius,
+        innerRadius,
+        slices,
+        patternMode
+      });
 
-        // Base color
-        ctx.fillStyle = s.color;
-        ctx.fill();
-
-        // Pattern overlay
-        if (patternMode) {
-          ctx.fillStyle = s.pattern;
-          ctx.fill();
-        }
-
-    });
-
-    ctx.fillStyle = getComputedStyle(document.body)
-      .getPropertyValue("--chart-text")
-      .trim();
-    ctx.font = "bold 14px Arial";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText("Total", cx, cy - 10);
-    ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+      drawTotal();
   }
 
-  legendEl.querySelectorAll(".legend-item").forEach((item, index) => {
-    item.tabIndex = 0;
-
-    item.addEventListener("focus", () =>
-      highlightSlice(ctx, canvas, getFiltered, () =>
-        drawChart({
-          canvas,
+  legendEl.querySelectorAll(".legend-item").forEach(
+    (item, index) => {
+      item.addEventListener("focus", () => {
+        highlightSlice(
           ctx,
-          data: getFiltered(),
-          legendEl,
-          getFiltered,
-          formatMoney
-        }),
-        index
-      )
-    );
-
-    item.addEventListener("blur", () =>
-      drawChart({
-        canvas,
-        ctx,
-        data: getFiltered(),
-        legendEl,
-        getFiltered,
-        formatMoney
-      })
-    );
-
-    item.addEventListener("keydown", e => {
-      const items = [...legendEl.querySelectorAll(".legend-item")];
-
-      if (e.key === "ArrowRight") {
-        e.preventDefault();
-        focusedSliceIndex = (index + 1) % items.length;
-        items[focusedSliceIndex].focus();
-      }
-
-      if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        focusedSliceIndex =
-          (index - 1 + items.length) % items.length;
-        items[focusedSliceIndex].focus();
-      }
-      
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        toggleCategoryFilter(slices[index].category);
-        chartStatus.textContent =
-          `Filtered by ${slices[index].category}`;
-        drawChart({
           canvas,
+          index
+        );
+      });
+
+      item.addEventListener("blur", () => {
+        redrawCanvas({
           ctx,
-          data: getFiltered(),
-          legendEl,
-          getFiltered,
-          formatMoney
+          canvas,
+          patternMode,
+          chartMode,
+          slices,
+          formatMoney,
+          currency: exchangeRateState.baseCurrency
         });
-      }
-    });
+      });
 
-  });
+      item.addEventListener("click", () => {
+        toggleCategoryFilter(
+          slices[index].category
+        );
 
-  ctx.fillStyle = getComputedStyle(document.body)
-    .getPropertyValue("--chart-text")
-    .trim();
-  ctx.font = "bold 14px Arial";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("Total", cx, cy - 10);
-  ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+        drawChart({
+          canvas,
+          ctx,
+          data: getFiltered(),
+          legendEl,
+          getFiltered,
+          formatMoney,
+          exchangeRateState
+        });
+      });
+
+      item.addEventListener("keydown", e => {
+        const items = [
+          ...legendEl.querySelectorAll(".legend-item")
+        ];
+
+        if (!items.length) return;
+
+        if (
+          e.key === "ArrowRight" ||
+          e.key === "ArrowDown"
+        ) {
+          e.preventDefault();
+
+          const nextIndex =
+            (index + 1) % items.length;
+
+          setFocusedSliceIndex(nextIndex);
+          items[nextIndex].focus();
+
+          return;
+        }
+
+        if (
+          e.key === "ArrowLeft" ||
+          e.key === "ArrowUp"
+        ) {
+          e.preventDefault();
+
+          const previousIndex =
+            (index - 1 + items.length) %
+            items.length;
+
+          setFocusedSliceIndex(previousIndex);
+          items[previousIndex].focus();
+        }
+      });
+    }
+  );
+
+  
 };
+

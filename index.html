@@ -8,11 +8,347 @@
 </head>
 
 <body>
+    <!-- Authentication -->
+    <section id="authSection" class="auth-section">
+      <h2>Account</h2>
+
+      <div id="authLoggedOut">
+        <form id="loginForm">
+          <h3>Login</h3>
+
+          <label for="loginEmail">Email</label>
+          <input
+            id="loginEmail"
+            type="email"
+            autocomplete="email"
+            required
+          />
+
+          <label for="loginPassword">Password</label>
+          <div class="passwordContainer">
+            <input
+              id="loginPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <button 
+            type="button" 
+            aria-label="Show password"
+            id="loginPasswordToggle"
+            >
+              <svg 
+              id="loginIcon"
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 640 640"
+              aria-hidden="true"
+              >
+                <!--!Font Awesome Free v7.3.1 
+                by @fontawesome - https://fontawesome.com 
+                License - https://fontawesome.com/license/free 
+                Copyright 2026 Fonticons, Inc.-->
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z"/>
+              </svg>
+            </button>
+          </div>
+
+          <button type="submit">
+            Login
+          </button>
+
+          <button
+          type="button"
+          id="forgotPasswordBtn"
+          >
+            Forgot Password?
+        </button>
+        </form>
+
+        <form id="signupForm">
+          <h3>Create Account</h3>
+
+          <label for="signupEmail">Email</label>
+          <input
+            id="signupEmail"
+            type="email"
+            autocomplete="email"
+            required
+          />
+
+          <label for="signupPassword">Password</label>
+          <div class="passwordContainer">
+            <input
+              id="signupPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+            <button 
+            type="button" 
+            aria-label="Show password"
+            id="signupPasswordToggle"
+            >
+              <svg 
+              id="signupIcon"
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 640 640"
+              aria-hidden="true"
+              >
+                <!--!Font Awesome Free v7.3.1 
+                by @fontawesome - https://fontawesome.com 
+                License - https://fontawesome.com/license/free 
+                Copyright 2026 Fonticons, Inc.-->
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z"/>
+              </svg>
+            </button>
+          </div>
+
+          <button type="submit">
+            Sign Up
+          </button>
+        </form>
+      </div>
+
+      <div id="passwordRecovery" hidden>
+        <form id="passwordRecoveryForm">
+          <h3>Reset Password</h3>
+
+          <p>
+            Enter your new password below.
+          </p>
+
+          <label for="resetPassword">
+            New Password
+          </label>
+
+          <div class="passwordContainer">
+            <input
+              id="resetPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+
+            <button
+              type="button"
+              aria-label="Show password"
+              id="resetPasswordToggle"
+            >
+              <svg
+                id="resetPasswordIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 640 640"
+                aria-hidden="true"
+              >
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z" />
+              </svg>
+            </button>
+          </div>
+
+          <label for="resetPasswordConfirm">
+            Confirm New Password
+          </label>
+
+          <div class="passwordContainer">
+            <input
+              id="resetPasswordConfirm"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+
+            <button
+              type="button"
+              aria-label="Show password"
+              id="resetPasswordConfirmToggle"
+            >
+              <svg
+                id="resetPasswordConfirmIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 640 640"
+                aria-hidden="true"
+              >
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z" />
+              </svg>
+            </button>
+          </div>
+
+          <button type="submit">
+            Reset Password
+          </button>
+        </form>
+      </div>
+
+      <div id="authLoggedIn" hidden>
+        <p>
+          Logged in as
+          <strong id="authUserEmail"></strong>
+        </p>
+
+        <!-- CHANGE PASSWORD -->
+        <form id="changePasswordForm">
+          <h3>Change Password</h3>
+
+          <label for="currentPassword">
+            Current Password
+          </label>
+
+          <div class="passwordContainer">
+            <input
+              id="currentPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+
+            <button
+              type="button"
+              aria-label="Show password"
+              id="currentPasswordToggle"
+            >
+              <svg
+                id="currentPasswordIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 640 640"
+                aria-hidden="true"
+              >
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <label for="newPassword">
+            New Password
+          </label>
+
+          <div class="passwordContainer">
+            <input
+              id="newPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+
+            <button
+              type="button"
+              aria-label="Show password"
+              id="newPasswordToggle"
+            >
+              <svg
+                id="newPasswordIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 640 640"
+                aria-hidden="true"
+              >
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <label for="confirmPassword">
+            Confirm New Password
+          </label>
+
+          <div class="passwordContainer">
+            <input
+              id="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              minlength="6"
+              required
+            />
+
+            <button
+              type="button"
+              aria-label="Show password"
+              id="confirmPasswordToggle"
+            >
+              <svg
+                id="confirmPasswordIcon"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 640 640"
+                aria-hidden="true"
+              >
+                <path d="M320 144C254.8 144 201.2 173.6 160.1 211.7C121.6 247.5 95 290 81.4 320C95 350 121.6 392.5 160.1 428.3C201.2 466.4 254.8 496 320 496C385.2 496 438.8 466.4 479.9 428.3C518.4 392.5 545 350 558.6 320C545 290 518.4 247.5 479.9 211.7C438.8 173.6 385.2 144 320 144zM127.4 176.6C174.5 132.8 239.2 96 320 96C400.8 96 465.5 132.8 512.6 176.6C559.4 220.1 590.7 272 605.6 307.7C608.9 315.6 608.9 324.4 605.6 332.3C590.7 368 559.4 420 512.6 463.4C465.5 507.1 400.8 544 320 544C239.2 544 174.5 507.2 127.4 463.4C80.6 419.9 49.3 368 34.4 332.3C31.1 324.4 31.1 315.6 34.4 307.7C49.3 272 80.6 220 127.4 176.6zM320 400C364.2 400 400 364.2 400 320C400 290.4 383.9 264.5 360 250.7C358.6 310.4 310.4 358.6 250.7 360C264.5 383.9 290.4 400 320 400zM240.4 311.6C242.9 311.9 245.4 312 248 312C283.3 312 312 283.3 312 248C312 245.4 311.8 242.9 311.6 240.4C274.2 244.3 244.4 274.1 240.5 311.5zM286 196.6C296.8 193.6 308.2 192.1 319.9 192.1C328.7 192.1 337.4 193 345.7 194.7C346 194.8 346.2 194.8 346.5 194.9C404.4 207.1 447.9 258.6 447.9 320.1C447.9 390.8 390.6 448.1 319.9 448.1C258.3 448.1 206.9 404.6 194.7 346.7C192.9 338.1 191.9 329.2 191.9 320.1C191.9 309.1 193.3 298.3 195.9 288.1C196.1 287.4 196.2 286.8 196.4 286.2C208.3 242.8 242.5 208.6 285.9 196.7z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <button type="submit">
+            Change Password
+          </button>
+        </form>
+
+        <button
+          id="logoutBtn"
+          type="button"
+        >
+          Logout
+        </button>
+      </div>
+
+      <p
+        id="authStatus"
+        class="auth-status"
+        aria-live="polite"
+      ></p>
+    </section>
+  <div class="app-top">
+    <div>
+      <button id="undoSync">
+        Undo last sync
+      </button>
+      <button id="undoBtn">Undo</button>
+      <button id="redoBtn" disabled>Redo</button>
+    </div>
+    <!-- <button id="themeBtn" aria-label="Toggle theme">🌙</button> -->
+    <button id="themeBtn" aria-label="Toggle theme">
+      <!-- <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.7 6.7 0 0 0 9.8 9.8z"/>
+      </svg> -->
+      <svg 
+      id="themeIcon"
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 640 640">
+      <!--!Font Awesome Free v7.3.1 by @fontawesome 
+      - https://fontawesome.com License 
+      - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.-->
+      <path d="M303.3 112.7C196.2 121.2 112 210.8 112 320C112 434.9 205.1 528 320 528C353.3 528 384.7 520.2 412.6 506.3C309.2 482.9 232 390.5 232 280C232 214.2 259.4 154.9 303.3 112.7zM64 320C64 178.6 178.6 64 320 64C339.4 64 358.4 66.2 376.7 70.3C386.6 72.5 394 80.8 395.2 90.8C396.4 100.8 391.2 110.6 382.1 115.2C321.5 145.4 280 207.9 280 280C280 381.6 362.4 464 464 464C469 464 473.9 463.8 478.8 463.4C488.9 462.6 498.4 468.2 502.6 477.5C506.8 486.8 504.6 497.6 497.3 504.6C451.3 548.8 388.8 576 320 576C178.6 576 64 461.4 64 320z" />
+      </svg>
+    </button>
+
+  </div>
   <main class="container">
     <header>
       <h1>Smart Expense Tracker</h1>
-      <button id="themeBtn" aria-label="Toggle theme">🌙</button>
     </header>
+
+    <div class="base-currency">
+      <label for="baseCurrency">
+        Display totals in:
+      </label>
+
+      <select id="baseCurrency">
+        <option value="USD">USD — US Dollar</option>
+        <option value="EUR">EUR — Euro</option>
+        <option value="GBP">GBP — British Pound</option>
+        <option value="PKR">PKR — Pakistani Rupee</option>
+        <option value="INR">INR — Indian Rupee</option>
+        <option value="JPY">JPY — Japanese Yen</option>
+        <option value="CNY">CNY — Chinese Yuan</option>
+        <option value="CAD">CAD — Canadian Dollar</option>
+        <option value="AUD">AUD — Australian Dollar</option>
+      </select>
+
+      <small id="exchangeRateStatus" aria-live="polite"></small>
+    </div>
 
     <section class="balance">
       <h2>Your Balance</h2>
@@ -30,9 +366,59 @@
       </div>
     </section>
 
+    <section class="filter">
+      <h3>Add Transaction</h3>
+      <form id="form">
+        <select id="category" required>
+          <option value="">Select Category</option>
+          <option value="Food">Food</option>
+          <option value="Transport">Transport</option>
+          <option value="Rent">Rent</option>
+          <option value="Shopping">Shopping</option>
+          <option value="Bills">Bills</option>
+          <option value="Entertainment">Entertainment</option>
+          <option value="Health">Health</option>
+          <option value="Income">Income</option>
+          <option value="Salary">Salary</option>
+          <option value="Other">Other</option>
+        </select>
+        <label for="currency">
+          Currency
+        </label>
+
+        <select id="currency">
+          <option value="USD">USD — US Dollar</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="GBP">GBP — British Pound</option>
+          <option value="PKR">PKR — Pakistani Rupee</option>
+          <option value="INR">INR — Indian Rupee</option>
+          <option value="JPY">JPY — Japanese Yen</option>
+          <option value="CNY">CNY — Chinese Yuan</option>
+          <option value="CAD">CAD — Canadian Dollar</option>
+          <option value="AUD">AUD — Australian Dollar</option>
+        </select>
+        <input
+          id="amount"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="Enter amount"
+          required
+        />
+        <input id="text" type="text" placeholder="Description" />
+        <button type="submit">Add Transaction</button>
+      </form>
+    </section>
+
+    <section>
+      <h3>History</h3>
+      <ul id="list"></ul>
+    </section>
+
     <section>
       <h3>Expense Breakdown</h3>
       <div class="chart-controls">
+        
         <label class="toggle">
           <input type="checkbox" id="donutToggle" />
           <span>Donut chart</span>
@@ -105,36 +491,52 @@
     <section class="filter">
       <label for="month">Filter by Month</label>
       <input type="month" id="month" />
-      <button id="clearFilter">Clear Filter</button>
+      <button type="button" id="clearFilter">Clear Filter</button>
     </section>
 
-    <button id="exportCSV">Export CSV</button>
+    <button type="button" id="exportCSV">Export CSV</button>
+    <button
+      id="importCSV"
+      type="button"
+    >
+      Import CSV
+    </button>
 
-    <section>
-      <h3>History</h3>
-      <ul id="list"></ul>
-    </section>
+    <input
+      id="importCSVFile"
+      type="file"
+      accept=".csv,text/csv"
+      hidden
+    />
 
     <p id="error" class="error"></p>
-
-    <section>
-      <h3>Add Transaction</h3>
-      <form id="form">
-        <input id="text" type="text" placeholder="Description" />
-        <select id="category">
-          <option value="">Select Category</option>
-          <option>Food</option>
-          <option>Transport</option>
-          <option>Rent</option>
-          <option>Shopping</option>
-          <option>Salary</option>
-        </select>
-        <input id="amount" type="number" placeholder="+income / -expense" />
-        <button type="submit">Add Transaction</button>
-      </form>
-    </section>
   </main>
 
-  <script src="script.js"></script>
+  <!-- Conflict Modal -->
+  <div
+    id="conflictModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="conflictTitle"
+    hidden
+  >
+    <h3 id="conflictTitle">
+      Sync conflict detected
+    </h3>
+
+    <div id="conflictList"></div>
+
+    <button id="resolveConflicts">
+      Apply choices
+    </button>
+  </div>
+
+  <div id="historyPanel" hidden>
+    <h3>History</h3>
+    <ul id="historyList"></ul>
+  </div>
+
+  <!-- <script src="script.js"></script> -->
+   <script type="module" src="js/main.js"></script>
 </body>
 </html>

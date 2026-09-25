@@ -1,6 +1,4 @@
-import { activeCategory } from "./state.js";
-
-export const getFiltered = (transactions, monthEl) => {
+export const getFiltered = (transactions, monthEl, activeCategory) => {
   let data = transactions;
 
   if (monthEl.value) {
