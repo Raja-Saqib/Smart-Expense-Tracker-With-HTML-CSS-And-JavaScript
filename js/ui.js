@@ -3,6 +3,7 @@ import { formatMoney } from "./utils.js";
 import {
   convertAmount
 } from "./exchangeRates.js";
+import { DEFAULT_CURRENCY } from "./currency.js";
 
 export const addTransactionToDOM = t => {
   const li = document.createElement("li");
@@ -83,46 +84,13 @@ export const renderList = (listEl, data, addToDOM) => {
   });
 };
 
-const groupByCurrency = data => {
-  const groups = {};
-
-  data.forEach(transaction => {
-    const currency =
-      transaction.currency ??
-      "USD";
-
-    if (!groups[currency]) {
-      groups[currency] = {
-        balance: 0,
-        income: 0,
-        expense: 0
-      };
-    }
-
-    groups[currency].balance +=
-      transaction.amount;
-
-    if (transaction.amount > 0) {
-      groups[currency].income +=
-        transaction.amount;
-    }
-
-    if (transaction.amount < 0) {
-      groups[currency].expense +=
-        Math.abs(transaction.amount);
-    }
-  });
-
-  return groups;
-};
-
 const getConvertedAmount = (
   transaction,
   exchangeRateState
 ) => {
   const currency =
     transaction.currency ??
-    "USD";
+    DEFAULT_CURRENCY;
 
   return convertAmount(
     transaction.amount,

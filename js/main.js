@@ -85,7 +85,6 @@ const ctx = canvas.getContext("2d");
 const patternToggle = document.getElementById("patternToggle");
 const donutToggle = document.getElementById("donutToggle");
 const chartStatus = document.getElementById("chartStatus");
-const chartCurrencyEl = document.getElementById("chartCurrency");
 const chartView = document.getElementById("chartView");
 const tableView = document.getElementById("tableView");
 const viewChartRadio = document.getElementById("viewChart");
@@ -419,22 +418,20 @@ const clearFilter = () => {
   chartStatus.textContent = "Filters cleared";
 };
 
-const storedBaseCurrency =
+const initialBaseCurrency =
   getBaseCurrency(
     DEFAULT_CURRENCY
   );
 
 baseCurrencyEl.value =
-  storedBaseCurrency;
-  
+  initialBaseCurrency;
+
 let exchangeRateState = {
   baseCurrency:
-    getBaseCurrency(
-      DEFAULT_CURRENCY
-    ),
+    initialBaseCurrency,
 
   rates: {
-    [DEFAULT_CURRENCY]: 1
+    [initialBaseCurrency]: 1
   },
 
   fetchedAt: null
@@ -2065,23 +2062,6 @@ initEvents({
     },
   }
 });
-
-baseCurrencyEl.addEventListener(
-  "change",
-  async () => {
-    const currency =
-      baseCurrencyEl.value;
-
-    setBaseCurrency(
-      currency
-    );
-
-    exchangeRateStatusEl.textContent =
-      "Updating exchange rates…";
-
-    await init();
-  }
-);
 
 // toggleBtn.addEventListener("click", () => {
 //   toggleChartMode();
