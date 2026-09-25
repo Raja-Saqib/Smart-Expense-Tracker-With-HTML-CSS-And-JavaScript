@@ -72,6 +72,7 @@ const expenseEl = document.getElementById("expense");
 const baseCurrencyEl = document.getElementById("baseCurrency");
 const exchangeRateStatusEl = document.getElementById("exchangeRateStatus");
 const categoryFilterChipsEl = document.getElementById("categoryFilterChips");
+const filterAnnouncementEl = document.getElementById("filterAnnouncement");
 const listEl = document.getElementById("list");
 const tableBody = document.getElementById("categoryTable");
 const form = document.getElementById("form");
@@ -967,22 +968,39 @@ const handleBaseCurrencyChange =
     await init();
   };
 
-const handleCategoryFilterClick =
-  category => {
-    if (
-      category === ""
-    ) {
-      setActiveCategory(null);
-    } else {
-      setActiveCategory(
-        activeCategory === category
-          ? null
-          : category
-      );
-    }
+const handleCategoryFilterClick = category => {
+  if (category === "") {
+    setActiveCategory(null);
+  } else {
+    setActiveCategory(
+      activeCategory === category
+        ? null
+        : category
+    );
+  }
 
-    init();
-  };
+  const filteredData = getFiltered(
+    transactions,
+    monthEl,
+    activeCategory
+  );
+
+  if (activeCategory) {
+    filterAnnouncementEl.textContent =
+      `Filtered by ${activeCategory}. ` +
+      `${filteredData.length} transaction${
+        filteredData.length === 1 ? "" : "s"
+      } shown.`;
+  } else {
+    filterAnnouncementEl.textContent =
+      `Category filter cleared. ` +
+      `${filteredData.length} transaction${
+        filteredData.length === 1 ? "" : "s"
+      } shown.`;
+  }
+
+  init();
+};
 
 const handleKeydown = (e, { undoBtn, redoBtn }) => {
   const ctrlOrCmd = e.ctrlKey || e.metaKey;
@@ -2368,7 +2386,7 @@ attachChartHover(canvas, {
   getSlices: () => slices,
   getChartTotal: () => chartTotal,
   getChartMode: () => chartMode,
-  getBaseCurrency: () => exchangeRateState.baseCurrency
+  getBaseCurrency: () => exchangeRateState.baseCurrency,
 });
 attachChartClick(
   canvas,

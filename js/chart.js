@@ -7,6 +7,9 @@ import {
   CHART_DONUT_INNER_RADIUS
 } from "./chartGeometry.js";
 import {
+  highlightSlice
+} from "./chartHighlight.js";
+import {
   convertAmount
 } from "./exchangeRates.js";
 
@@ -19,33 +22,6 @@ export const getChartColors = () => {
     styles.getPropertyValue("--chart-4").trim(),
     styles.getPropertyValue("--chart-5").trim()
   ];
-};
-
-export const highlightSlice = (
-  ctx,
-  canvas,
-  index
-) => {
-  const slice = slices[index];
-
-  if (!slice) return;
-
-  ctx.save();
-
-  ctx.beginPath();
-  ctx.arc(
-    canvas.width / 2,
-    canvas.height / 2,
-    CHART_OUTER_RADIUS + 5,
-    slice.startAngle,
-    slice.endAngle
-  );
-
-  ctx.strokeStyle = slice.color;
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  ctx.restore();
 };
 
 const drawSlices = ({
@@ -398,7 +374,7 @@ export const drawChart = ({
         highlightSlice(
           ctx,
           canvas,
-          index
+          slices[index]
         );
       });
 
