@@ -559,6 +559,47 @@ select {
   font-size: 14px;
 }
 
+.category-filter {
+  margin: 1rem 0;
+}
+
+.category-filter h2 {
+  margin-bottom: 0.75rem;
+}
+
+.category-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.category-chip {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.category-chip:hover {
+  transform: translateY(-1px);
+}
+
+.category-chip:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
+
+.category-chip.active {
+  background-color: currentColor;
+  color: Canvas;
+}
+
 /* Tablet breakpoint (≥600px) */
 @media (min-width: 600px) {
   .container {

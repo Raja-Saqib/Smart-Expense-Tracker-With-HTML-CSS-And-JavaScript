@@ -211,7 +211,8 @@ export const drawChart = ({
   legendEl,
   getFiltered,
   formatMoney,
-  exchangeRateState
+  exchangeRateState,
+  onCategoryFilterChange
 }) => {
   // Preserve old slices for transitions
   // const previous = structuredClone(slices);
@@ -417,6 +418,11 @@ export const drawChart = ({
         toggleCategoryFilter(
           slices[index].category
         );
+
+        if (onCategoryFilterChange) {
+          onCategoryFilterChange();
+          return;
+        }
 
         drawChart({
           canvas,

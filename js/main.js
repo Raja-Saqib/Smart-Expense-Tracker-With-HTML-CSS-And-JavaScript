@@ -1,7 +1,7 @@
 import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, setActiveCategory, switchStateIdentity, } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
-import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
+import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions, renderCategoryFilterChips } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -71,6 +71,7 @@ const incomeEl = document.getElementById("income");
 const expenseEl = document.getElementById("expense");
 const baseCurrencyEl = document.getElementById("baseCurrency");
 const exchangeRateStatusEl = document.getElementById("exchangeRateStatus");
+const categoryFilterChipsEl = document.getElementById("categoryFilterChips");
 const listEl = document.getElementById("list");
 const tableBody = document.getElementById("categoryTable");
 const form = document.getElementById("form");
@@ -391,7 +392,8 @@ const toggleTheme = () => {
       legendEl,
       getFiltered: getCurrentFiltered,
       formatMoney,
-      exchangeRateState
+      exchangeRateState,
+      onCategoryFilterChange: init
     });
 
     restoreLegendFocus(
@@ -815,6 +817,7 @@ const handleImportCSV = async e => {
 
 const init = async () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
+  renderCategoryFilterChips(categoryFilterChipsEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
   await loadExchangeRates(data);
   updateSummary(balanceEl, incomeEl, expenseEl, data, exchangeRateState);
@@ -826,7 +829,8 @@ const init = async () => {
     legendEl,
     getFiltered: getCurrentFiltered,
     formatMoney,
-    exchangeRateState
+    exchangeRateState,
+    onCategoryFilterChange: init
   });
   donutToggle.checked = chartMode === "donut";
   patternToggle.checked = patternMode;
@@ -961,6 +965,23 @@ const handleBaseCurrencyChange =
       "Updating exchange rates…";
 
     await init();
+  };
+
+const handleCategoryFilterClick =
+  category => {
+    if (
+      category === ""
+    ) {
+      setActiveCategory(null);
+    } else {
+      setActiveCategory(
+        activeCategory === category
+          ? null
+          : category
+      );
+    }
+
+    init();
   };
 
 const handleKeydown = (e, { undoBtn, redoBtn }) => {
@@ -1937,6 +1958,7 @@ initEvents({
   undoBtn,
   redoBtn,
   baseCurrencyEl,
+  categoryFilterChipsEl,
   loginForm,
   signupForm,
   logoutBtn,
@@ -1996,6 +2018,7 @@ initEvents({
     undo: handleUndo,
     redo: handleRedo,
     baseCurrencyChange: handleBaseCurrencyChange,
+    categoryFilterClick: handleCategoryFilterClick,
     keydown: handleKeydown,
     login: handleLogin,
     signup: handleSignup,

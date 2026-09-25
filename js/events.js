@@ -10,6 +10,7 @@ export const initEvents = ({
   undoBtn,
   redoBtn,
   baseCurrencyEl,
+  categoryFilterChipsEl,
   loginForm,
   signupForm,
   logoutBtn,
@@ -59,6 +60,24 @@ export const initEvents = ({
   baseCurrencyEl?.addEventListener(
     "change",
     handlers.baseCurrencyChange
+  );
+
+  categoryFilterChipsEl?.addEventListener(
+    "click",
+    event => {
+      const chip =
+        event.target.closest(
+          ".category-chip"
+        );
+
+      if (!chip) {
+        return;
+      }
+
+      handlers.categoryFilterClick(
+        chip.dataset.category
+      );
+    }
   );
 
   document.addEventListener("keydown", e => {
