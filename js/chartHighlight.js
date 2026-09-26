@@ -15,6 +15,8 @@ let legendHoveredIndex = null;
 
 let legendHighlightOpacity = 0;
 
+let legendHoverGeneration = 0;
+
 const LEGEND_HOVER_DELAY = 250;
 const LEGEND_FADE_DURATION = 180;
 
@@ -158,7 +160,10 @@ const cancelLegendFade = () => {
   }
 };
 
-const startLegendFade = slice => {
+const startLegendFade = (
+  slice,
+  generation
+) => {
   cancelLegendFade();
 
   legendHighlightOpacity = 0;
@@ -168,8 +173,20 @@ const startLegendFade = slice => {
 
   const animate = currentTime => {
     /*
-     * If the legend slice is no longer
-     * active, stop this animation.
+     * This animation is stale if a newer
+     * legend interaction has started.
+     */
+    if (
+      generation !== legendHoverGeneration
+    ) {
+      legendFadeFrame = null;
+      return;
+    }
+
+    /*
+     * The pointer may have left the
+     * legend item while the animation
+     * was running.
      */
     if (
       legendHoverSlice !== slice
@@ -262,7 +279,17 @@ export const scheduleLegendHighlight = (
   }
 
   /*
-   * Cancel any previous legend timer.
+   * Every new legend hover creates a new
+   * generation. Any older timer or animation
+   * is now automatically stale.
+   */
+  legendHoverGeneration += 1;
+
+  const generation =
+    legendHoverGeneration;
+
+  /*
+   * Cancel previous delay.
    */
   if (legendHoverTimer !== null) {
     clearTimeout(
@@ -273,19 +300,18 @@ export const scheduleLegendHighlight = (
   }
 
   /*
-   * Cancel an old fade.
+   * Cancel previous fade.
    */
   cancelLegendFade();
 
   /*
-   * Remember which legend item is
-   * currently being hovered.
+   * Record the newest hovered item.
    */
   legendHoveredIndex = index;
 
   /*
-   * Remove any previous legend highlight
-   * while waiting for the new 250 ms delay.
+   * Remove the previous legend hover
+   * while waiting for the new delay.
    */
   legendHoverSlice = null;
   legendHighlightOpacity = 0;
@@ -293,16 +319,23 @@ export const scheduleLegendHighlight = (
   renderActiveHighlight();
 
   /*
-   * Wait 250 ms before activating the
-   * legend highlight.
+   * Start the 250 ms delay.
    */
   legendHoverTimer =
     setTimeout(() => {
-      legendHoverTimer = null;
+      /*
+       * This timer is stale if another
+       * legend item was hovered meanwhile.
+       */
+      if (
+        generation !== legendHoverGeneration
+      ) {
+        return;
+      }
 
       /*
-       * Make sure this timer still belongs
-       * to the currently hovered item.
+       * Make sure this is still the
+       * currently hovered legend item.
        */
       if (
         legendHoveredIndex !== index
@@ -310,21 +343,26 @@ export const scheduleLegendHighlight = (
         return;
       }
 
+      legendHoverTimer = null;
+
       legendHoverSlice = slice;
 
-      /*
-       * Start the fade only AFTER
-       * the 250 ms delay.
-       */
       startLegendFade(
-        slice
+        slice,
+        generation
       );
     }, LEGEND_HOVER_DELAY);
 };
 
 export const clearLegendHighlight = index => {
   /*
-   * Cancel the pending 250 ms delay.
+   * Invalidate every currently pending
+   * legend operation.
+   */
+  legendHoverGeneration += 1;
+
+  /*
+   * Cancel pending 250 ms delay.
    */
   if (legendHoverTimer !== null) {
     clearTimeout(
@@ -335,13 +373,13 @@ export const clearLegendHighlight = index => {
   }
 
   /*
-   * Stop an active fade.
+   * Cancel active fade.
    */
   cancelLegendFade();
 
   /*
-   * Only clear the legend state if
-   * this is the item that owns it.
+   * Ignore a leave event belonging to
+   * an older legend item.
    */
   if (
     legendHoveredIndex !== index
@@ -355,15 +393,6 @@ export const clearLegendHighlight = index => {
 
   legendHighlightOpacity = 0;
 
-  /*
-   * Re-render the shared highlight state.
-   *
-   * If keyboard focus is still active,
-   * its highlight comes back automatically.
-   *
-   * If chart hover is active, its highlight
-   * remains visible.
-   */
   renderActiveHighlight();
 };
 
@@ -374,6 +403,12 @@ export const clearLegendHighlight = index => {
  */
 
 export const clearAllHighlights = () => {
+  /*
+   * Invalidate every pending legend timer
+   * and animation.
+   */
+  legendHoverGeneration += 1;
+
   if (legendHoverTimer !== null) {
     clearTimeout(
       legendHoverTimer
