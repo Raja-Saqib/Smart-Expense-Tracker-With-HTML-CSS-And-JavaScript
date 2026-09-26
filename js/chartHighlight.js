@@ -173,8 +173,8 @@ const startLegendFade = (
 
   const animate = currentTime => {
     /*
-     * This animation is stale if a newer
-     * legend interaction has started.
+     * Stop if a newer legend hover
+     * has replaced this animation.
      */
     if (
       generation !== legendHoverGeneration
@@ -184,9 +184,8 @@ const startLegendFade = (
     }
 
     /*
-     * The pointer may have left the
-     * legend item while the animation
-     * was running.
+     * Stop if this slice is no longer
+     * the active legend-hover slice.
      */
     if (
       legendHoverSlice !== slice
@@ -198,19 +197,34 @@ const startLegendFade = (
     const elapsed =
       currentTime - startTime;
 
-    const progress =
+    const linearProgress =
       Math.min(
         elapsed /
           LEGEND_FADE_DURATION,
         1
       );
 
+    /*
+     * Ease-out curve.
+     *
+     * Starts quickly and gradually slows
+     * as the highlight reaches full opacity.
+     */
+    const easedProgress =
+      1 -
+      Math.pow(
+        1 - linearProgress,
+        3
+      );
+
     legendHighlightOpacity =
-      progress;
+      easedProgress;
 
     renderActiveHighlight();
 
-    if (progress < 1) {
+    if (
+      linearProgress < 1
+    ) {
       legendFadeFrame =
         requestAnimationFrame(
           animate
