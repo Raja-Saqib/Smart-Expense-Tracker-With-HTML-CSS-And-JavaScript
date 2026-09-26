@@ -5,12 +5,14 @@ import {
 let highlightCanvas = null;
 let highlightCtx = null;
 
-let activeHighlight = null;
-
-const LEGEND_HOVER_DELAY = 250;
+let chartHoverSlice = null;
+let legendHoverSlice = null;
+let keyboardFocusSlice = null;
 
 let legendHoverTimer = null;
 let legendHoveredIndex = null;
+
+const LEGEND_HOVER_DELAY = 250;
 
 const getHighlightCanvas = () => {
   if (
@@ -44,11 +46,7 @@ const getHighlightCanvas = () => {
   };
 };
 
-const drawHighlight = slice => {
-  if (!slice) {
-    return;
-  }
-
+const clearHighlightCanvas = () => {
   const {
     canvas,
     ctx
@@ -64,6 +62,43 @@ const drawHighlight = slice => {
     canvas.width,
     canvas.height
   );
+};
+
+const getActiveSlice = () => {
+  if (chartHoverSlice) {
+    return chartHoverSlice;
+  }
+
+  if (legendHoverSlice) {
+    return legendHoverSlice;
+  }
+
+  if (keyboardFocusSlice) {
+    return keyboardFocusSlice;
+  }
+
+  return null;
+};
+
+const renderActiveHighlight = () => {
+  const slice =
+    getActiveSlice();
+
+  if (!slice) {
+    clearHighlightCanvas();
+    return;
+  }
+
+  const {
+    canvas,
+    ctx
+  } = getHighlightCanvas();
+
+  if (!canvas || !ctx) {
+    return;
+  }
+
+  clearHighlightCanvas();
 
   const cx =
     canvas.width / 2;
@@ -93,94 +128,31 @@ const drawHighlight = slice => {
   ctx.restore();
 };
 
-const renderActiveHighlight = () => {
-  if (!activeHighlight) {
-    const {
-      canvas,
-      ctx
-    } = getHighlightCanvas();
-
-    if (canvas && ctx) {
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-    }
-
-    return;
-  }
-
-  drawHighlight(
-    activeHighlight.slice
-  );
-};
-
-/**
- * Set the interaction that currently owns
- * the chart highlight.
- *
- * source:
- * - "chart-hover"
- * - "legend-hover"
- * - "keyboard-focus"
- */
-export const setHighlight = (
-  source,
-  slice
-) => {
-  if (!slice) {
-    return;
-  }
-
-  activeHighlight = {
-    source,
-    slice
-  };
+export const setChartHoverHighlight = slice => {
+  chartHoverSlice = slice || null;
 
   renderActiveHighlight();
 };
 
-/**
- * Clear the highlight only when the caller
- * still owns the active highlight.
- */
-export const clearHighlight = source => {
-  if (
-    !activeHighlight ||
-    activeHighlight.source !== source
-  ) {
-    return;
-  }
-
-  activeHighlight = null;
+export const clearChartHoverHighlight = () => {
+  chartHoverSlice = null;
 
   renderActiveHighlight();
 };
 
-/**
- * Clear the highlight regardless of owner.
- * Useful when the chart is redrawn/reset.
- */
-export const clearAllHighlights = () => {
-  if (legendHoverTimer !== null) {
-    clearTimeout(
-      legendHoverTimer
-    );
-
-    legendHoverTimer = null;
-  }
-
-  legendHoveredIndex = null;
-  activeHighlight = null;
+export const setKeyboardFocusHighlight = slice => {
+  keyboardFocusSlice =
+    slice || null;
 
   renderActiveHighlight();
 };
 
-/**
- * Start delayed legend hover.
- */
+export const clearKeyboardFocusHighlight = () => {
+  keyboardFocusSlice = null;
+
+  renderActiveHighlight();
+};
+
 export const scheduleLegendHighlight = (
   index,
   slice
@@ -199,19 +171,14 @@ export const scheduleLegendHighlight = (
 
   legendHoverTimer =
     setTimeout(() => {
-      setHighlight(
-        "legend-hover",
-        slice
-      );
+      legendHoverSlice = slice;
 
       legendHoverTimer = null;
+
+      renderActiveHighlight();
     }, LEGEND_HOVER_DELAY);
 };
 
-/**
- * Cancel delayed legend hover and remove
- * the legend's highlight if it owns it.
- */
 export const clearLegendHighlight = index => {
   if (legendHoverTimer !== null) {
     clearTimeout(
@@ -225,18 +192,27 @@ export const clearLegendHighlight = index => {
     legendHoveredIndex === index
   ) {
     legendHoveredIndex = null;
+    legendHoverSlice = null;
 
-    clearHighlight(
-      "legend-hover"
-    );
+    renderActiveHighlight();
   }
 };
 
-/**
- * Returns the currently active highlight.
- * Mostly useful for debugging or future interaction logic.
- */
-export const getActiveHighlight = () =>
-  activeHighlight;
+export const clearAllHighlights = () => {
+  if (legendHoverTimer !== null) {
+    clearTimeout(
+      legendHoverTimer
+    );
 
+    legendHoverTimer = null;
+  }
+
+  legendHoveredIndex = null;
+
+  chartHoverSlice = null;
+  legendHoverSlice = null;
+  keyboardFocusSlice = null;
+
+  clearHighlightCanvas();
+};
 

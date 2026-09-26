@@ -5,8 +5,8 @@ import {
 } from "./chartHitTest.js";
 
 import {
-  setHighlight,
-  clearHighlight
+  setChartHoverHighlight,
+  clearChartHoverHighlight
 } from "./chartHighlight.js";
 
 export const attachChartHover = (
@@ -19,14 +19,10 @@ export const attachChartHover = (
   }
 ) => {
   let hoveredSliceId = null;
-  let hoveredSlice = null;
 
   const clearHover = () => {
-    clearHighlight(
-      "chart-hover"
-    );
+    clearChartHoverHighlight();
 
-    hoveredSlice = null;
     hoveredSliceId = null;
   };
 
@@ -53,9 +49,6 @@ export const attachChartHover = (
           chartMode
         });
 
-      /*
-       * Mouse is not over a slice.
-       */
       if (
         !hit ||
         chartTotal <= 0
@@ -72,14 +65,6 @@ export const attachChartHover = (
       const sliceId =
         slice.id;
 
-      /*
-       * Still hovering the same slice.
-       *
-       * Do nothing.
-       *
-       * This is important because mousemove fires
-       * many times while the pointer is moving.
-       */
       if (
         hoveredSliceId === sliceId
       ) {
@@ -99,19 +84,10 @@ export const attachChartHover = (
         return;
       }
 
-      /*
-       * Moving from one slice to another.
-       */
-      clearHover();
-
       hoveredSliceId =
         sliceId;
 
-      hoveredSlice =
-        slice;
-
-      setHighlight(
-        "chart-hover",
+      setChartHoverHighlight(
         slice
       );
 

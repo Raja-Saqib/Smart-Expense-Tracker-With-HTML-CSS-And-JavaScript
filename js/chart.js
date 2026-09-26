@@ -7,10 +7,10 @@ import {
   CHART_DONUT_INNER_RADIUS
 } from "./chartGeometry.js";
 import {
-  setHighlight,
-  clearHighlight,
+  setKeyboardFocusHighlight,
+  clearKeyboardFocusHighlight,
   scheduleLegendHighlight,
-  clearLegendHighlight
+  clearLegendHighlight,
 } from "./chartHighlight.js";
 import {
   convertAmount
@@ -400,8 +400,7 @@ export const drawChart = ({
       item.addEventListener(
         "focus",
         () => {
-          setHighlight(
-            "keyboard-focus",
+          setKeyboardFocusHighlight(
             slices[index]
           );
         }
@@ -410,9 +409,7 @@ export const drawChart = ({
       item.addEventListener(
         "blur",
         () => {
-          clearHighlight(
-            "keyboard-focus"
-          );
+          clearKeyboardFocusHighlight();
         }
       );
 
