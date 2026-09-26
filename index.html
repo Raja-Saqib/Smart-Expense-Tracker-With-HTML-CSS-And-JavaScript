@@ -476,40 +476,51 @@
       <div id="chartStatus" aria-live="polite" class="sr-only"></div>
 
       <div class="chart-view" id="chartView">
-        <canvas 
-          id="expenseChart" 
-          width="300" 
-          height="300" 
-          role="img" 
-          aria-labelledby="chartTitle chartDesc"
-        ></canvas>
-      
+
+        <div class="chart-canvas-wrap">
+          <canvas
+            id="expenseChart"
+            width="300"
+            height="300"
+            role="img"
+            aria-labelledby="chartTitle chartDesc"
+          ></canvas>
+
+          <canvas
+            id="expenseChartHighlight"
+            width="300"
+            height="300"
+            aria-hidden="true"
+          ></canvas>
+        </div>
+
         <p id="chartTitle" class="sr-only">
           Expense breakdown by category
         </p>
-      
+
         <p id="chartDesc" class="sr-only">
           Pie chart showing expenses grouped by category with totals and percentages.
         </p>
-      
+
         <div id="chartLegend" class="legend"></div>
+
+      </div>
+      <div class="table-view" id="tableView" hidden>
+        <section>
+          <h3>Category Totals</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Total Spent</th>
+              </tr>
+            </thead>
+            <tbody id="categoryTable"></tbody>
+          </table>
+        </section>
       </div>
     </section>
 
-    <div class="table-view" id="tableView" hidden>
-      <section>
-        <h3>Category Totals</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>Total Spent</th>
-            </tr>
-          </thead>
-          <tbody id="categoryTable"></tbody>
-        </table>
-      </section>
-    </div>
 
     <section class="filter">
       <label for="month">Filter by Month</label>

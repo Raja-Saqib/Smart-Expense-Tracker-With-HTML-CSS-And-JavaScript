@@ -299,6 +299,11 @@ export const drawChart = ({
     item.className = "legend-item";
     item.dataset.category = category;
 
+    item.style.setProperty(
+      "--legend-focus-color",
+      color
+    );
+
     item.setAttribute(
       "aria-label",
       `${category}, ${formatMoney(value, exchangeRateState.baseCurrency)}, ${percent} percent`
@@ -369,6 +374,9 @@ export const drawChart = ({
       drawTotal();
   }
 
+  let legendHoverTimer = null;
+  let legendHoveredIndex = null;
+
   legendEl.querySelectorAll(".legend-item").forEach(
     (item, index) => {
       item.addEventListener("focus", () => {
@@ -380,11 +388,39 @@ export const drawChart = ({
       });
 
       item.addEventListener("blur", () => {
-        clearSliceHighlight(
-          ctx,
-          canvas,
-          slices[index]
-        );
+        clearSliceHighlight();
+      });
+
+      item.addEventListener("mouseenter", () => {
+        if (legendHoverTimer !== null) {
+          clearTimeout(legendHoverTimer);
+        }
+
+        legendHoverTimer = setTimeout(() => {
+          legendHoveredIndex = index;
+
+          highlightSlice(
+            ctx,
+            canvas,
+            slices[index]
+          );
+
+          legendHoverTimer = null;
+        }, 250);
+      });
+
+      item.addEventListener("mouseleave", () => {
+        if (legendHoverTimer !== null) {
+          clearTimeout(legendHoverTimer);
+          legendHoverTimer = null;
+        }
+
+        if (
+          legendHoveredIndex === index
+        ) {
+          clearSliceHighlight();
+          legendHoveredIndex = null;
+        }
       });
 
       item.addEventListener("click", () => {

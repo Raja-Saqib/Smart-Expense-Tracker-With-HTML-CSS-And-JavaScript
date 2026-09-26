@@ -132,6 +132,24 @@ canvas {
   margin: 0 auto;
 }
 
+.chart-canvas-wrap {
+  position: relative;
+  width: 300px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.chart-canvas-wrap canvas {
+  width: 100%;
+  height: auto;
+}
+
+#expenseChartHighlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 .legend {
   margin-top: 10px;
   font-size: 14px;
@@ -146,8 +164,8 @@ canvas {
   margin-bottom: 6px;
 }
 
-.legend-item:focus {
-  outline: 2px solid var(--chart-2);
+.legend-item:focus-visible {
+  outline: 2px solid var(--legend-focus-color);
   outline-offset: 3px;
   border-radius: 4px;
 }

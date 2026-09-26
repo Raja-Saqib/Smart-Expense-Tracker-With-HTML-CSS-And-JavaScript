@@ -1,14 +1,85 @@
 import { CHART_OUTER_RADIUS } from "./chartGeometry.js";
 
-const drawHighlightArc = (
-  ctx,
-  canvas,
+let highlightCanvas = null;
+let highlightCtx = null;
+
+const getHighlightCanvas = () => {
+  if (
+    highlightCanvas &&
+    highlightCtx
+  ) {
+    return {
+      canvas: highlightCanvas,
+      ctx: highlightCtx
+    };
+  }
+
+  highlightCanvas =
+    document.getElementById(
+      "expenseChartHighlight"
+    );
+
+  if (!highlightCanvas) {
+    return {
+      canvas: null,
+      ctx: null
+    };
+  }
+
+  highlightCtx =
+    highlightCanvas.getContext("2d");
+
+  return {
+    canvas: highlightCanvas,
+    ctx: highlightCtx
+  };
+};
+
+export const clearSliceHighlight = () => {
+  const {
+    canvas,
+    ctx
+  } = getHighlightCanvas();
+
+  if (!canvas || !ctx) {
+    return;
+  }
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+};
+
+export const highlightSlice = (
+  _ctx,
+  _canvas,
   slice
 ) => {
-  if (!slice) return;
+  if (!slice) {
+    return;
+  }
 
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
+  const {
+    canvas,
+    ctx
+  } = getHighlightCanvas();
+
+  if (!canvas || !ctx) {
+    return;
+  }
+
+  clearSliceHighlight();
+
+  const cx =
+    canvas.width / 2;
+
+  const cy =
+    canvas.height / 2;
+
+  ctx.save();
 
   ctx.beginPath();
 
@@ -20,52 +91,10 @@ const drawHighlightArc = (
     slice.endAngle
   );
 
+  ctx.strokeStyle =
+    slice.color;
+
   ctx.lineWidth = 4;
-};
-
-export const highlightSlice = (
-  ctx,
-  canvas,
-  slice
-) => {
-  if (!slice) return;
-
-  ctx.save();
-
-  drawHighlightArc(
-    ctx,
-    canvas,
-    slice
-  );
-
-  ctx.strokeStyle = slice.color;
-  ctx.stroke();
-
-  ctx.restore();
-};
-
-export const clearSliceHighlight = (
-  ctx,
-  canvas,
-  slice
-) => {
-  if (!slice) return;
-
-  ctx.save();
-
-  drawHighlightArc(
-    ctx,
-    canvas,
-    slice
-  );
-
-  /*
-   * Remove only the highlight stroke.
-   * The actual chart is inside CHART_OUTER_RADIUS,
-   * while the highlight is outside it.
-   */
-  ctx.globalCompositeOperation =
-    "destination-out";
 
   ctx.stroke();
 
