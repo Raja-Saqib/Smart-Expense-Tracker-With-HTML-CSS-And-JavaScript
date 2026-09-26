@@ -1,7 +1,16 @@
-import { CHART_OUTER_RADIUS } from "./chartGeometry.js";
+import {
+  CHART_OUTER_RADIUS
+} from "./chartGeometry.js";
 
 let highlightCanvas = null;
 let highlightCtx = null;
+
+let activeHighlight = null;
+
+const LEGEND_HOVER_DELAY = 250;
+
+let legendHoverTimer = null;
+let legendHoveredIndex = null;
 
 const getHighlightCanvas = () => {
   if (
@@ -35,7 +44,11 @@ const getHighlightCanvas = () => {
   };
 };
 
-export const clearSliceHighlight = () => {
+const drawHighlight = slice => {
+  if (!slice) {
+    return;
+  }
+
   const {
     canvas,
     ctx
@@ -51,27 +64,6 @@ export const clearSliceHighlight = () => {
     canvas.width,
     canvas.height
   );
-};
-
-export const highlightSlice = (
-  _ctx,
-  _canvas,
-  slice
-) => {
-  if (!slice) {
-    return;
-  }
-
-  const {
-    canvas,
-    ctx
-  } = getHighlightCanvas();
-
-  if (!canvas || !ctx) {
-    return;
-  }
-
-  clearSliceHighlight();
 
   const cx =
     canvas.width / 2;
@@ -100,4 +92,151 @@ export const highlightSlice = (
 
   ctx.restore();
 };
+
+const renderActiveHighlight = () => {
+  if (!activeHighlight) {
+    const {
+      canvas,
+      ctx
+    } = getHighlightCanvas();
+
+    if (canvas && ctx) {
+      ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+      );
+    }
+
+    return;
+  }
+
+  drawHighlight(
+    activeHighlight.slice
+  );
+};
+
+/**
+ * Set the interaction that currently owns
+ * the chart highlight.
+ *
+ * source:
+ * - "chart-hover"
+ * - "legend-hover"
+ * - "keyboard-focus"
+ */
+export const setHighlight = (
+  source,
+  slice
+) => {
+  if (!slice) {
+    return;
+  }
+
+  activeHighlight = {
+    source,
+    slice
+  };
+
+  renderActiveHighlight();
+};
+
+/**
+ * Clear the highlight only when the caller
+ * still owns the active highlight.
+ */
+export const clearHighlight = source => {
+  if (
+    !activeHighlight ||
+    activeHighlight.source !== source
+  ) {
+    return;
+  }
+
+  activeHighlight = null;
+
+  renderActiveHighlight();
+};
+
+/**
+ * Clear the highlight regardless of owner.
+ * Useful when the chart is redrawn/reset.
+ */
+export const clearAllHighlights = () => {
+  if (legendHoverTimer !== null) {
+    clearTimeout(
+      legendHoverTimer
+    );
+
+    legendHoverTimer = null;
+  }
+
+  legendHoveredIndex = null;
+  activeHighlight = null;
+
+  renderActiveHighlight();
+};
+
+/**
+ * Start delayed legend hover.
+ */
+export const scheduleLegendHighlight = (
+  index,
+  slice
+) => {
+  if (!slice) {
+    return;
+  }
+
+  if (legendHoverTimer !== null) {
+    clearTimeout(
+      legendHoverTimer
+    );
+  }
+
+  legendHoveredIndex = index;
+
+  legendHoverTimer =
+    setTimeout(() => {
+      setHighlight(
+        "legend-hover",
+        slice
+      );
+
+      legendHoverTimer = null;
+    }, LEGEND_HOVER_DELAY);
+};
+
+/**
+ * Cancel delayed legend hover and remove
+ * the legend's highlight if it owns it.
+ */
+export const clearLegendHighlight = index => {
+  if (legendHoverTimer !== null) {
+    clearTimeout(
+      legendHoverTimer
+    );
+
+    legendHoverTimer = null;
+  }
+
+  if (
+    legendHoveredIndex === index
+  ) {
+    legendHoveredIndex = null;
+
+    clearHighlight(
+      "legend-hover"
+    );
+  }
+};
+
+/**
+ * Returns the currently active highlight.
+ * Mostly useful for debugging or future interaction logic.
+ */
+export const getActiveHighlight = () =>
+  activeHighlight;
+
 

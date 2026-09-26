@@ -5,8 +5,8 @@ import {
 } from "./chartHitTest.js";
 
 import {
-  highlightSlice,
-  clearSliceHighlight
+  setHighlight,
+  clearHighlight
 } from "./chartHighlight.js";
 
 export const attachChartHover = (
@@ -21,18 +21,9 @@ export const attachChartHover = (
   let hoveredSliceId = null;
   let hoveredSlice = null;
 
-  const ctx =
-    canvas.getContext("2d");
-
   const clearHover = () => {
-    if (!hoveredSlice) {
-      return;
-    }
-
-    clearSliceHighlight(
-      ctx,
-      canvas,
-      hoveredSlice
+    clearHighlight(
+      "chart-hover"
     );
 
     hoveredSlice = null;
@@ -119,9 +110,8 @@ export const attachChartHover = (
       hoveredSlice =
         slice;
 
-      highlightSlice(
-        ctx,
-        canvas,
+      setHighlight(
+        "chart-hover",
         slice
       );
 

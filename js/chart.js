@@ -7,8 +7,10 @@ import {
   CHART_DONUT_INNER_RADIUS
 } from "./chartGeometry.js";
 import {
-  clearSliceHighlight,
-  highlightSlice
+  setHighlight,
+  clearHighlight,
+  scheduleLegendHighlight,
+  clearLegendHighlight
 } from "./chartHighlight.js";
 import {
   convertAmount
@@ -374,54 +376,45 @@ export const drawChart = ({
       drawTotal();
   }
 
-  let legendHoverTimer = null;
-  let legendHoveredIndex = null;
-
   legendEl.querySelectorAll(".legend-item").forEach(
     (item, index) => {
-      item.addEventListener("focus", () => {
-        highlightSlice(
-          ctx,
-          canvas,
-          slices[index]
-        );
-      });
-
-      item.addEventListener("blur", () => {
-        clearSliceHighlight();
-      });
-
-      item.addEventListener("mouseenter", () => {
-        if (legendHoverTimer !== null) {
-          clearTimeout(legendHoverTimer);
-        }
-
-        legendHoverTimer = setTimeout(() => {
-          legendHoveredIndex = index;
-
-          highlightSlice(
-            ctx,
-            canvas,
+      item.addEventListener(
+        "mouseenter",
+        () => {
+          scheduleLegendHighlight(
+            index,
             slices[index]
           );
-
-          legendHoverTimer = null;
-        }, 250);
-      });
-
-      item.addEventListener("mouseleave", () => {
-        if (legendHoverTimer !== null) {
-          clearTimeout(legendHoverTimer);
-          legendHoverTimer = null;
         }
+      );
 
-        if (
-          legendHoveredIndex === index
-        ) {
-          clearSliceHighlight();
-          legendHoveredIndex = null;
+      item.addEventListener(
+        "mouseleave",
+        () => {
+          clearLegendHighlight(
+            index
+          );
         }
-      });
+      );
+
+      item.addEventListener(
+        "focus",
+        () => {
+          setHighlight(
+            "keyboard-focus",
+            slices[index]
+          );
+        }
+      );
+
+      item.addEventListener(
+        "blur",
+        () => {
+          clearHighlight(
+            "keyboard-focus"
+          );
+        }
+      );
 
       item.addEventListener("click", () => {
         toggleCategoryFilter(
