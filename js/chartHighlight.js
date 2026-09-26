@@ -160,6 +160,21 @@ const cancelLegendFade = () => {
   }
 };
 
+const cancelLegendInteraction = () => {
+  legendHoverGeneration += 1;
+
+  if (legendHoverTimer !== null) {
+    clearTimeout(legendHoverTimer);
+    legendHoverTimer = null;
+  }
+
+  cancelLegendFade();
+
+  legendHoveredIndex = null;
+  legendHoverSlice = null;
+  legendHighlightOpacity = 0;
+};
+
 const startLegendFade = (
   slice,
   generation
@@ -214,7 +229,7 @@ const startLegendFade = (
       1 -
       Math.pow(
         1 - linearProgress,
-        3
+        2
       );
 
     legendHighlightOpacity =
@@ -247,6 +262,10 @@ const startLegendFade = (
  */
 
 export const setChartHoverHighlight = slice => {
+  if (slice) {
+    cancelLegendInteraction();
+  }
+
   chartHoverSlice =
     slice || null;
 
@@ -266,6 +285,10 @@ export const clearChartHoverHighlight = () => {
  */
 
 export const setKeyboardFocusHighlight = slice => {
+  if (slice) {
+    cancelLegendInteraction();
+  }
+
   keyboardFocusSlice =
     slice || null;
 
