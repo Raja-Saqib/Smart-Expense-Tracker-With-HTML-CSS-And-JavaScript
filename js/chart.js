@@ -11,6 +11,7 @@ import {
   clearKeyboardFocusHighlight,
   scheduleLegendHighlight,
   clearLegendHighlight,
+  clearAllHighlights,
 } from "./chartHighlight.js";
 import {
   convertAmount
@@ -23,7 +24,13 @@ export const getChartColors = () => {
     styles.getPropertyValue("--chart-2").trim(),
     styles.getPropertyValue("--chart-3").trim(),
     styles.getPropertyValue("--chart-4").trim(),
-    styles.getPropertyValue("--chart-5").trim()
+    styles.getPropertyValue("--chart-5").trim(),
+    styles.getPropertyValue("--chart-6").trim(),
+    styles.getPropertyValue("--chart-7").trim(),
+    styles.getPropertyValue("--chart-8").trim(),
+    styles.getPropertyValue("--chart-9").trim(),
+    styles.getPropertyValue("--chart-10").trim(),
+    styles.getPropertyValue("--chart-11").trim(),
   ];
 };
 
@@ -204,6 +211,8 @@ export const drawChart = ({
     color: s.color
   }));
   setPreviousSlices(previous);
+
+  clearAllHighlights();
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   legendEl.innerHTML = "";
