@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState, getNextRedoLabel, captureHistoryState, restoreHistoryState } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState, getNextRedoLabel, captureHistoryState, restoreHistoryState, recordExternalUndoState } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable, broadcastState } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -101,13 +101,25 @@ const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
+const loginBtn = document.getElementById("loginBtn");
+const signUpBtn = document.getElementById("signUpBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const changePassBtn = document.getElementById("changePassBtn");
 const loginForm = document.getElementById("loginForm");
 const signupForm = document.getElementById("signupForm");
-const logoutBtn = document.getElementById("logoutBtn");
+const authSection = document.getElementById("authSection");
+const authLogin = document.getElementById("authLogin");
+const authSignUp = document.getElementById("authSignUp");
 const authLoggedOut = document.getElementById("authLoggedOut");
 const authLoggedIn = document.getElementById("authLoggedIn");
 const authUserEmail = document.getElementById("authUserEmail");
 const authStatus = document.getElementById("authStatus");
+const passwordRecovery = document.getElementById("passwordRecovery");
+const appMain = document.getElementById("appMain");
+const userAuth = document.getElementById("userAuth");
+const loginBack = document.getElementById("loginBack");
+const signUpBack = document.getElementById("signUpBack");
+const changePassBack = document.getElementById("changePassBack");
 
 const restoreHistoryJumpState = async target => {
   if (!target?.state) {
@@ -1310,11 +1322,53 @@ const handleChangePassword = async e => {
   }
 };
 
+const loginUI = () => {
+  authSection.hidden = false;
+  authLogin.hidden = false;
+  authSignUp.hidden = true;
+  passwordRecovery.hidden = true;
+  authLoggedIn.hidden = true;
+  appMain.hidden = true;
+
+  init();
+}
+
+const signUpUI = () => {
+  authSection.hidden = false;
+  authLogin.hidden = true;
+  authSignUp.hidden = false;
+  passwordRecovery.hidden = true;
+  authLoggedIn.hidden = true;
+  appMain.hidden = true;
+
+  init();
+}
+
+const changePassUI = () => {
+  authSection.hidden = false;
+  authLoggedOut.hidden = true;
+  document.getElementById("changePasswordForm").hidden = false;
+  appMain.hidden = true;
+
+  init();
+}
+
+const backUI = () => {
+  document.getElementById("changePasswordForm").hidden = true;
+  authLoggedOut.hidden = false;
+  authSection.hidden = true;
+  appMain.hidden = false;
+
+  init();
+}
+
 const updateAuthUI = user => {
   const isLoggedIn = Boolean(user);
 
-  authLoggedOut.hidden = isLoggedIn;
+  userAuth.hidden = isLoggedIn ? true : false;
+  authSection.hidden = true;
   authLoggedIn.hidden = !isLoggedIn;
+  appMain.hidden = false;
 
   if (user) {
     authUserEmail.textContent =
@@ -1975,6 +2029,12 @@ initEvents({
   themeBtn,
   undoBtn,
   redoBtn,
+  loginBtn,
+  signUpBtn,
+  changePassBtn,
+  loginBack,
+  signUpBack,
+  changePassBack,
   baseCurrencyEl,
   categoryFilterChipsEl,
   loginForm,
@@ -2035,6 +2095,12 @@ initEvents({
     toggleTheme,
     undo: handleUndo,
     redo: handleRedo,
+    loginUI: loginUI,
+    signUpUI: signUpUI,
+    changePassBtn: changePassUI,
+    loginBack: backUI,
+    signUpBack: backUI,
+    changePassBack: backUI,
     baseCurrencyChange: handleBaseCurrencyChange,
     categoryFilterClick: handleCategoryFilterClick,
     keydown: handleKeydown,
@@ -2894,7 +2960,7 @@ const handleExternalStateUpdate = event => {
     currentUser
   );
 
-  replaceCurrentUndoStateAndClearRedo(
+  recordExternalUndoState(
     createUndoState({
       transactions,
       cloudMeta:

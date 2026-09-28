@@ -9,6 +9,12 @@ export const initEvents = ({
   themeBtn,
   undoBtn,
   redoBtn,
+  loginBtn,
+  signUpBtn,
+  changePassBtn,
+  loginBack,
+  signUpBack,
+  changePassBack,
   baseCurrencyEl,
   categoryFilterChipsEl,
   loginForm,
@@ -57,6 +63,13 @@ export const initEvents = ({
   undoBtn.addEventListener("click", handlers.undo);
   redoBtn.addEventListener("click", handlers.redo);
 
+  loginBtn.addEventListener("click", handlers.loginUI);
+  signUpBtn.addEventListener("click", handlers.signUpUI);
+  changePassBtn.addEventListener("click", handlers.changePassBtn);
+  loginBack.addEventListener("click", handlers.loginBack);
+  signUpBack.addEventListener("click", handlers.signUpBack);
+  changePassBack.addEventListener("click", handlers.changePassBack);
+
   baseCurrencyEl?.addEventListener(
     "change",
     handlers.baseCurrencyChange
@@ -87,68 +100,68 @@ export const initEvents = ({
     });
   });
 
-    loginForm?.addEventListener(
-      "submit",
-      handlers.login
-    );
+  loginForm?.addEventListener(
+    "submit",
+    handlers.login
+  );
 
-    signupForm?.addEventListener(
-      "submit",
-      handlers.signup
-    );
+  signupForm?.addEventListener(
+    "submit",
+    handlers.signup
+  );
 
-    logoutBtn?.addEventListener(
-      "click",
-      handlers.logout
-    );
+  logoutBtn?.addEventListener(
+    "click",
+    handlers.logout
+  );
 
-    forgotPasswordBtn?.addEventListener(
-      "click",
-      handlers.forgotPassword
-    );
+  forgotPasswordBtn?.addEventListener(
+    "click",
+    handlers.forgotPassword
+  );
 
-    passwordRecoveryForm?.addEventListener(
-      "submit",
-      handlers.resetPassword
-    );
+  passwordRecoveryForm?.addEventListener(
+    "submit",
+    handlers.resetPassword
+  );
 
-    resetPasswordToggle?.addEventListener(
-      "click",
-      handlers.toggleResetPassword
-    );
+  resetPasswordToggle?.addEventListener(
+    "click",
+    handlers.toggleResetPassword
+  );
 
-    resetPasswordConfirmToggle?.addEventListener(
-      "click",
-      handlers.toggleResetPasswordConfirm
-    );
+  resetPasswordConfirmToggle?.addEventListener(
+    "click",
+    handlers.toggleResetPasswordConfirm
+  );
 
-    changePasswordForm?.addEventListener(
-      "submit",
-      handlers.changePassword
-    );
+  changePasswordForm?.addEventListener(
+    "submit",
+    handlers.changePassword
+  );
 
-    loginPasswordToggle?.addEventListener(
-      "click",
-      handlers.toggleLoginPassword
-    );
+  loginPasswordToggle?.addEventListener(
+    "click",
+    handlers.toggleLoginPassword
+  );
 
-    signupPasswordToggle?.addEventListener(
-      "click",
-      handlers.toggleSignupPassword
-    );
+  signupPasswordToggle?.addEventListener(
+    "click",
+    handlers.toggleSignupPassword
+  );
 
-    currentPasswordToggle?.addEventListener(
-      "click",
-      handlers.toggleCurrentPassword
-    );
+  currentPasswordToggle?.addEventListener(
+    "click",
+    handlers.toggleCurrentPassword
+  );
 
-    newPasswordToggle?.addEventListener(
-      "click",
-      handlers.toggleNewPassword
-    );
+  newPasswordToggle?.addEventListener(
+    "click",
+    handlers.toggleNewPassword
+  );
 
-    confirmPasswordToggle?.addEventListener(
-      "click",
-      handlers.toggleConfirmPassword
-    );
+  confirmPasswordToggle?.addEventListener(
+    "click",
+    handlers.toggleConfirmPassword
+  );
 };
