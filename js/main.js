@@ -37,7 +37,9 @@ import {
   signUp,
   signOut,
   changePassword,
-  onAuthStateChange
+  onAuthStateChange,
+  requestPasswordReset,
+  resetPassword
 } from "./auth.js";
 import { getActiveStorageKey, loadState, saveState } from "./localState.js";
 import {
@@ -1220,6 +1222,8 @@ const handleResetPassword = async e => {
     authStatus.textContent =
       "Password reset successfully.";
 
+    window.history.replaceState(null, null, window.location.pathname);
+
     document
       .getElementById(
         "passwordRecovery"
@@ -1228,6 +1232,8 @@ const handleResetPassword = async e => {
         "hidden",
         ""
       );
+    authSection.hidden = true;
+    appMain.hidden = false;
 
   } catch (error) {
     console.error(
@@ -1355,6 +1361,7 @@ const changePassUI = () => {
 
 const backUI = () => {
   document.getElementById("changePasswordForm").hidden = true;
+  passwordRecovery.hidden = true;
   authLoggedOut.hidden = false;
   authSection.hidden = true;
   appMain.hidden = false;
@@ -1872,6 +1879,26 @@ const switchApplicationIdentity =
   async (event, session) => {
     const nextUser =
       session?.user ?? null;
+
+    // -----------------------------
+    // INTERCEPT PASSWORD RECOVERY
+    // -----------------------------
+    if (event === "PASSWORD_RECOVERY") {
+      if (appMain) appMain.hidden = true;
+      if (authSection) authSection.hidden = false;
+      if (authLogin) authLogin.hidden = true;
+      if (authSignUp) authSignUp.hidden = true;
+      
+      if (passwordRecovery) {
+        passwordRecovery.removeAttribute("hidden");
+      }
+
+      if (authStatus) {
+        authStatus.textContent = "Please enter and confirm your new password.";
+      }
+      
+      return; 
+    }
 
     // -----------------------------
     // LOGOUT → GUEST STATE
