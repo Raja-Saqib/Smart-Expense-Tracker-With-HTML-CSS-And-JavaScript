@@ -4,6 +4,9 @@ import {
   convertAmount
 } from "./exchangeRates.js";
 import { DEFAULT_CURRENCY } from "./currency.js";
+import {
+  VALID_CATEGORIES
+} from "./transactionRules.js";
 
 export const addTransactionToDOM = t => {
   const li = document.createElement("li");
@@ -233,6 +236,65 @@ export const renderCategories = (
         );
       }
     );
+};
+
+export const renderCategoryFilterChips = (
+  container,
+  activeCategory
+) => {
+  container.innerHTML = "";
+
+  const allButton =
+    document.createElement("button");
+
+  allButton.type = "button";
+  allButton.className = "category-chip";
+  allButton.dataset.category = "";
+
+  const allActive =
+    activeCategory === null ||
+    activeCategory === undefined;
+
+  allButton.setAttribute(
+    "aria-pressed",
+    allActive ? "true" : "false"
+  );
+
+  if (allActive) {
+    allButton.classList.add("active");
+  }
+
+  allButton.textContent = "All";
+
+  container.appendChild(allButton);
+
+  VALID_CATEGORIES.forEach(category => {
+    const button =
+      document.createElement("button");
+
+    button.type = "button";
+    button.className = "category-chip";
+
+    button.dataset.category =
+      category;
+
+    const isActive =
+      activeCategory === category;
+
+    button.setAttribute(
+      "aria-pressed",
+      isActive ? "true" : "false"
+    );
+
+    if (isActive) {
+      button.classList.add("active");
+    }
+
+    button.textContent =
+      category;
+
+    container.appendChild(button);
+  });
 };
 
 const renderConflict = conflict => {

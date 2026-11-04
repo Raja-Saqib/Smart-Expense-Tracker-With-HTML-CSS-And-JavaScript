@@ -1,7 +1,7 @@
 import { transactions, setTransactions, saveData, activeCategory, addTransaction, editTransaction, deleteTransaction, setActiveCategory, switchStateIdentity, } from "./state.js";
 import { getFiltered } from "./filters.js";
 import { formatMoney, showError } from "./utils.js";
-import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions } from "./ui.js";
+import { addTransactionToDOM, renderList, updateSummary, renderCategories, updateUndoUI, applyConflictResolutions, renderCategoryFilterChips } from "./ui.js";
 import { drawChart } from "./chart.js";
 import { attachChartHover } from "./chartHover.js";
 import { attachChartClick } from "./chartClick.js";
@@ -12,7 +12,7 @@ import { pullFromCloud } from "../cloud/cloudSync.js";
 import { animateChartTransition } from "./chartAnimations.js";
 import { detectConflicts } from "../cloud/cloudSync.js";
 import { showConflictModal } from "./ui.js";
-import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState, getNextRedoLabel, captureHistoryState, restoreHistoryState } from "./historyState.js";
+import { pushUndoState, createUndoState, hasHistory, replaceCurrentUndoState, replaceCurrentUndoStateAndClearRedo, jumpToState, getCurrentIndex, commitJumpToState, getHistoryState, getNextRedoLabel, captureHistoryState, restoreHistoryState, recordExternalUndoState } from "./historyState.js";
 import { listenToBroadcast, isBroadcastAvailable, broadcastState } from "./crossTabSync.js";
 import { getChangedCategories } from "./chartDiff.js";
 import { getCloudMeta, setCloudMeta } from "../cloud/cloudState.js";
@@ -37,7 +37,9 @@ import {
   signUp,
   signOut,
   changePassword,
-  onAuthStateChange
+  onAuthStateChange,
+  requestPasswordReset,
+  resetPassword
 } from "./auth.js";
 import { getActiveStorageKey, loadState, saveState } from "./localState.js";
 import {
@@ -71,6 +73,8 @@ const incomeEl = document.getElementById("income");
 const expenseEl = document.getElementById("expense");
 const baseCurrencyEl = document.getElementById("baseCurrency");
 const exchangeRateStatusEl = document.getElementById("exchangeRateStatus");
+const categoryFilterChipsEl = document.getElementById("categoryFilterChips");
+const filterAnnouncementEl = document.getElementById("filterAnnouncement");
 const listEl = document.getElementById("list");
 const tableBody = document.getElementById("categoryTable");
 const form = document.getElementById("form");
@@ -99,13 +103,25 @@ const historyPanel = document.getElementById("historyPanel");
 const historyList = document.getElementById("historyList");
 const undoBtn = document.getElementById("undoBtn");
 const redoBtn = document.getElementById("redoBtn");
+const loginBtn = document.getElementById("loginBtn");
+const signUpBtn = document.getElementById("signUpBtn");
+const logoutBtn = document.getElementById("logoutBtn");
+const changePassBtn = document.getElementById("changePassBtn");
 const loginForm = document.getElementById("loginForm");
 const signupForm = document.getElementById("signupForm");
-const logoutBtn = document.getElementById("logoutBtn");
+const authSection = document.getElementById("authSection");
+const authLogin = document.getElementById("authLogin");
+const authSignUp = document.getElementById("authSignUp");
 const authLoggedOut = document.getElementById("authLoggedOut");
 const authLoggedIn = document.getElementById("authLoggedIn");
 const authUserEmail = document.getElementById("authUserEmail");
 const authStatus = document.getElementById("authStatus");
+const passwordRecovery = document.getElementById("passwordRecovery");
+const appMain = document.getElementById("appMain");
+const userAuth = document.getElementById("userAuth");
+const loginBack = document.getElementById("loginBack");
+const signUpBack = document.getElementById("signUpBack");
+const changePassBack = document.getElementById("changePassBack");
 
 const restoreHistoryJumpState = async target => {
   if (!target?.state) {
@@ -391,7 +407,8 @@ const toggleTheme = () => {
       legendEl,
       getFiltered: getCurrentFiltered,
       formatMoney,
-      exchangeRateState
+      exchangeRateState,
+      onCategoryFilterChange: init
     });
 
     restoreLegendFocus(
@@ -815,6 +832,7 @@ const handleImportCSV = async e => {
 
 const init = async () => {
   const data = getFiltered(transactions, monthEl, activeCategory);
+  renderCategoryFilterChips(categoryFilterChipsEl, activeCategory);
   renderList(listEl, data, addTransactionToDOM);
   await loadExchangeRates(data);
   updateSummary(balanceEl, incomeEl, expenseEl, data, exchangeRateState);
@@ -826,7 +844,8 @@ const init = async () => {
     legendEl,
     getFiltered: getCurrentFiltered,
     formatMoney,
-    exchangeRateState
+    exchangeRateState,
+    onCategoryFilterChange: init
   });
   donutToggle.checked = chartMode === "donut";
   patternToggle.checked = patternMode;
@@ -962,6 +981,40 @@ const handleBaseCurrencyChange =
 
     await init();
   };
+
+const handleCategoryFilterClick = category => {
+  if (category === "") {
+    setActiveCategory(null);
+  } else {
+    setActiveCategory(
+      activeCategory === category
+        ? null
+        : category
+    );
+  }
+
+  const filteredData = getFiltered(
+    transactions,
+    monthEl,
+    activeCategory
+  );
+
+  if (activeCategory) {
+    filterAnnouncementEl.textContent =
+      `Filtered by ${activeCategory}. ` +
+      `${filteredData.length} transaction${
+        filteredData.length === 1 ? "" : "s"
+      } shown.`;
+  } else {
+    filterAnnouncementEl.textContent =
+      `Category filter cleared. ` +
+      `${filteredData.length} transaction${
+        filteredData.length === 1 ? "" : "s"
+      } shown.`;
+  }
+
+  init();
+};
 
 const handleKeydown = (e, { undoBtn, redoBtn }) => {
   const ctrlOrCmd = e.ctrlKey || e.metaKey;
@@ -1169,6 +1222,8 @@ const handleResetPassword = async e => {
     authStatus.textContent =
       "Password reset successfully.";
 
+    window.history.replaceState(null, null, window.location.pathname);
+
     document
       .getElementById(
         "passwordRecovery"
@@ -1177,6 +1232,8 @@ const handleResetPassword = async e => {
         "hidden",
         ""
       );
+    authSection.hidden = true;
+    appMain.hidden = false;
 
   } catch (error) {
     console.error(
@@ -1271,11 +1328,54 @@ const handleChangePassword = async e => {
   }
 };
 
+const loginUI = () => {
+  authSection.hidden = false;
+  authLogin.hidden = false;
+  authSignUp.hidden = true;
+  passwordRecovery.hidden = true;
+  authLoggedIn.hidden = true;
+  appMain.hidden = true;
+
+  init();
+}
+
+const signUpUI = () => {
+  authSection.hidden = false;
+  authLogin.hidden = true;
+  authSignUp.hidden = false;
+  passwordRecovery.hidden = true;
+  authLoggedIn.hidden = true;
+  appMain.hidden = true;
+
+  init();
+}
+
+const changePassUI = () => {
+  authSection.hidden = false;
+  authLoggedOut.hidden = true;
+  document.getElementById("changePasswordForm").hidden = false;
+  appMain.hidden = true;
+
+  init();
+}
+
+const backUI = () => {
+  document.getElementById("changePasswordForm").hidden = true;
+  passwordRecovery.hidden = true;
+  authLoggedOut.hidden = false;
+  authSection.hidden = true;
+  appMain.hidden = false;
+
+  init();
+}
+
 const updateAuthUI = user => {
   const isLoggedIn = Boolean(user);
 
-  authLoggedOut.hidden = isLoggedIn;
+  userAuth.hidden = isLoggedIn ? true : false;
+  authSection.hidden = true;
   authLoggedIn.hidden = !isLoggedIn;
+  appMain.hidden = false;
 
   if (user) {
     authUserEmail.textContent =
@@ -1781,6 +1881,26 @@ const switchApplicationIdentity =
       session?.user ?? null;
 
     // -----------------------------
+    // INTERCEPT PASSWORD RECOVERY
+    // -----------------------------
+    if (event === "PASSWORD_RECOVERY") {
+      if (appMain) appMain.hidden = true;
+      if (authSection) authSection.hidden = false;
+      if (authLogin) authLogin.hidden = true;
+      if (authSignUp) authSignUp.hidden = true;
+      
+      if (passwordRecovery) {
+        passwordRecovery.removeAttribute("hidden");
+      }
+
+      if (authStatus) {
+        authStatus.textContent = "Please enter and confirm your new password.";
+      }
+      
+      return; 
+    }
+
+    // -----------------------------
     // LOGOUT → GUEST STATE
     // -----------------------------
     if (!nextUser) {
@@ -1936,7 +2056,14 @@ initEvents({
   themeBtn,
   undoBtn,
   redoBtn,
+  loginBtn,
+  signUpBtn,
+  changePassBtn,
+  loginBack,
+  signUpBack,
+  changePassBack,
   baseCurrencyEl,
+  categoryFilterChipsEl,
   loginForm,
   signupForm,
   logoutBtn,
@@ -1995,7 +2122,14 @@ initEvents({
     toggleTheme,
     undo: handleUndo,
     redo: handleRedo,
+    loginUI: loginUI,
+    signUpUI: signUpUI,
+    changePassBtn: changePassUI,
+    loginBack: backUI,
+    signUpBack: backUI,
+    changePassBack: backUI,
     baseCurrencyChange: handleBaseCurrencyChange,
+    categoryFilterClick: handleCategoryFilterClick,
     keydown: handleKeydown,
     login: handleLogin,
     signup: handleSignup,
@@ -2345,7 +2479,7 @@ attachChartHover(canvas, {
   getSlices: () => slices,
   getChartTotal: () => chartTotal,
   getChartMode: () => chartMode,
-  getBaseCurrency: () => exchangeRateState.baseCurrency
+  getBaseCurrency: () => exchangeRateState.baseCurrency,
 });
 attachChartClick(
   canvas,
@@ -2853,7 +2987,7 @@ const handleExternalStateUpdate = event => {
     currentUser
   );
 
-  replaceCurrentUndoStateAndClearRedo(
+  recordExternalUndoState(
     createUndoState({
       transactions,
       cloudMeta:

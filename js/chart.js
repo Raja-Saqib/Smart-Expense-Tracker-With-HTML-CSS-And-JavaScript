@@ -7,6 +7,13 @@ import {
   CHART_DONUT_INNER_RADIUS
 } from "./chartGeometry.js";
 import {
+  setKeyboardFocusHighlight,
+  clearKeyboardFocusHighlight,
+  scheduleLegendHighlight,
+  clearLegendHighlight,
+  clearAllHighlights,
+} from "./chartHighlight.js";
+import {
   convertAmount
 } from "./exchangeRates.js";
 
@@ -17,35 +24,14 @@ export const getChartColors = () => {
     styles.getPropertyValue("--chart-2").trim(),
     styles.getPropertyValue("--chart-3").trim(),
     styles.getPropertyValue("--chart-4").trim(),
-    styles.getPropertyValue("--chart-5").trim()
+    styles.getPropertyValue("--chart-5").trim(),
+    styles.getPropertyValue("--chart-6").trim(),
+    styles.getPropertyValue("--chart-7").trim(),
+    styles.getPropertyValue("--chart-8").trim(),
+    styles.getPropertyValue("--chart-9").trim(),
+    styles.getPropertyValue("--chart-10").trim(),
+    styles.getPropertyValue("--chart-11").trim(),
   ];
-};
-
-export const highlightSlice = (
-  ctx,
-  canvas,
-  index
-) => {
-  const slice = slices[index];
-
-  if (!slice) return;
-
-  ctx.save();
-
-  ctx.beginPath();
-  ctx.arc(
-    canvas.width / 2,
-    canvas.height / 2,
-    CHART_OUTER_RADIUS + 5,
-    slice.startAngle,
-    slice.endAngle
-  );
-
-  ctx.strokeStyle = slice.color;
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  ctx.restore();
 };
 
 const drawSlices = ({
@@ -211,7 +197,8 @@ export const drawChart = ({
   legendEl,
   getFiltered,
   formatMoney,
-  exchangeRateState
+  exchangeRateState,
+  onCategoryFilterChange
 }) => {
   // Preserve old slices for transitions
   // const previous = structuredClone(slices);
@@ -224,6 +211,8 @@ export const drawChart = ({
     color: s.color
   }));
   setPreviousSlices(previous);
+
+  clearAllHighlights();
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   legendEl.innerHTML = "";
@@ -321,6 +310,11 @@ export const drawChart = ({
     item.className = "legend-item";
     item.dataset.category = category;
 
+    item.style.setProperty(
+      "--legend-focus-color",
+      color
+    );
+
     item.setAttribute(
       "aria-label",
       `${category}, ${formatMoney(value, exchangeRateState.baseCurrency)}, ${percent} percent`
@@ -393,30 +387,50 @@ export const drawChart = ({
 
   legendEl.querySelectorAll(".legend-item").forEach(
     (item, index) => {
-      item.addEventListener("focus", () => {
-        highlightSlice(
-          ctx,
-          canvas,
-          index
-        );
-      });
+      item.addEventListener(
+        "mouseenter",
+        () => {
+          scheduleLegendHighlight(
+            index,
+            slices[index]
+          );
+        }
+      );
 
-      item.addEventListener("blur", () => {
-        redrawCanvas({
-          ctx,
-          canvas,
-          patternMode,
-          chartMode,
-          slices,
-          formatMoney,
-          currency: exchangeRateState.baseCurrency
-        });
-      });
+      item.addEventListener(
+        "mouseleave",
+        () => {
+          clearLegendHighlight(
+            index
+          );
+        }
+      );
+
+      item.addEventListener(
+        "focus",
+        () => {
+          setKeyboardFocusHighlight(
+            slices[index]
+          );
+        }
+      );
+
+      item.addEventListener(
+        "blur",
+        () => {
+          clearKeyboardFocusHighlight();
+        }
+      );
 
       item.addEventListener("click", () => {
         toggleCategoryFilter(
           slices[index].category
         );
+
+        if (onCategoryFilterChange) {
+          onCategoryFilterChange();
+          return;
+        }
 
         drawChart({
           canvas,

@@ -61,6 +61,54 @@ export const pushUndoState = state => {
 };
 
 /**
+ * Record an externally synchronized state as a
+ * new history transition.
+ *
+ * Unlike replaceCurrentUndoStateAndClearRedo(),
+ * this preserves the previous local state so the
+ * remote transition itself can be undone.
+ *
+ * If the incoming state is identical to the current
+ * history state, nothing is added and the existing
+ * redo branch is preserved.
+ */
+export const recordExternalUndoState = state => {
+  if (!state) {
+    return false;
+  }
+
+  const last =
+    undoStack[undoStack.length - 1];
+
+  if (
+    last &&
+    isUndoStateEqual(last, state)
+  ) {
+    return false;
+  }
+
+  undoStack.push(state);
+
+  if (
+    undoStack.length >
+    MAX_STACK_SIZE
+  ) {
+    undoStack.shift();
+  }
+
+  /*
+   * An external state is a new branch.
+   * Therefore any redo states belonging to
+   * the previous branch are no longer valid.
+   */
+  redoStack = [];
+
+  publish("history:changed");
+
+  return true;
+};
+
+/**
  * Replace the current undo state without affecting redo history.
  *
  * Used when persistence updates metadata (for example cloud version)
@@ -153,16 +201,40 @@ export const clearUndoHistory = () => {
   publish("history:changed");
 };
 
-export const getNextUndoLabel = () => {
-  if (undoStack.length < 2) return null;
+const getActionLabel = label => {
+  if (!label) return null;
 
-  return undoStack[undoStack.length - 1]?.label || null;
+  return label
+    .replace(/^Undo\s+/i, "")
+    .replace(/^Redo\s+/i, "");
+};
+
+export const getNextUndoLabel = () => {
+  if (undoStack.length < 2) {
+    return null;
+  }
+
+  const actionLabel = getActionLabel(
+    undoStack[undoStack.length - 1]?.label
+  );
+
+  return actionLabel
+    ? `Undo ${actionLabel}`
+    : null;
 };
 
 export const getNextRedoLabel = () => {
-  if (!redoStack.length) return null;
+  if (!redoStack.length) {
+    return null;
+  }
 
-  return redoStack[redoStack.length - 1]?.label || null;
+  const actionLabel = getActionLabel(
+    redoStack[redoStack.length - 1]?.label
+  );
+
+  return actionLabel
+    ? `Redo ${actionLabel}`
+    : null;
 };
 
 export const getUndoStack = () => [...undoStack];

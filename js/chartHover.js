@@ -4,6 +4,11 @@ import {
   getChartHit
 } from "./chartHitTest.js";
 
+import {
+  setChartHoverHighlight,
+  clearChartHoverHighlight
+} from "./chartHighlight.js";
+
 export const attachChartHover = (
   canvas,
   {
@@ -13,9 +18,17 @@ export const attachChartHover = (
     getBaseCurrency
   }
 ) => {
+  let hoveredSliceId = null;
+
+  const clearHover = () => {
+    clearChartHoverHighlight();
+
+    hoveredSliceId = null;
+  };
+
   canvas.addEventListener(
     "mousemove",
-    e => {
+    event => {
       const slices =
         getSlices();
 
@@ -28,12 +41,10 @@ export const attachChartHover = (
       const baseCurrency =
         getBaseCurrency();
 
-      canvas.title = "";
-
       const hit =
         getChartHit({
           canvas,
-          event: e,
+          event,
           slices,
           chartMode
         });
@@ -42,10 +53,43 @@ export const attachChartHover = (
         !hit ||
         chartTotal <= 0
       ) {
+        canvas.title = "";
+
+        clearHover();
+
         return;
       }
 
       const { slice } = hit;
+
+      const sliceId =
+        slice.id;
+
+      if (
+        hoveredSliceId === sliceId
+      ) {
+        const percent =
+          (
+            (slice.value /
+              chartTotal) *
+            100
+          ).toFixed(1);
+
+        canvas.title =
+          `${slice.category}: ${formatMoney(
+            slice.value,
+            baseCurrency
+          )} (${percent}%)`;
+
+        return;
+      }
+
+      hoveredSliceId =
+        sliceId;
+
+      setChartHoverHighlight(
+        slice
+      );
 
       const percent =
         (
@@ -66,6 +110,8 @@ export const attachChartHover = (
     "mouseleave",
     () => {
       canvas.title = "";
+
+      clearHover();
     }
   );
 };

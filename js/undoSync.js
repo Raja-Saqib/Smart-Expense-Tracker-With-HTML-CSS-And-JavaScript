@@ -89,11 +89,9 @@ export const performUndo = async ({
         })
       );
   
-      broadcastState({
-        transactions,
-        cloudMeta: getCloudMeta(),
-        chartMode
-      });
+      broadcastState(
+        result.state
+      );
   
       init();
   
@@ -196,11 +194,9 @@ export const performRedo = async ({
         })
       );
   
-      broadcastState({
-        transactions,
-        cloudMeta: getCloudMeta(),
-        chartMode
-      });
+      broadcastState(
+        result.state
+      );
   
       init();
   
