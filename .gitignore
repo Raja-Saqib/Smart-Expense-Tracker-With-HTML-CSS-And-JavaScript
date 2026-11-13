@@ -1,0 +1,34 @@
+# OS Generated Files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDEs and Code Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Local Environment / Secrets
+.env
+.env*
+*.env
+*.log
+config.js
+
+# Live Server or Vite
+.history/
+dist/
+
+# Tests
+cloud/supabaseTest.js
+
+# Excepts
+!.env.example
+!*.env.example
+!config.example.js
+

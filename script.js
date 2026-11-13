@@ -1,319 +1,395 @@
-const balance = document.getElementById("balance");
-const income = document.getElementById("income");
-const expense = document.getElementById("expense");
-const list = document.getElementById("list");
+// ======================
+// DOM ELEMENTS
+// ======================
+const balanceEl = document.getElementById("balance");
+const incomeEl = document.getElementById("income");
+const expenseEl = document.getElementById("expense");
+const listEl = document.getElementById("list");
 const form = document.getElementById("form");
-const text = document.getElementById("text");
-const category = document.getElementById("category");
-const monthFilter = document.getElementById("month");
-const amount = document.getElementById("amount");
+const textEl = document.getElementById("text");
+const amountEl = document.getElementById("amount");
+const categoryEl = document.getElementById("category");
+const errorEl = document.getElementById("error");
+const monthEl = document.getElementById("month");
+const clearFilterBtn = document.getElementById("clearFilter");
+const exportBtn = document.getElementById("exportCSV");
 const themeBtn = document.getElementById("themeBtn");
+const tableBody = document.getElementById("categoryTable");
 const canvas = document.getElementById("expenseChart");
 const ctx = canvas.getContext("2d");
-const categoryTableBody = document.querySelector("#categoryTable tbody");
-const errorEl = document.getElementById("error");
-const submitBtn = form.querySelector("button");
-const clearFilterBtn = document.getElementById("clearFilter");
-const exportCSVBtn = document.getElementById("exportCSV");
+const legendEl = document.getElementById("chartLegend");
 
-let editId = null;
-
-// Get data from localStorage
+// ======================
+// STATE
+// ======================
 let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
+let editId = null;
+let slices = [];
+let chartTotal = 0;
 
-// Load saved theme on startup
-function loadTheme() {
-  const theme = localStorage.getItem("theme");
-  if (theme === "dark") {
-    document.body.classList.add("dark");
-    themeBtn.textContent = "☀️";
-  }
-}
+// ======================
+// UTILITIES
+// ======================
+const formatMoney = n => `$${n.toLocaleString()}`;
 
-// Add error message
-function showError(message) {
-  errorEl.textContent = message;
+const saveData = () =>
+  localStorage.setItem("transactions", JSON.stringify(transactions));
+
+const showError = msg => {
+  errorEl.textContent = msg;
   setTimeout(() => (errorEl.textContent = ""), 3000);
-}
+};
 
-// Add clear month filter
-function clearMonthFilter() {
-  monthFilter.value = "";
-  init();
-}
+const getCategoryTotals = data => {
+  const totals = {};
+  data.filter(t => t.amount < 0).forEach(t => {
+    totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
+  });
+  return totals;
+};
 
-// Add Export to CSV
-function exportToCSV(data) {
-  if (!data.length) {
-    alert("No transactions to export!");
-    return;
-  }
+const getChartColors = () => {
+  const styles = getComputedStyle(document.body);
+  return [
+    styles.getPropertyValue("--chart-1").trim(),
+    styles.getPropertyValue("--chart-2").trim(),
+    styles.getPropertyValue("--chart-3").trim(),
+    styles.getPropertyValue("--chart-4").trim(),
+    styles.getPropertyValue("--chart-5").trim()
+  ];
+};
 
-  const headers = ["Description", "Category", "Amount", "Date"];
-  const rows = data.map(t => [
-    t.text,
-    t.category,
-    t.amount,
-    new Date(t.date).toLocaleDateString()
-  ]);
+const highlightSlice = index => {
+  drawChart(getFiltered());
 
-  const csvContent =
-    [headers, ...rows]
-      .map(e => e.join(","))
-      .join("\n");
+  const slice = slices[index];
+  if (!slice) return;
 
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+  ctx.beginPath();
+  ctx.moveTo(canvas.width / 2, canvas.height / 2);
+  ctx.arc(
+    canvas.width / 2,
+    canvas.height / 2,
+    125,
+    slice.startAngle,
+    slice.endAngle
+  );
+  ctx.strokeStyle = slice.color;
+  ctx.lineWidth = 4;
+  ctx.stroke();
+};
 
-  const link = document.createElement("a");
-  link.setAttribute("href", url);
-  link.setAttribute("download", "transactions.csv");
-  link.style.display = "none";
+const prefersReducedMotion = window.matchMedia(
+  "(prefers-reduced-motion: reduce)"
+).matches;
 
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-}
+// ======================
+// FILTERING
+// ======================
+const getFiltered = () => {
+  if (!monthEl.value) return transactions;
+  const [y, m] = monthEl.value.split("-");
+  return transactions.filter(t => {
+    const d = new Date(t.date);
+    return d.getFullYear() == y && d.getMonth() + 1 == m;
+  });
+};
 
-// Add transaction
-function addTransaction(e) {
+// ======================
+// TRANSACTIONS
+// ======================
+const addTransaction = e => {
   e.preventDefault();
 
-  if (!text.value.trim()) {
-    showError("Description is required.");
-    return;
-  }
+  if (!textEl.value || !categoryEl.value || !amountEl.value)
+    return showError("All fields are required");
 
-  if (!category.value) {
-    showError("Please select a category.");
-    return;
-  }
+  if (+amountEl.value === 0)
+    return showError("Amount cannot be zero");
 
-  if (+amount.value === 0) {
-    showError("Amount cannot be zero.");
-    return;
-  }
+  const existing = transactions.find(t => t.id === editId);
 
-  if (editId !== null) {
-    transactions = transactions.map(t =>
-      t.id === editId
-        ? {
-            ...t,
-            text: text.value,
-            category: category.value,
-            amount: +amount.value
-          }
-        : t
-    );
-    editId = null;
-    submitBtn.textContent = "Add Transaction";
-  } else {
-    transactions.push({
-      id: Date.now(),
-      text: text.value,
-      category: category.value,
-      amount: +amount.value,
-      date: new Date().toISOString()
-    });
-  }
+  const data = {
+    id: editId ?? Date.now(),
+    text: textEl.value,
+    category: categoryEl.value,
+    amount: +amountEl.value,
+    date: existing?.date ?? new Date().toISOString()
+  };
 
-  updateLocalStorage();
+  transactions = editId
+    ? transactions.map(t => (t.id === editId ? data : t))
+    : [...transactions, data];
+
+  editId = null;
+  form.querySelector("button").textContent = "Add Transaction";
+  saveData();
+  form.reset();
   init();
+};
 
-  text.value = "";
-  amount.value = "";
-  category.value = "";
-}
+const deleteTransaction = id => {
+  transactions = transactions.filter(t => t.id !== id);
+  saveData();
+  init();
+};
 
-// Add transaction to DOM
-function addTransactionToDOM(transaction) {
-  const sign = transaction.amount < 0 ? "-" : "+";
-  const item = document.createElement("li");
+const editTransaction = id => {
+  const t = transactions.find(t => t.id === id);
+  if (!t) return;
 
-  item.classList.add(transaction.amount < 0 ? "minus" : "plus");
+  textEl.value = t.text;
+  amountEl.value = t.amount;
+  categoryEl.value = t.category;
+  editId = id;
+  form.querySelector("button").textContent = "Update Transaction";
+};
 
-  item.innerHTML = `
+const addTransactionToDOM = t => {
+  const li = document.createElement("li");
+  li.className = t.amount < 0 ? "minus" : "plus";
+
+  li.innerHTML = `
     <div>
-      <strong>${transaction.text}</strong>
-      <small>(${transaction.category})</small>
-    </div> 
-    <span>${sign}$${Math.abs(transaction.amount)}</span>
+      <strong>${t.text}</strong>
+      <small>(${t.category})</small>
+    </div>
+    <span>${formatMoney(Math.abs(t.amount))}</span>
     <div>
-      <button onclick="editTransaction(${transaction.id})">✏️</button>
-      <button onclick="removeTransaction(${transaction.id})">❌</button>
+      <button data-edit="${t.id}">✏️</button>
+      <button data-delete="${t.id}">❌</button>
     </div>
   `;
 
-  list.appendChild(item);
-}
+  listEl.appendChild(li);
+};
 
-function editTransaction(id) {
-  const transaction = transactions.find(t => t.id === id);
-  if (!transaction) return;
+// ======================
+// UI RENDERING
+// ======================
+const renderList = data => {
+  listEl.innerHTML = "";
+  if (!data.length) {
+    listEl.innerHTML = "<li>No transactions yet</li>";
+    return;
+  }
+  data.forEach(addTransactionToDOM);
+};
 
-  text.value = transaction.text;
-  amount.value = transaction.amount;
-  category.value = transaction.category;
-
-  editId = id;
-  submitBtn.textContent = "Update Transaction";
-}
-
-// Update balance, income, expense
-function updateValues(data = transactions) {
+const updateSummary = data => {
   const amounts = data.map(t => t.amount);
+  const total = amounts.reduce((a, b) => a + b, 0);
+  const income = amounts.filter(a => a > 0).reduce((a, b) => a + b, 0);
+  const expense = amounts.filter(a => a < 0).reduce((a, b) => a + b, 0);
 
-  const total = amounts.reduce((acc, val) => acc + val, 0);
-  const incomeTotal = amounts
-    .filter(val => val > 0)
-    .reduce((a, b) => a + b, 0);
+  balanceEl.textContent = formatMoney(total);
+  incomeEl.textContent = formatMoney(income);
+  expenseEl.textContent = formatMoney(Math.abs(expense));
+};
 
-  const expenseTotal = amounts
-    .filter(val => val < 0)
-    .reduce((a, b) => a + b, 0);
+const renderCategories = data => {
+  tableBody.innerHTML = "";
+  const totals = getCategoryTotals(data);
 
-  balance.innerText = `$${total}`;
-  income.innerText = `$${incomeTotal}`;
-  expense.innerText = `$${Math.abs(expenseTotal)}`;
-}
-
-// Remove transaction
-function removeTransaction(id) {
-  transactions = transactions.filter(t => t.id !== id);
-  updateLocalStorage();
-  init();
-}
-
-// Update localStorage
-function updateLocalStorage() {
-  localStorage.setItem("transactions", JSON.stringify(transactions));
-}
-
-function getFilteredTransactions() {
-  if (!monthFilter.value) return transactions;
-
-  const [year, month] = monthFilter.value.split("-");
-
-  return transactions.filter(t => {
-    const tDate = new Date(t.date);
-    return (
-      tDate.getFullYear() == year &&
-      tDate.getMonth() + 1 == month
-    );
-  });
-}
-
-function buildCategoryTotals(data) {
-  const totals = {};
-
-  data
-    .filter(t => t.amount < 0)
-    .forEach(t => {
-      totals[t.category] = (totals[t.category] || 0) + Math.abs(t.amount);
-    });
-
-  return totals;
-}
-
-function renderCategoryTable(data) {
-  categoryTableBody.innerHTML = "";
-
-  const totals = buildCategoryTotals(data);
-  const categories = Object.keys(totals);
-
-  if (categories.length === 0) {
-    categoryTableBody.innerHTML =
+  if (!Object.keys(totals).length) {
+    tableBody.innerHTML =
       `<tr><td colspan="2">No expense data</td></tr>`;
     return;
   }
 
-  categories.forEach(category => {
+  Object.entries(totals).forEach(([cat, val]) => {
     const row = document.createElement("tr");
-
-    row.innerHTML = `
-      <td>${category}</td>
-      <td>$${totals[category]}</td>
-    `;
-
-    categoryTableBody.appendChild(row);
+    row.innerHTML = `<td>${cat}</td><td>${formatMoney(val)}</td>`;
+    tableBody.appendChild(row);
   });
-}
+};
 
-function getCategoryTotals(data) {
-  const totals = {};
-
-  data
-    .filter(t => t.amount < 0)
-    .forEach(t => {
-      if (!totals[t.category]) {
-        totals[t.category] = 0;
-      }
-      totals[t.category] += Math.abs(t.amount);
-    });
-
-  return totals;
-}
-
-function drawChart(data) {
+// ======================
+// CHART
+// ======================
+const drawChart = data => {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  legendEl.innerHTML = "";
+  slices = [];
+  legendEl.setAttribute("role", "list");
 
   const totals = getCategoryTotals(data);
-  const categories = Object.keys(totals);
-  const values = Object.values(totals);
+  const entries = Object.entries(totals);
+  if (!entries.length) return;
 
-  if (values.length === 0) return;
+  const totalAmount = entries.reduce((a, [, v]) => a + v, 0);
+  chartTotal = totalAmount;
 
-  const totalAmount = values.reduce((a, b) => a + b, 0);
+  const colors = getChartColors();
+
   let startAngle = 0;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = 120;
 
-  const colors = [
-    "#ff6384",
-    "#36a2eb",
-    "#ffce56",
-    "#4caf50",
-    "#9c27b0"
-  ];
+  entries.forEach(([category, value], i) => {
+    const sliceAngle = (value / totalAmount) * Math.PI * 2;
+    const endAngle = startAngle + sliceAngle;
+    const color = colors[i % colors.length];
 
-  values.forEach((value, index) => {
-    const sliceAngle = (value / totalAmount) * 2 * Math.PI;
-
+    // Draw slice
     ctx.beginPath();
-    ctx.moveTo(150, 150);
-    ctx.arc(150, 150, 120, startAngle, startAngle + sliceAngle);
-    ctx.closePath();
-
-    ctx.fillStyle = colors[index % colors.length];
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.fillStyle = color;
     ctx.fill();
 
-    startAngle += sliceAngle;
+    // Save slice for hover detection
+    slices.push({
+      category,
+      value,
+      startAngle,
+      endAngle,
+      color
+    });
+
+    // Legend
+    const percent = ((value / totalAmount) * 100).toFixed(1);
+    const item = document.createElement("div");
+    item.className = "legend-item";
+    item.setAttribute("role", "listitem");
+    item.setAttribute(
+      "aria-label",
+      `${category}, ${formatMoney(value)}, ${percent} percent`
+    );
+
+    item.innerHTML = `
+      <span
+        class="legend-color"
+        style="background:${color}"
+        aria-hidden="true"
+      ></span>
+      <span>
+        <strong>${category}</strong>:
+        ${formatMoney(value)} (${percent}%)
+      </span>
+    `;
+
+    legendEl.appendChild(item);
+    startAngle = endAngle;
   });
-}
 
-// Initialize app
-function init() {
-  list.innerHTML = "";
+  // Keyboard accessibility
+  legendEl.querySelectorAll(".legend-item").forEach((item, index) => {
+    item.tabIndex = 0;
 
-  const filteredTransactions = getFilteredTransactions();
+    item.addEventListener("focus", () => {
+      highlightSlice(index);
+    });
 
-  filteredTransactions.forEach(addTransactionToDOM);
-  updateValues(filteredTransactions);
-  drawChart(filteredTransactions);
-  renderCategoryTable(filteredTransactions);
-  loadTheme();
-}
+    item.addEventListener("blur", () => {
+      drawChart(getFiltered());
+    });
+  });
 
-init();
+  // Center total
+  ctx.fillStyle = getComputedStyle(document.body)
+    .getPropertyValue("--chart-text")
+    .trim();
+  ctx.font = "bold 14px Arial";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("Total", cx, cy - 10);
+  ctx.fillText(formatMoney(totalAmount), cx, cy + 10);
+};
+
+// ======================
+// CSV EXPORT
+// ======================
+const exportCSV = data => {
+  if (!data.length) return showError("No data to export");
+
+  const rows = [
+    ["Description", "Category", "Amount", "Date"],
+    ...data.map(t => [
+      t.text,
+      t.category,
+      t.amount,
+      new Date(t.date).toLocaleDateString()
+    ])
+  ];
+
+  const csv = rows.map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "transactions.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// ======================
+// INIT
+// ======================
+const init = () => {
+  const data = getFiltered();
+  renderList(data);
+  updateSummary(data);
+  renderCategories(data);
+  drawChart(data);
+};
+
+// ======================
+// EVENTS
+// ======================
 form.addEventListener("submit", addTransaction);
-monthFilter.addEventListener("change", init);
-clearFilterBtn.addEventListener("click", clearMonthFilter);
-exportCSVBtn.addEventListener("click", () => {
-  const filteredTransactions = getFilteredTransactions();
-  exportToCSV(filteredTransactions);
+monthEl.addEventListener("change", init);
+clearFilterBtn.addEventListener("click", () => {
+  monthEl.value = "";
+  init();
 });
+exportBtn.addEventListener("click", () => exportCSV(getFiltered()));
+
+listEl.addEventListener("click", e => {
+  if (e.target.dataset.edit)
+    editTransaction(+e.target.dataset.edit);
+  if (e.target.dataset.delete)
+    deleteTransaction(+e.target.dataset.delete);
+});
+
+canvas.addEventListener("mousemove", e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left - canvas.width / 2;
+  const y = e.clientY - rect.top - canvas.height / 2;
+  const angle = Math.atan2(y, x);
+  const adjustedAngle = angle < 0 ? angle + Math.PI * 2 : angle;
+  const distance = Math.sqrt(x * x + y * y);
+
+  canvas.title = "";
+
+  if (distance > 120) return;
+
+  const slice = slices.find(
+    s => adjustedAngle >= s.startAngle && adjustedAngle <= s.endAngle
+  );
+
+  if (slice) {
+    const percent = ((slice.value / chartTotal) * 100).toFixed(1);
+
+    canvas.title = `${slice.category}: ${formatMoney(
+      slice.value
+    )} (${percent}%)`;
+  }
+});
+
 themeBtn.addEventListener("click", () => {
   document.body.classList.toggle("dark");
-
-  const isDark = document.body.classList.contains("dark");
-  themeBtn.textContent = isDark ? "☀️" : "🌙";
-  localStorage.setItem("theme", isDark ? "dark" : "light");
+  localStorage.setItem(
+    "theme",
+    document.body.classList.contains("dark") ? "dark" : "light"
+  );
+  init();
 });
+
+// Load theme on startup
+if (localStorage.getItem("theme") === "dark")
+  document.body.classList.add("dark");
+
+init();
